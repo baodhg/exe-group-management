@@ -1,0 +1,36 @@
+name: Công việc
+description: Tạo một đầu việc mới cho nhóm
+title: "[Người ? · Khu vực] "
+body:
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Người phụ trách
+      options:
+        - Người 1 – Platform & API Gateway
+        - Người 2 – Identity + Join Request API
+        - Người 3 – Group Service API
+        - Người 4 – gRPC, messaging, background jobs
+        - Người 5 – Frontend React
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Mục tiêu
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Phạm vi
+  - type: textarea
+    id: done
+    attributes:
+      label: Tiêu chí hoàn thành
+      value: "- [ ] "
+  - type: textarea
+    id: refs
+    attributes:
+      label: Tham chiếu
+      description: Mục trong docs/PRN232_v2.pdf, docs/diagrams/spec.py, database/schema.sql...

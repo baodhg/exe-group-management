@@ -1,0 +1,19 @@
+name: Báo lỗi
+description: Ghi lại một lỗi cần sửa
+labels: ["bug"]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Service / màn hình
+      placeholder: group-service, POST /api/groups ...
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Kết quả mong đợi và kết quả thực tế
