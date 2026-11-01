@@ -148,7 +148,8 @@ Notes:
 - Configuration comes from `appsettings.json` and is overridden by environment variables. Examples:
   `ConnectionStrings__GroupDb`, `Jwt__SigningKey`, `Redis__Connection`, `GrpcClients__GroupService`.
   Never commit `.env`.
-- Health checks: `/health/live` and `/health/ready` (database and Redis) on every service.
+- Health checks: `/health/live` and `/health/ready` on every service; readiness checks the service's own database,
+  plus Redis for group-service and join-request-service.
 - Logs: `docker compose logs -f group-service join-request-service`. Follow one request across services with its
   `X-Correlation-ID`.
 - Stream inspection: `docker compose exec redis redis-cli XRANGE group-events - +` and
