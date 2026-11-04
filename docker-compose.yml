@@ -1,0 +1,138 @@
+name: exe-group
+
+x-dotnet-build: &dotnet-build
+  context: .
+  dockerfile: docker/dotnet-service.Dockerfile
+
+x-dotnet-env: &dotnet-env
+  ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+  Jwt__Issuer: ${JWT_ISSUER:-exe-group-system}
+  Jwt__Audience: ${JWT_AUDIENCE:-exe-group-clients}
+  Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env (at least 32 characters)}
+
+x-ready-check: &ready-check
+  test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health/ready > /dev/null || exit 1"]
+  interval: 10s
+  timeout: 8s
+  retries: 18
+  start_period: 20s
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Set SA_PASSWORD in .env}
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -b -Q 'SELECT 1' > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  identity-service:
+    build:
+      <<: *dotnet-build
+      args:
+        SERVICE_DIR: src/IdentityService
+        PROJECT: ExeGroup.Identity.API
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__IdentityDb: Server=sqlserver,1433;Database=IdentityDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    healthcheck: *ready-check
+
+  group-service:
+    build:
+      <<: *dotnet-build
+      args:
+        SERVICE_DIR: src/GroupService
+        PROJECT: ExeGroup.Group.API
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__GroupDb: Server=sqlserver,1433;Database=GroupDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      Redis__Connection: redis:6379
+      Ports__Rest: "8080"
+      Ports__Grpc: "8081"
+    expose:
+      - "8081"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck: *ready-check
+
+  join-request-service:
+    build:
+      <<: *dotnet-build
+      args:
+        SERVICE_DIR: src/JoinRequestService
+        PROJECT: ExeGroup.JoinRequest.API
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__RequestDb: Server=sqlserver,1433;Database=RequestDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      Redis__Connection: redis:6379
+      GrpcClients__GroupService: http://group-service:8081
+      GrpcClients__DeadlineSeconds: "5"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      group-service:
+        condition: service_healthy
+    healthcheck: *ready-check
+
+  gateway:
+    build:
+      <<: *dotnet-build
+      args:
+        SERVICE_DIR: src/ApiGateway
+        PROJECT: ExeGroup.ApiGateway
+    environment:
+      <<: *dotnet-env
+    ports:
+      - "8080:8080"
+    depends_on:
+      identity-service:
+        condition: service_healthy
+      group-service:
+        condition: service_healthy
+      join-request-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health/live > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build:
+      context: src/web
+    ports:
+      - "3000:80"
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  sqlserver-data:
+  redis-data:
