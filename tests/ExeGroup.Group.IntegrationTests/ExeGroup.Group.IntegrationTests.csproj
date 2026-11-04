@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.MsSql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.API\ExeGroup.Group.API.csproj" />
+    <ProjectReference Include="..\ExeGroup.Testing\ExeGroup.Testing.csproj" />
+  </ItemGroup>
+</Project>

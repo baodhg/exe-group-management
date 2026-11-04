@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="NetArchTest.Rules" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\IdentityService\ExeGroup.Identity.Repositories\ExeGroup.Identity.Repositories.csproj" />
+    <ProjectReference Include="..\..\src\IdentityService\ExeGroup.Identity.Services\ExeGroup.Identity.Services.csproj" />
+    <ProjectReference Include="..\..\src\IdentityService\ExeGroup.Identity.API\ExeGroup.Identity.API.csproj" />
+    <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.Repositories\ExeGroup.Group.Repositories.csproj" />
+    <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.Services\ExeGroup.Group.Services.csproj" />
+    <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.API\ExeGroup.Group.API.csproj" />
+    <ProjectReference Include="..\..\src\JoinRequestService\ExeGroup.JoinRequest.Repositories\ExeGroup.JoinRequest.Repositories.csproj" />
+    <ProjectReference Include="..\..\src\JoinRequestService\ExeGroup.JoinRequest.Services\ExeGroup.JoinRequest.Services.csproj" />
+    <ProjectReference Include="..\..\src\JoinRequestService\ExeGroup.JoinRequest.API\ExeGroup.JoinRequest.API.csproj" />
+    <ProjectReference Include="..\..\src\ApiGateway\ExeGroup.ApiGateway\ExeGroup.ApiGateway.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\ExeGroup.BuildingBlocks\ExeGroup.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\ExeGroup.BuildingBlocks.Web\ExeGroup.BuildingBlocks.Web.csproj" />
+  </ItemGroup>
+</Project>

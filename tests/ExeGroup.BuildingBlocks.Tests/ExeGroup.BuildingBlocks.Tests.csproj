@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BuildingBlocks\ExeGroup.BuildingBlocks\ExeGroup.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\ExeGroup.BuildingBlocks.Web\ExeGroup.BuildingBlocks.Web.csproj" />
+    <ProjectReference Include="..\ExeGroup.Testing\ExeGroup.Testing.csproj" />
+  </ItemGroup>
+</Project>
