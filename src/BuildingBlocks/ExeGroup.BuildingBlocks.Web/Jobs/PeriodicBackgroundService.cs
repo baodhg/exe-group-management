@@ -38,8 +38,9 @@ public abstract class PeriodicBackgroundService(IServiceScopeFactory scopes, ILo
     {
         await using var scope = scopes.CreateAsyncScope();
         var readiness = scope.ServiceProvider.GetService<DatabaseReadiness>();
-        if (readiness is not null)
+        if (readiness is not null && !readiness.IsReady)
         {
+            logger.LogInformation("Job {Job} is waiting for database migrations (the host must call RunWithDatabaseMigrationsAsync)", JobName);
             await readiness.WhenReady.WaitAsync(stoppingToken);
         }
     }
