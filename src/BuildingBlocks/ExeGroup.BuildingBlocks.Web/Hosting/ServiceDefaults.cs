@@ -6,6 +6,7 @@ using ExeGroup.BuildingBlocks.Web.Observability;
 using ExeGroup.BuildingBlocks.Web.OpenApi;
 using ExeGroup.BuildingBlocks.Web.Security;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -14,6 +15,17 @@ namespace ExeGroup.BuildingBlocks.Web.Hosting;
 
 public static class ServiceDefaults
 {
+    public static ForwardedHeadersOptions GatewayForwardedHeaders()
+    {
+        var options = new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
+        };
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+        return options;
+    }
+
     public static WebApplicationBuilder AddServiceDefaults(
         this WebApplicationBuilder builder,
         string serviceName,
@@ -39,6 +51,7 @@ public static class ServiceDefaults
 
     public static WebApplication UseServiceDefaults(this WebApplication app)
     {
+        app.UseForwardedHeaders(GatewayForwardedHeaders());
         app.UseCorrelationAndRequestLogging();
         app.UseApiDefaults();
         app.UseRouting();

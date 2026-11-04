@@ -65,7 +65,11 @@ public sealed class SecureProbeController(ICurrentUser currentUser) : ApiControl
     [Authorize(Roles = Roles.Administrator)]
     public IActionResult GetAdmin() => Success("ok", "Administrator area");
 
-    [HttpGet("public")]
+    [HttpGet("public", Name = "SecureProbePublic")]
     [AllowAnonymous]
     public IActionResult GetPublic() => Success("ok", "Public area");
+
+    [HttpPost("created")]
+    [AllowAnonymous]
+    public IActionResult PostCreated() => CreatedAtRoute("SecureProbePublic", new { version = "1" }, "ok", "Created");
 }

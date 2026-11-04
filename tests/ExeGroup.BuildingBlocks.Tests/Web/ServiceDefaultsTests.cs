@@ -185,6 +185,20 @@ public sealed class ServiceDefaultsTests
     }
 
     [Fact]
+    public async Task Locations_point_at_the_public_host_the_gateway_forwarded()
+    {
+        await using var app = await ServiceDefaultsHost.StartAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/secure-probe/created");
+        request.Headers.Add("X-Forwarded-Host", "public.example:3001");
+        request.Headers.Add("X-Forwarded-Proto", "https");
+
+        var response = await app.GetTestClient().SendAsync(request, Ct);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.StartsWith("https://public.example:3001/api/v1/secure-probe/public", response.Headers.Location?.ToString());
+    }
+
+    [Fact]
     public async Task Swagger_publishes_one_document_per_version_with_a_bearer_scheme()
     {
         await using var app = await ServiceDefaultsHost.StartAsync();
