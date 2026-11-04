@@ -1,17 +1,11 @@
-"""Single source of truth for the EXE Group Management System design (document v2.0).
-
-Data dictionary tables, ER diagrams (custom SVG, erdgen.py) and the reference DDL are all
-generated from this module so they cannot drift apart.
-"""
-
 PROJECT = {
     "course": "PRN232 – Building Cross-Platform Back-End Application with .NET",
     "title": "EXE Group Management System",
     "style": "Microservices architecture, documented with the C4 model (Level 1 & Level 2)",
     "instructor": "PhuongLHK",
     "semester": "Fall 2026 (FA26)",
-    "version": "2.0",
-    "date": "November 1, 2026",
+    "version": "2.1",
+    "date": "November 4, 2026",
 }
 
 STATUS_VALUES = {
@@ -390,22 +384,19 @@ ENDPOINTS = {
     ],
 }
 
-# ---------------------------------------------------------------------------
-# gRPC contract exposed by Group Service (Join Request Service is the client)
-# ---------------------------------------------------------------------------
 GRPC_METHODS = [
     ("GetGroupContext", "group_id, student_id",
      "exists, class_id, leader_id, group_status, deadline_utc, current_member_count, max_members, "
      "group_title, student_enrolled, student_has_group_in_class, student_code, student_full_name",
      "Read-only. Submit (eligibility and snapshots); list, approve and reject (is the caller the leader?)."),
     ("AddMemberIfEligible", "request_id, group_id, student_id, approver_id",
-     "result, membership_id, current_member_count",
+     "result, membership_id, current_member_count, added_at_utc",
      "Approve and ProcessingReconciler. Idempotent by request_id; adds the member, the idempotency record and the outbox event in one transaction."),
 ]
 
 ADD_MEMBER_RESULTS = [
     ("ADDED", "Member added; GroupMemberAdded written to the outbox.", "Stays Processing until the event is consumed (202)."),
-    ("ALREADY_ADDED", "request_id was already processed, or the student is already in this group – checked first, before any rule.", "Same as ADDED – no second event."),
+    ("ALREADY_ADDED", "request_id was already processed, or the student is already in this group – checked first, before any rule; no second event.", "Approved at once (T11): the reply is authoritative, so a lost GroupMemberAdded event cannot leave the request in Processing."),
     ("GROUP_FULL", "CurrentMemberCount reached MaxMembers.", "Rejected, ReasonCode GROUP_FULL (409)."),
     ("GROUP_LOCKED", "The class deadline passed and the group is Locked.", "Rejected, ReasonCode GROUP_LOCKED (409)."),
     ("GROUP_DISSOLVED", "The group was dissolved.", "Rejected, ReasonCode GROUP_DISSOLVED (409)."),
@@ -431,9 +422,6 @@ EVENTS = [
      "Pending requests of the group created before occurredAtUtc → Rejected with the reason."),
 ]
 
-# ---------------------------------------------------------------------------
-# Join request state machine
-# ---------------------------------------------------------------------------
 TRANSITIONS = [
     ("T1", "–", "Submit", "Eligible per GetGroupContext (enrolled, no group in the class, group Recruiting, before deadline); no active request to this group", "Pending", "Student"),
     ("T2", "Pending", "Cancel", "Caller is the requester", "Cancelled", "Student"),
@@ -445,11 +433,9 @@ TRANSITIONS = [
     ("T8", "Pending", "GroupMemberAdded for the same student in another group of the class", "CreatedAt < event occurredAtUtc", "Cancelled (JOINED_ANOTHER_GROUP)", "Consumer job"),
     ("T9", "Pending", "GroupClosed for the group", "CreatedAt < event occurredAtUtc", "Rejected (GROUP_FULL / GROUP_LOCKED / GROUP_DISSOLVED)", "Consumer job"),
     ("T10", "Processing", "AddMemberIfEligible returns NOT_LEADER (leadership changed meanwhile)", "–", "Pending (DecidedBy, DecidedAt cleared)", "System"),
+    ("T11", "Processing", "AddMemberIfEligible returns ALREADY_ADDED (usually on a ProcessingReconciler retry)", "Conditional update on Status = Processing", "Approved; the student's other Pending requests in the class created before added_at_utc → Cancelled (JOINED_ANOTHER_GROUP), same confirmation as T6 + T8", "System"),
 ]
 
-# ---------------------------------------------------------------------------
-# Background jobs (.NET BackgroundService + PeriodicTimer)
-# ---------------------------------------------------------------------------
 JOBS = [
     ("OutboxPublisher", "Group Service", "Every 2 s",
      "Reads unpublished OutboxEvents (oldest first), XADDs them to group-events, sets PublishedAtUtc; on failure increments RetryCount and stores LastError."),
@@ -458,7 +444,7 @@ JOBS = [
     ("GroupEventsConsumer", "Join Request Service", "Polling loop (0.5–1 s pause when idle)",
      "Creates the consumer group at start-up (XGROUP CREATE … MKSTREAM); reads with XREADGROUP COUNT 50 (StackExchange.Redis has no blocking reads); applies events idempotently and XACKs after commit; every 30 s re-claims messages idle for 60 s with XAUTOCLAIM."),
     ("ProcessingReconciler", "Join Request Service", "Every 1 min",
-     "Calls AddMemberIfEligible again for requests still Processing 2 minutes after DecidedAt; safe because the call is idempotent by request_id."),
+     "Calls AddMemberIfEligible again for requests still Processing 2 minutes after DecidedAt; safe because the call is idempotent by request_id. ALREADY_ADDED confirms the request as Approved (T11), so it never waits for an event that was lost."),
     ("DataCleanup", "Group Service and Join Request Service", "Daily, 02:00 UTC",
      "Deletes OutboxEvents published more than 7 days ago and AddMemberRequests and ProcessedEvents older than 30 days; the stream itself is capped by XADD MAXLEN ~ 10000."),
 ]

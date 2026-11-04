@@ -73,6 +73,7 @@ enum AddMemberResult {
 
 message AddMemberIfEligibleReply {
   AddMemberResult result = 1;
-  string membership_id = 2;  // set for ADDED and ALREADY_ADDED
+  string membership_id = 2;
   int32 current_member_count = 3;
+  google.protobuf.Timestamp added_at_utc = 4;
 }

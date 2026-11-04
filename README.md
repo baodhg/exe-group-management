@@ -51,6 +51,8 @@ How the services talk to each other:
   commit, re-claims stuck messages with `XAUTOCLAIM`, and skips duplicates through the `ProcessedEvents` table.
 - **Approve flow:** `POST /api/join-requests/{id}/approve` returns `202 Accepted` (status Processing); the request
   becomes Approved when the `GroupMemberAdded` event is consumed, and the web app polls `GET /api/join-requests/{id}`.
+  If that event is lost, ProcessingReconciler retries `AddMemberIfEligible` after 2 minutes; the `ALREADY_ADDED` reply
+  confirms the request as Approved directly (transition T11).
 
 ## 3. Technology stack
 
