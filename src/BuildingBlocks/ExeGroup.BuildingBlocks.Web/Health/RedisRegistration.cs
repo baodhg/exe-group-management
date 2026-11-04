@@ -20,8 +20,9 @@ public static class RedisRegistration
 
         var options = ConfigurationOptions.Parse(connection);
         options.AbortOnConnectFail = false;
+        options.ConnectTimeout = 3000;
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(options));
-        services.AddHealthChecks().AddCheck<RedisHealthCheck>("redis", HealthStatus.Unhealthy, [SqlServerRegistration.ReadyTag]);
+        services.AddHealthChecks().AddCheck<RedisHealthCheck>("redis", HealthStatus.Unhealthy, [HealthTags.Ready], HealthTags.CheckTimeout);
         return services;
     }
 }
@@ -32,10 +33,10 @@ public sealed class RedisHealthCheck(IConnectionMultiplexer redis) : IHealthChec
     {
         try
         {
-            var latency = await redis.GetDatabase().PingAsync();
+            var latency = await redis.GetDatabase().PingAsync().WaitAsync(cancellationToken);
             return HealthCheckResult.Healthy($"PING {latency.TotalMilliseconds:0.0} ms");
         }
-        catch (Exception exception) when (exception is RedisException or TimeoutException)
+        catch (Exception exception) when (exception is RedisException or TimeoutException or OperationCanceledException)
         {
             return HealthCheckResult.Unhealthy("Redis did not answer PING.", exception);
         }

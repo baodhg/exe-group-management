@@ -29,7 +29,12 @@ public sealed class CorrelationClientInterceptor(ICorrelationContext correlation
             return context;
         }
 
-        var headers = context.Options.Headers ?? [];
+        var headers = new Metadata();
+        foreach (var entry in context.Options.Headers ?? [])
+        {
+            headers.Add(entry);
+        }
+
         headers.Add(CorrelationContext.MetadataKey, id);
         return new ClientInterceptorContext<TRequest, TResponse>(context.Method, context.Host, context.Options.WithHeaders(headers));
     }

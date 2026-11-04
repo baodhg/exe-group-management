@@ -27,6 +27,7 @@ public static class DbContextExtensions
             (context, work),
             async (_, state, token) =>
             {
+                state.context.ChangeTracker.Clear();
                 await using var transaction = await state.context.Database.BeginTransactionAsync(token);
                 var result = await state.work(token);
                 await transaction.CommitAsync(token);

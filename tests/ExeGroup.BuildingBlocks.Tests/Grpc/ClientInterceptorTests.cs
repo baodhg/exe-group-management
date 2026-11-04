@@ -39,6 +39,20 @@ public sealed class ClientInterceptorTests
     }
 
     [Fact]
+    public void The_callers_metadata_object_is_left_untouched()
+    {
+        var correlation = new CorrelationContext();
+        using var scope = correlation.Begin("flow-7");
+        var shared = new Metadata { { "x-tenant", "fptu" } };
+
+        var sent = Capture(new CorrelationClientInterceptor(correlation), new CallOptions(shared));
+
+        Assert.Single(shared);
+        Assert.Equal("fptu", sent.Headers?.GetValue("x-tenant"));
+        Assert.Equal("flow-7", sent.Headers?.GetValue(CorrelationContext.MetadataKey));
+    }
+
+    [Fact]
     public void Calls_without_a_deadline_get_the_default_one()
     {
         var before = DateTime.UtcNow;

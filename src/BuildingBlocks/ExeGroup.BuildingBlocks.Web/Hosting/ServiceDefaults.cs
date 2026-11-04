@@ -1,5 +1,6 @@
 using System.Reflection;
 using ExeGroup.BuildingBlocks.Context;
+using ExeGroup.BuildingBlocks.Data;
 using ExeGroup.BuildingBlocks.Web.Health;
 using ExeGroup.BuildingBlocks.Web.Observability;
 using ExeGroup.BuildingBlocks.Web.OpenApi;
@@ -7,6 +8,7 @@ using ExeGroup.BuildingBlocks.Web.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace ExeGroup.BuildingBlocks.Web.Hosting;
 
@@ -24,6 +26,13 @@ public static class ServiceDefaults
         builder.Services.AddServiceSwagger(serviceName);
         builder.Services.AddJwtAuthentication(builder.Configuration);
         builder.Services.AddHealthChecks();
+        builder.Services.PostConfigure<HealthCheckServiceOptions>(options =>
+        {
+            foreach (var registration in options.Registrations.Where(registration => registration.Timeout == Timeout.InfiniteTimeSpan))
+            {
+                registration.Timeout = HealthTags.CheckTimeout;
+            }
+        });
         return builder;
     }
 
@@ -31,6 +40,7 @@ public static class ServiceDefaults
     {
         app.UseCorrelationAndRequestLogging();
         app.UseApiDefaults();
+        app.UseRouting();
         app.UseServiceSwagger();
         app.UseAuthentication();
         app.UseAuthorization();

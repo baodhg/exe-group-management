@@ -22,7 +22,7 @@ public static class ApiDefaults
             .AddControllers(options =>
             {
                 options.ReturnHttpNotAcceptable = true;
-                options.RespectBrowserAcceptHeader = true;
+                options.RespectBrowserAcceptHeader = false;
                 options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
                 options.Filters.Add<FluentValidationActionFilter>();
                 options.Filters.Add<TraceIdResultFilter>();

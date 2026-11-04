@@ -1,0 +1,108 @@
+using ExeGroup.BuildingBlocks.Data;
+using ExeGroup.BuildingBlocks.Paging;
+using Microsoft.EntityFrameworkCore;
+
+namespace ExeGroup.BuildingBlocks.Tests.Data;
+
+[Collection(SqlServerCollection.Name)]
+public sealed class DataHelperTests(SqlServerFixture sql)
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task A_failure_inside_the_transaction_leaves_no_rows_behind()
+    {
+        await using var context = await sql.NewDatabaseAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.ExecuteInTransactionAsync(async token =>
+        {
+            context.Groups.Add(new ProbeGroup { Code = "A" });
+            await context.SaveChangesAsync(token);
+            context.Groups.Add(new ProbeGroup { Code = "B" });
+            await context.SaveChangesAsync(token);
+            throw new InvalidOperationException("business rule failed after both writes");
+        }, Ct));
+
+        context.ChangeTracker.Clear();
+        Assert.Equal(0, await context.Groups.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_transient_failure_is_retried_without_applying_the_first_attempt_twice()
+    {
+        await using var context = await sql.NewDatabaseAsync();
+        var group = new ProbeGroup { Code = "G1", Members = 0 };
+        context.Groups.Add(group);
+        await context.SaveChangesAsync(Ct);
+        var attempts = 0;
+
+        await context.ExecuteInTransactionAsync(async token =>
+        {
+            attempts++;
+            var tracked = await context.Groups.SingleAsync(row => row.Id == group.Id, token);
+            tracked.Members += 1;
+            context.Members.Add(new ProbeMember { Id = Guid.NewGuid(), GroupId = group.Id });
+            await context.SaveChangesAsync(token);
+            if (attempts == 1)
+            {
+                throw new TimeoutException("simulated network blip after the writes");
+            }
+        }, Ct);
+
+        context.ChangeTracker.Clear();
+        Assert.Equal(2, attempts);
+        Assert.Equal(1, (await context.Groups.SingleAsync(row => row.Id == group.Id, Ct)).Members);
+        Assert.Equal(1, await context.Members.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Duplicate_unique_values_are_recognised_and_other_failures_are_not()
+    {
+        await using var context = await sql.NewDatabaseAsync();
+        context.Groups.Add(new ProbeGroup { Code = "SAME" });
+        await context.SaveChangesAsync(Ct);
+
+        context.Groups.Add(new ProbeGroup { Code = "SAME" });
+        var duplicate = await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync(Ct));
+        context.ChangeTracker.Clear();
+
+        context.Members.Add(new ProbeMember { Id = Guid.NewGuid(), GroupId = Guid.NewGuid() });
+        var missingParent = await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync(Ct));
+
+        Assert.True(duplicate.IsUniqueViolation());
+        Assert.False(missingParent.IsUniqueViolation());
+    }
+
+    [Fact]
+    public async Task Paging_and_multi_field_sorting_run_in_sql_with_a_stable_order()
+    {
+        await using var context = await sql.NewDatabaseAsync();
+        context.Groups.AddRange(Enumerable.Range(1, 25).Select(i => new ProbeGroup { Code = $"C{i:00}", Members = i % 3 }));
+        await context.SaveChangesAsync(Ct);
+        var map = new SortMap<ProbeGroup>()
+            .Add("code", group => group.Code)
+            .Add("members", group => group.Members)
+            .ByDefault("code")
+            .TieBreaker(group => group.Id);
+
+        var page = await context.Groups.AsNoTracking()
+            .ToPagedResultAsync(ListQuery.Create(null, "-members,code", 2, 10), map, Ct);
+        var firstByDefault = await context.Groups.AsNoTracking()
+            .ToPagedResultAsync(ListQuery.Create(null, null, 1, 3), map, Ct);
+
+        Assert.Equal(25, page.TotalItems);
+        Assert.Equal(3, page.TotalPages);
+        Assert.Equal(10, page.Items.Count);
+        Assert.Equal(["C07", "C10", "C13", "C16", "C19", "C22", "C25", "C03", "C06", "C09"], page.Items.Select(group => group.Code));
+        Assert.Equal(["C01", "C02", "C03"], firstByDefault.Items.Select(group => group.Code));
+    }
+
+    [Fact]
+    public async Task Paging_without_a_default_sort_is_a_programming_error()
+    {
+        await using var context = await sql.NewDatabaseAsync();
+        var map = new SortMap<ProbeGroup>().Add("code", group => group.Code);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.Groups.ToPagedResultAsync(ListQuery.Default, map, Ct));
+    }
+}

@@ -7,8 +7,6 @@ namespace ExeGroup.BuildingBlocks.Data;
 
 public static class SqlServerRegistration
 {
-    public const string ReadyTag = "ready";
-
     public static IServiceCollection AddSqlServerDatabase<TContext>(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -22,13 +20,15 @@ public static class SqlServerRegistration
                 $"Connection string '{connectionName}' is missing. Set ConnectionStrings__{connectionName}.");
         }
 
-        services.AddDbContext<TContext>(options => options.UseSqlServer(
-            connectionString,
-            sql => sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)));
-
+        services.AddDbContext<TContext>(options => ConfigureSqlServer(options, connectionString));
         services.AddSingleton<IDatabaseMigrator, DatabaseMigrator<TContext>>();
-        services.AddHealthChecks().AddDbContextCheck<TContext>(connectionName, HealthStatus.Unhealthy, [ReadyTag]);
+        services.AddHealthChecks().AddDbContextCheck<TContext>(connectionName, HealthStatus.Unhealthy, [HealthTags.Ready]);
 
         return services;
     }
+
+    public static DbContextOptionsBuilder ConfigureSqlServer(DbContextOptionsBuilder options, string connectionString) =>
+        options.UseSqlServer(
+            connectionString,
+            sql => sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null));
 }

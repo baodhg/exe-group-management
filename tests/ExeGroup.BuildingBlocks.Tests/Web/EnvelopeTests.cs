@@ -55,6 +55,15 @@ public sealed class EnvelopeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Fields_hidden_from_json_cannot_be_selected()
+    {
+        var (status, body) = await GetJsonAsync("/probe/secrets?fields=secret");
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.DoesNotContain("hash-123", body.GetRawText());
+    }
+
+    [Fact]
     public async Task Unknown_fields_are_rejected_as_validation_errors()
     {
         var (status, body) = await GetJsonAsync("/probe/page?fields=password");
@@ -125,8 +134,10 @@ public sealed class EnvelopeTests : IAsyncLifetime
     public async Task Unknown_json_properties_are_rejected()
     {
         var response = await Client.PostAsJsonAsync("/probe", new { name = "Delta", members = 2, isAdmin = true }, Ct);
+        var body = await ReadAsync(response);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("VALIDATION_FAILED", body.GetProperty("errors")[0].GetProperty("code").GetString());
     }
 
     [Fact]
@@ -177,6 +188,60 @@ public sealed class EnvelopeTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
         Assert.Equal("NOT_ACCEPTABLE", body.GetProperty("errors")[0].GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Unauthorized_exception_returns_401()
+    {
+        var (status, body) = await GetJsonAsync("/probe/anonymous-only");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, status);
+        Assert.Equal("UNAUTHORIZED", body.GetProperty("errors")[0].GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Wrong_method_returns_405_envelope()
+    {
+        var response = await Client.DeleteAsync("/probe/ok", Ct);
+        var body = await ReadAsync(response);
+
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        Assert.Equal("METHOD_NOT_ALLOWED", body.GetProperty("errors")[0].GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Non_json_body_returns_415_envelope()
+    {
+        using var content = new StringContent("name=x", System.Text.Encoding.UTF8, "text/plain");
+        var response = await Client.PostAsync("/probe", content, Ct);
+        var body = await ReadAsync(response);
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
+        Assert.Equal("UNSUPPORTED_MEDIA_TYPE", body.GetProperty("errors")[0].GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Malformed_json_returns_400_envelope()
+    {
+        using var content = new StringContent("{ \"name\": ", System.Text.Encoding.UTF8, "application/json");
+        var response = await Client.PostAsync("/probe", content, Ct);
+        var body = await ReadAsync(response);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(body.GetProperty("success").GetBoolean());
+    }
+
+    [Theory]
+    [InlineData("/probe/ok")]
+    [InlineData("/probe/conflict")]
+    public async Task Browser_style_accept_gets_the_same_format_for_success_and_errors(string path)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.TryAddWithoutValidation("Accept", "text/html,application/xml;q=0.9,*/*;q=0.8");
+
+        var response = await Client.SendAsync(request, Ct);
+
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
     }
 
     private async Task<(HttpStatusCode Status, JsonElement Body)> GetJsonAsync(string path)

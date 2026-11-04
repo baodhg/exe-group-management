@@ -2,7 +2,7 @@ using ExeGroup.BuildingBlocks.Context;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Serilog.Context;
+using ExeGroup.BuildingBlocks.Web.Observability;
 
 namespace ExeGroup.BuildingBlocks.Web.Jobs;
 
@@ -38,8 +38,7 @@ public abstract class PeriodicBackgroundService(IServiceScopeFactory scopes, ILo
         var correlationId = $"job-{JobName}-{CorrelationContext.NewId()[..12]}";
         var correlation = scope.ServiceProvider.GetService<ICorrelationContext>() ?? new CorrelationContext();
 
-        using (correlation.Begin(correlationId))
-        using (LogContext.PushProperty("CorrelationId", correlationId))
+        using (CorrelationScope.Begin(correlation, correlationId))
         {
             try
             {

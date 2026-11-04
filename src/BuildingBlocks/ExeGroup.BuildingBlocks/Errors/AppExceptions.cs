@@ -13,6 +13,9 @@ public sealed class NotFoundException(string resource, object key)
 
 public sealed class ConflictException(string code, string message) : AppException(code, message);
 
+public sealed class UnauthorizedException(string message = "A signed-in user is required.")
+    : AppException(ErrorCodes.Unauthorized, message);
+
 public sealed class ForbiddenException(string message = "You are not allowed to perform this action.")
     : AppException(ErrorCodes.Forbidden, message);
 

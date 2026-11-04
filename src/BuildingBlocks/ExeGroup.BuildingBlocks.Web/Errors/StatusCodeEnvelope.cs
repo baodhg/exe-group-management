@@ -21,7 +21,7 @@ public static class StatusCodeEnvelope
             StatusCodes.Status400BadRequest => ("Bad request", ErrorCodes.BadRequest, "The request could not be processed."),
             StatusCodes.Status401Unauthorized => ("Authentication required", ErrorCodes.Unauthorized, "A valid bearer access token is required."),
             StatusCodes.Status403Forbidden => ("Forbidden", ErrorCodes.Forbidden, "Your role does not allow access to this resource."),
-            StatusCodes.Status404NotFound => ("Resource not found", ErrorCodes.NotFound, $"No endpoint matches {request.Method} {path}."),
+            StatusCodes.Status404NotFound => ("Resource not found", ErrorCodes.NotFound, context.GetEndpoint() is null ? $"No endpoint matches {request.Method} {path}." : "The requested resource was not found."),
             StatusCodes.Status405MethodNotAllowed => ("Method not allowed", ErrorCodes.MethodNotAllowed, $"{request.Method} is not supported on {path}."),
             StatusCodes.Status406NotAcceptable => ("Not acceptable", ErrorCodes.NotAcceptable, "Use Accept: application/json or application/xml."),
             StatusCodes.Status415UnsupportedMediaType => ("Unsupported media type", ErrorCodes.UnsupportedMediaType, "Send the request body as application/json."),

@@ -37,6 +37,15 @@ public sealed class ListQueryTests
     }
 
     [Fact]
+    public void A_huge_page_number_cannot_overflow_the_offset()
+    {
+        var query = ListQuery.Create(null, null, int.MaxValue, ListQuery.MaxPageSize);
+
+        Assert.Equal(ListQuery.MaxPage, query.Page);
+        Assert.True(query.Skip >= 0);
+    }
+
+    [Fact]
     public void Sort_accepts_several_fields_and_a_minus_for_descending()
     {
         var query = ListQuery.Create(null, " -startDate, code ,", 1, 10);

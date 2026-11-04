@@ -48,9 +48,10 @@ public sealed class ServiceDefaultsTests
     {
         await using var app = await ServiceDefaultsHost.StartAsync();
 
-        var (status, _) = await GetAsync(app.GetTestClient(), "/api/v1/secure-probe/me", TestTokens.Expired(Guid.NewGuid(), Roles.Student));
+        var (status, body) = await GetAsync(app.GetTestClient(), "/api/v1/secure-probe/me", TestTokens.Expired(Guid.NewGuid(), Roles.Student));
 
         Assert.Equal(HttpStatusCode.Unauthorized, status);
+        Assert.Equal("UNAUTHORIZED", body.GetProperty("errors")[0].GetProperty("code").GetString());
     }
 
     [Fact]
@@ -64,7 +65,26 @@ public sealed class ServiceDefaultsTests
             SigningKey = "another-signing-key-that-is-long-enough-1234",
         }).Create(Guid.NewGuid(), [Roles.Administrator]).Token;
 
-        var (status, _) = await GetAsync(app.GetTestClient(), "/api/v1/secure-probe/admin", forged);
+        var (status, body) = await GetAsync(app.GetTestClient(), "/api/v1/secure-probe/admin", forged);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, status);
+        Assert.Equal("UNAUTHORIZED", body.GetProperty("errors")[0].GetProperty("code").GetString());
+    }
+
+    [Theory]
+    [InlineData("someone-else", TestTokens.Audience)]
+    [InlineData(TestTokens.Issuer, "another-audience")]
+    public async Task Tokens_for_another_issuer_or_audience_are_rejected(string issuer, string audience)
+    {
+        await using var app = await ServiceDefaultsHost.StartAsync();
+        var token = new ExeGroup.BuildingBlocks.Web.Security.AccessTokenFactory(new()
+        {
+            Issuer = issuer,
+            Audience = audience,
+            SigningKey = TestTokens.SigningKey,
+        }).Create(Guid.NewGuid(), [Roles.Administrator]).Token;
+
+        var (status, _) = await GetAsync(app.GetTestClient(), "/api/v1/secure-probe/admin", token);
 
         Assert.Equal(HttpStatusCode.Unauthorized, status);
     }
@@ -130,6 +150,18 @@ public sealed class ServiceDefaultsTests
         var (status, body) = await GetAsync(broken.GetTestClient(), "/health/ready");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, status);
         Assert.Equal("Unhealthy", body.GetProperty("data").GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task A_hanging_dependency_check_times_out_instead_of_blocking_readiness()
+    {
+        await using var app = await ServiceDefaultsHost.StartAsync(readyCheckHangs: true);
+        var started = System.Diagnostics.Stopwatch.StartNew();
+
+        var (status, _) = await GetAsync(app.GetTestClient(), "/health/ready");
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, status);
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds(10), $"readiness took {started.Elapsed}");
     }
 
     [Fact]

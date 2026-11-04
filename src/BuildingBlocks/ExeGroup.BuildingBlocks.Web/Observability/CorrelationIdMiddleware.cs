@@ -1,14 +1,11 @@
 using System.Text.RegularExpressions;
 using ExeGroup.BuildingBlocks.Context;
 using Microsoft.AspNetCore.Http;
-using Serilog.Context;
 
 namespace ExeGroup.BuildingBlocks.Web.Observability;
 
 public sealed partial class CorrelationIdMiddleware(RequestDelegate next, ICorrelationContext correlation)
 {
-    public const string LogProperty = "CorrelationId";
-
     public async Task InvokeAsync(HttpContext context)
     {
         var incoming = context.Request.Headers[CorrelationContext.HeaderName].ToString();
@@ -22,8 +19,7 @@ public sealed partial class CorrelationIdMiddleware(RequestDelegate next, ICorre
             return Task.CompletedTask;
         });
 
-        using (correlation.Begin(id))
-        using (LogContext.PushProperty(LogProperty, id))
+        using (CorrelationScope.Begin(correlation, id))
         {
             await next(context);
         }

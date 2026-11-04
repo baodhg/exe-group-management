@@ -56,6 +56,8 @@ public sealed class ProbeRequestValidator : AbstractValidator<ProbeRequest>
 
 public sealed record ProbeResponse(string Code, string Name, int Members);
 
+public sealed record SecretProbe(string Code, [property: System.Text.Json.Serialization.JsonIgnore] string Secret);
+
 [Route("probe")]
 public sealed class ProbeController : ApiControllerBase
 {
@@ -80,6 +82,16 @@ public sealed class ProbeController : ApiControllerBase
     [HttpPost]
     public IActionResult Create([FromBody] ProbeRequest request) =>
         Created("probe", new ProbeResponse("N", request.Name!, request.Members), "Probe created");
+
+    [HttpGet("secrets")]
+    public IActionResult GetSecrets([FromQuery] ListQueryRequest request)
+    {
+        var query = request.ToListQuery();
+        return Paged(new PagedResult<SecretProbe>([new SecretProbe("S", "hash-123")], 1, 20, 1), query, "Secrets loaded");
+    }
+
+    [HttpGet("anonymous-only")]
+    public IActionResult GetUnauthorized() => throw new UnauthorizedException();
 
     [HttpGet("conflict")]
     public IActionResult GetConflict() => throw new ConflictException("GROUP_FULL", "The group is full.");

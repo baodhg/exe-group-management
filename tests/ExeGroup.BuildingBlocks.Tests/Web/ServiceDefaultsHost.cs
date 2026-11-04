@@ -18,7 +18,8 @@ public static class ServiceDefaultsHost
 {
     public static async Task<WebApplication> StartAsync(
         IReadOnlyDictionary<string, string?>? configuration = null,
-        bool readyCheckFails = false)
+        bool readyCheckFails = false,
+        bool readyCheckHangs = false)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
         builder.WebHost.UseTestServer();
@@ -29,6 +30,18 @@ public static class ServiceDefaultsHost
             builder.Services.AddHealthChecks().AddCheck(
                 "always-down",
                 () => HealthCheckResult.Unhealthy("down for the test"),
+                ["ready"]);
+        }
+
+        if (readyCheckHangs)
+        {
+            builder.Services.AddHealthChecks().AddAsyncCheck(
+                "hangs-forever",
+                async cancellationToken =>
+                {
+                    await Task.Delay(Timeout.Infinite, cancellationToken);
+                    return HealthCheckResult.Healthy();
+                },
                 ["ready"]);
         }
 

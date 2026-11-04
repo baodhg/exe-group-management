@@ -43,6 +43,7 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
             validation.Message,
             validation.Errors.Select(error => new ApiError(error.Code, error.Field, error.Message)).ToList()),
         NotFoundException notFound => Single(StatusCodes.Status404NotFound, "Resource not found", notFound),
+        UnauthorizedException unauthorized => Single(StatusCodes.Status401Unauthorized, "Authentication required", unauthorized),
         ForbiddenException forbidden => Single(StatusCodes.Status403Forbidden, "Forbidden", forbidden),
         ConflictException conflict => Single(StatusCodes.Status409Conflict, "The request conflicts with a business rule", conflict),
         AppException other => Single(StatusCodes.Status400BadRequest, "Bad request", other),

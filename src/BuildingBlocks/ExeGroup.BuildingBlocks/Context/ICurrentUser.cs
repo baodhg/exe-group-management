@@ -12,5 +12,5 @@ public interface ICurrentUser
 
     bool IsInRole(string role);
 
-    Guid RequireUserId() => UserId ?? throw new ForbiddenException("A signed-in user is required.");
+    Guid RequireUserId() => UserId ?? throw new UnauthorizedException();
 }

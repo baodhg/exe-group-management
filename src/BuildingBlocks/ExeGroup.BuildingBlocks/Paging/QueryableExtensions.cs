@@ -13,6 +13,12 @@ public static class QueryableExtensions
         SortMap<T> sortMap,
         CancellationToken cancellationToken = default)
     {
+        if (!sortMap.HasDefault)
+        {
+            throw new InvalidOperationException(
+                $"SortMap<{typeof(T).Name}> needs ByDefault(...) so pages keep a stable order.");
+        }
+
         var totalItems = await source.CountAsync(cancellationToken);
         var items = await source
             .ApplySorting(query.Sort, sortMap)

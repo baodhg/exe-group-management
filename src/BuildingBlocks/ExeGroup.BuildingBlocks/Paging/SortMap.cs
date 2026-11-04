@@ -8,10 +8,17 @@ public sealed class SortMap<T>
     private readonly Dictionary<string, LambdaExpression> _keys = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> _names = [];
     private SortField? _default;
+    private LambdaExpression? _tieBreaker;
+
+    public bool HasDefault => _default is not null;
 
     public SortMap<T> Add<TKey>(string name, Expression<Func<T, TKey>> key)
     {
-        _keys[name] = key;
+        if (!_keys.TryAdd(name, key))
+        {
+            throw new InvalidOperationException($"Sort key '{name}' is registered twice.");
+        }
+
         _names.Add(name);
         return this;
     }
@@ -24,6 +31,12 @@ public sealed class SortMap<T>
         }
 
         _default = new SortField(name, descending);
+        return this;
+    }
+
+    public SortMap<T> TieBreaker<TKey>(Expression<Func<T, TKey>> uniqueKey)
+    {
+        _tieBreaker = uniqueKey;
         return this;
     }
 
@@ -44,6 +57,11 @@ public sealed class SortMap<T>
 
             expression = AppendOrdering(expression, key, field.Descending, ordered);
             ordered = true;
+        }
+
+        if (ordered && _tieBreaker is not null)
+        {
+            expression = AppendOrdering(expression, _tieBreaker, descending: false, thenBy: true);
         }
 
         return ordered ? source.Provider.CreateQuery<T>(expression) : source;

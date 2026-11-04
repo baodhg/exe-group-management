@@ -10,8 +10,15 @@ namespace ExeGroup.BuildingBlocks.Web.Hosting;
 public static class DatabaseStartup
 {
     public const string MigrateOnStartupKey = "Database:MigrateOnStartup";
-    private const int Attempts = 12;
+    private const int Attempts = 6;
     private static readonly TimeSpan Delay = TimeSpan.FromSeconds(5);
+
+    public static async Task RunWithDatabaseMigrationsAsync(this WebApplication app)
+    {
+        await app.StartAsync();
+        await app.MigrateDatabasesAsync();
+        await app.WaitForShutdownAsync();
+    }
 
     public static async Task MigrateDatabasesAsync(this WebApplication app)
     {

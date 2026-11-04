@@ -19,7 +19,7 @@ public static class HealthEndpoints
             .AllowAnonymous();
         endpoints.MapHealthChecks(ReadyPath, new HealthCheckOptions
         {
-            Predicate = check => check.Tags.Contains(SqlServerRegistration.ReadyTag),
+            Predicate = check => check.Tags.Contains(HealthTags.Ready),
             ResponseWriter = WriteAsync,
         }).AllowAnonymous();
         return endpoints;

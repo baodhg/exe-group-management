@@ -9,6 +9,7 @@ public sealed partial record ListQuery
 {
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
+    public const int MaxPage = int.MaxValue / MaxPageSize;
 
     private ListQuery(
         string? search,
@@ -55,7 +56,12 @@ public sealed partial record ListQuery
         return new ListQuery(
             string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
             ParseSort(sort),
-            page is > 0 ? page.Value : 1,
+            page switch
+            {
+                null or < 1 => 1,
+                > MaxPage => MaxPage,
+                _ => page.Value,
+            },
             pageSize switch
             {
                 null or < 1 => DefaultPageSize,
