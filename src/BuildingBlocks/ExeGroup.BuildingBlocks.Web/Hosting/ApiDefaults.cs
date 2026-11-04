@@ -47,6 +47,7 @@ public static class ApiDefaults
             services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
         }
 
+        services.AddUrlSegmentVersioning();
         return mvc;
     }
 
