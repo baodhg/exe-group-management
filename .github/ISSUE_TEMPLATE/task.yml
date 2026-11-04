@@ -7,7 +7,7 @@ body:
     attributes:
       label: Người phụ trách
       options:
-        - Người 1 – Platform & API Gateway
+        - Người 1 – PM, Platform & API Gateway
         - Người 2 – Identity + Join Request API
         - Người 3 – Group Service API
         - Người 4 – gRPC, messaging, background jobs
@@ -33,4 +33,4 @@ body:
     id: refs
     attributes:
       label: Tham chiếu
-      description: Mục trong docs/PRN232_v2.pdf, docs/diagrams/spec.py, database/schema.sql...
+      description: Mục trong docs/PRN232_v2.pdf, docs/diagrams/spec.py, database/schema.sql, CONTRIBUTING.md...
