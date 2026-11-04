@@ -1,9 +1,9 @@
 using ExeGroup.BuildingBlocks.Context;
 using ExeGroup.BuildingBlocks.Web.Hosting;
+using ExeGroup.BuildingBlocks.Web.Observability;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ExeGroup.BuildingBlocks.Web.Observability;
 
 namespace ExeGroup.BuildingBlocks.Web.Jobs;
 

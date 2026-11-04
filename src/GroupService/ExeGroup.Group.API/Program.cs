@@ -1,6 +1,6 @@
-using ExeGroup.Group.API.Grpc;
 using ExeGroup.BuildingBlocks.Web.Health;
 using ExeGroup.BuildingBlocks.Web.Hosting;
+using ExeGroup.Group.API.Grpc;
 using ExeGroup.Group.Services;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 

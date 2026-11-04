@@ -1,6 +1,6 @@
 using ExeGroup.BuildingBlocks.Data;
-using ExeGroup.JoinRequest.Repositories.External;
 using ExeGroup.JoinRequest.Repositories.Data;
+using ExeGroup.JoinRequest.Repositories.External;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
