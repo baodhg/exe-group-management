@@ -1,0 +1,15 @@
+{
+  "profiles": {
+    "group-service": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5102",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Redis__Connection": "localhost:6379",
+        "Ports__Rest": "5102",
+        "Ports__Grpc": "5103"
+      }
+    }
+  }
+}
