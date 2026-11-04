@@ -20,7 +20,10 @@ public static class RedisRegistration
 
         var options = ConfigurationOptions.Parse(connection);
         options.AbortOnConnectFail = false;
-        options.ConnectTimeout = 3000;
+        if (!connection.Contains("connectTimeout", StringComparison.OrdinalIgnoreCase))
+        {
+            options.ConnectTimeout = 3000;
+        }
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(options));
         services.AddHealthChecks().AddCheck<RedisHealthCheck>("redis", HealthStatus.Unhealthy, [HealthTags.Ready], HealthTags.CheckTimeout);
         return services;

@@ -12,6 +12,8 @@ public sealed class SortMap<T>
 
     public bool HasDefault => _default is not null;
 
+    public bool HasTieBreaker => _tieBreaker is not null;
+
     public SortMap<T> Add<TKey>(string name, Expression<Func<T, TKey>> key)
     {
         if (!_keys.TryAdd(name, key))

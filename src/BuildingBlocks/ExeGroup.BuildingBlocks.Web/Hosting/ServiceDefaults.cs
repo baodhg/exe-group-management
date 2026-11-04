@@ -25,7 +25,8 @@ public static class ServiceDefaults
         builder.Services.AddApiDefaults(apiAssemblies);
         builder.Services.AddServiceSwagger(serviceName);
         builder.Services.AddJwtAuthentication(builder.Configuration);
-        builder.Services.AddHealthChecks();
+        builder.Services.TryAddSingleton<DatabaseReadiness>();
+        builder.Services.AddHealthChecks().AddCheck<DatabaseReadinessCheck>("migrations", HealthStatus.Unhealthy, [HealthTags.Ready]);
         builder.Services.PostConfigure<HealthCheckServiceOptions>(options =>
         {
             foreach (var registration in options.Registrations.Where(registration => registration.Timeout == Timeout.InfiniteTimeSpan))

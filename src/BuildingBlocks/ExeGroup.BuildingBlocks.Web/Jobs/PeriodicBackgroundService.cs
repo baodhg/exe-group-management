@@ -1,4 +1,5 @@
 using ExeGroup.BuildingBlocks.Context;
+using ExeGroup.BuildingBlocks.Web.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ public abstract class PeriodicBackgroundService(IServiceScopeFactory scopes, ILo
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await WaitForDatabaseAsync(stoppingToken);
         logger.LogInformation("Job {Job} started, every {Interval}", JobName, Interval);
         using var timer = new PeriodicTimer(Interval);
         try
@@ -29,6 +31,16 @@ public abstract class PeriodicBackgroundService(IServiceScopeFactory scopes, ILo
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             logger.LogInformation("Job {Job} stopped", JobName);
+        }
+    }
+
+    private async Task WaitForDatabaseAsync(CancellationToken stoppingToken)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        var readiness = scope.ServiceProvider.GetService<DatabaseReadiness>();
+        if (readiness is not null)
+        {
+            await readiness.WhenReady.WaitAsync(stoppingToken);
         }
     }
 

@@ -22,6 +22,14 @@ public static class DbContextExtensions
         Func<CancellationToken, Task<TResult>> work,
         CancellationToken cancellationToken = default)
     {
+        var tracked = context.ChangeTracker.Entries().Count();
+        if (tracked > 0)
+        {
+            throw new InvalidOperationException(
+                $"Load and modify entities inside the transaction work; the context already tracks {tracked} entities " +
+                "that a retry would silently discard. Use a fresh scope or call ChangeTracker.Clear() first.");
+        }
+
         var strategy = context.Database.CreateExecutionStrategy();
         return strategy.ExecuteAsync(
             (context, work),

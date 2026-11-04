@@ -13,10 +13,10 @@ public static class QueryableExtensions
         SortMap<T> sortMap,
         CancellationToken cancellationToken = default)
     {
-        if (!sortMap.HasDefault)
+        if (!sortMap.HasDefault || !sortMap.HasTieBreaker)
         {
             throw new InvalidOperationException(
-                $"SortMap<{typeof(T).Name}> needs ByDefault(...) so pages keep a stable order.");
+                $"SortMap<{typeof(T).Name}> needs ByDefault(...) and TieBreaker(unique key) so pages keep a stable order.");
         }
 
         var totalItems = await source.CountAsync(cancellationToken);

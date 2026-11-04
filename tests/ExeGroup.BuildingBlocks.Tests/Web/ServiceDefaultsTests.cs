@@ -165,6 +165,26 @@ public sealed class ServiceDefaultsTests
     }
 
     [Fact]
+    public async Task Readiness_stays_red_until_migrations_have_run()
+    {
+        var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(new Microsoft.AspNetCore.Builder.WebApplicationOptions { EnvironmentName = "Testing" });
+        Microsoft.AspNetCore.Hosting.HostingAbstractionsWebHostBuilderExtensions.UseEnvironment(builder.WebHost, "Testing");
+        builder.WebHost.UseTestServer();
+        Microsoft.Extensions.Configuration.MemoryConfigurationBuilderExtensions.AddInMemoryCollection(builder.Configuration, TestTokens.Configuration);
+        ExeGroup.BuildingBlocks.Web.Hosting.ServiceDefaults.AddServiceDefaults(builder, "probe-service", typeof(ServiceDefaultsHost).Assembly);
+        await using var app = builder.Build();
+        ExeGroup.BuildingBlocks.Web.Hosting.ServiceDefaults.UseServiceDefaults(app);
+        await app.StartAsync(Ct);
+
+        var before = (await app.GetTestClient().GetAsync("/health/ready", Ct)).StatusCode;
+        await ExeGroup.BuildingBlocks.Web.Hosting.DatabaseStartup.MigrateDatabasesAsync(app);
+        var after = (await app.GetTestClient().GetAsync("/health/ready", Ct)).StatusCode;
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, before);
+        Assert.Equal(HttpStatusCode.OK, after);
+    }
+
+    [Fact]
     public async Task Swagger_publishes_one_document_per_version_with_a_bearer_scheme()
     {
         await using var app = await ServiceDefaultsHost.StartAsync();

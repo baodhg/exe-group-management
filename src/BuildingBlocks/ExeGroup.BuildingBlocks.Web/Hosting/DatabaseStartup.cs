@@ -25,8 +25,10 @@ public static class DatabaseStartup
         var enabled = app.Configuration.GetValue<bool?>(MigrateOnStartupKey) ?? app.Environment.IsDevelopment();
         var migrators = app.Services.GetServices<IDatabaseMigrator>().ToList();
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(DatabaseStartup));
+        var readiness = app.Services.GetService<DatabaseReadiness>();
         if (!enabled || migrators.Count == 0)
         {
+            readiness?.MarkReady();
             return;
         }
 
@@ -47,5 +49,7 @@ public static class DatabaseStartup
                 }
             }
         }
+
+        readiness?.MarkReady();
     }
 }

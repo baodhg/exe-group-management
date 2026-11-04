@@ -49,6 +49,7 @@ public static class ServiceDefaultsHost
         app.UseServiceDefaults();
         app.MapControllers();
         await app.StartAsync();
+        await app.MigrateDatabasesAsync();
         return app;
     }
 }

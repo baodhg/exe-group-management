@@ -34,6 +34,7 @@ public sealed class DataHelperTests(SqlServerFixture sql)
         var group = new ProbeGroup { Code = "G1", Members = 0 };
         context.Groups.Add(group);
         await context.SaveChangesAsync(Ct);
+        context.ChangeTracker.Clear();
         var attempts = 0;
 
         await context.ExecuteInTransactionAsync(async token =>
@@ -53,6 +54,42 @@ public sealed class DataHelperTests(SqlServerFixture sql)
         Assert.Equal(2, attempts);
         Assert.Equal(1, (await context.Groups.SingleAsync(row => row.Id == group.Id, Ct)).Members);
         Assert.Equal(1, await context.Members.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Pending_changes_made_before_the_transaction_are_refused_instead_of_silently_dropped()
+    {
+        await using var context = await sql.NewDatabaseAsync();
+        var group = new ProbeGroup { Code = "PRE", Members = 0 };
+        context.Groups.Add(group);
+        await context.SaveChangesAsync(Ct);
+        group.Members = 5;
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => context.ExecuteInTransactionAsync(async token =>
+        {
+            context.Members.Add(new ProbeMember { Id = Guid.NewGuid(), GroupId = group.Id });
+            await context.SaveChangesAsync(token);
+        }, Ct));
+
+        context.ChangeTracker.Clear();
+        Assert.Contains("inside the transaction", error.Message);
+        Assert.Equal(0, await context.Members.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Entities_loaded_before_the_transaction_cannot_be_modified_inside_it_by_accident()
+    {
+        await using var context = await sql.NewDatabaseAsync();
+        context.Groups.Add(new ProbeGroup { Code = "OUT", Members = 0 });
+        await context.SaveChangesAsync(Ct);
+        context.ChangeTracker.Clear();
+        var loadedOutside = await context.Groups.SingleAsync(Ct);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.ExecuteInTransactionAsync(async token =>
+        {
+            loadedOutside.Members = 7;
+            await context.SaveChangesAsync(token);
+        }, Ct));
     }
 
     [Fact]
@@ -98,11 +135,13 @@ public sealed class DataHelperTests(SqlServerFixture sql)
     }
 
     [Fact]
-    public async Task Paging_without_a_default_sort_is_a_programming_error()
+    public async Task Paging_without_a_default_sort_and_tie_breaker_is_a_programming_error()
     {
         await using var context = await sql.NewDatabaseAsync();
-        var map = new SortMap<ProbeGroup>().Add("code", group => group.Code);
+        var noDefault = new SortMap<ProbeGroup>().Add("code", group => group.Code).TieBreaker(group => group.Id);
+        var noTieBreaker = new SortMap<ProbeGroup>().Add("code", group => group.Code).ByDefault("code");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => context.Groups.ToPagedResultAsync(ListQuery.Default, map, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.Groups.ToPagedResultAsync(ListQuery.Default, noDefault, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.Groups.ToPagedResultAsync(ListQuery.Default, noTieBreaker, Ct));
     }
 }
