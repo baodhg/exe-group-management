@@ -58,3 +58,11 @@ jobs:
       - run: cp .env.example .env
       - run: docker compose -f docker-compose.yml config --quiet
       - run: docker compose -f docker-compose.yml build
+
+  architecture:
+    name: architecture
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr validate -workspace /usr/local/structurizr/workspace.dsl

@@ -1,0 +1,54 @@
+@startuml
+title <size:24>Component View: EXE Group Management System - Group Service</size>\n<size:24>Level 3: Group Service.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("EXEGroupManagementSystem_boundary", "EXE Group Management System", $tags="") {
+  Container_Boundary("EXEGroupManagementSystem.GroupService_boundary", "Group Service", $tags="") {
+    Component(EXEGroupManagementSystem.GroupService.SemestersController, "SemestersController", $techn="ASP.NET Core MVC", $descr="Reference CRUD endpoint /api/v1/semesters (golden path).", $tags="", $link="")
+    Component(EXEGroupManagementSystem.GroupService.Classesandgroupscontrollers, "Classes and groups controllers", $techn="ASP.NET Core MVC", $descr="[Planned] /api/v1/courses, /classes, /groups.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.GroupService.GroupMembershipGrpcService, "GroupMembershipGrpcService", $techn="Grpc.AspNetCore", $descr="GetGroupContext, AddMemberIfEligible on :8081 (HTTP/2).", $tags="", $link="")
+    Component(EXEGroupManagementSystem.GroupService.SemesterService, "SemesterService", $techn="C# service layer", $descr="Business rules for semesters.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.GroupService.SemesterRepository, "SemesterRepository", $techn="EF Core 10", $descr="Search, sort and paging over Semesters.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.GroupService.GroupDbContext, "GroupDbContext", $techn="EF Core 10", $descr="Semesters (+ classes, enrollments, groups, outbox).", $tags="", $link="")
+    Component(EXEGroupManagementSystem.GroupService.OutboxPublisher, "OutboxPublisher", $techn="BackgroundService", $descr="[Planned] Every 2 s: XADD unpublished OutboxEvents to group-events.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.GroupService.DeadlineEnforcer, "DeadlineEnforcer", $techn="BackgroundService", $descr="[Planned] Every 1 min: closes classes past their deadline, locks groups.", $tags="", $link="")
+  }
+
+  Container(EXEGroupManagementSystem.JoinRequestService, "Join Request Service", $techn="ASP.NET Core 10 Web API + gRPC client", $descr="Join-request lifecycle T1-T11; event consumer and reconciler.", $tags="", $link="")
+  ContainerDb(EXEGroupManagementSystem.GroupDb, "GroupDb", $techn="SQL Server 2022", $descr="Semesters, courses, classes, rosters, groups, memberships, outbox.", $tags="", $link="")
+  ContainerQueue(EXEGroupManagementSystem.GroupEvents, "Group Events", $techn="Redis 7 Stream", $descr="Stream group-events: GroupMemberAdded, GroupClosed.", $tags="", $link="")
+  Container(EXEGroupManagementSystem.APIGateway, "API Gateway", $techn="ASP.NET Core 10, YARP 2.3", $descr="Single public entry point: JWT check at the edge, path routing, merged Swagger UI, sign-in rate limit.", $tags="", $link="")
+}
+
+Rel(EXEGroupManagementSystem.APIGateway, EXEGroupManagementSystem.GroupService.SemestersController, "Routes /api/v1/semesters", $techn="HTTP", $tags="", $link="")
+Rel(EXEGroupManagementSystem.APIGateway, EXEGroupManagementSystem.GroupService.Classesandgroupscontrollers, "Routes /api/v1/courses, /classes, /groups", $techn="HTTP", $tags="", $link="")
+Rel(EXEGroupManagementSystem.APIGateway, EXEGroupManagementSystem.JoinRequestService, "Routes /api/v1/join-requests", $techn="HTTP", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.SemestersController, EXEGroupManagementSystem.GroupService.SemesterService, "Calls", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.SemesterService, EXEGroupManagementSystem.GroupService.SemesterRepository, "Uses", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.SemesterRepository, EXEGroupManagementSystem.GroupService.GroupDbContext, "Queries", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.Classesandgroupscontrollers, EXEGroupManagementSystem.GroupService.GroupDbContext, "Reads and writes via services", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.GroupMembershipGrpcService, EXEGroupManagementSystem.GroupService.GroupDbContext, "Adds members, writes outbox in one transaction", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.OutboxPublisher, EXEGroupManagementSystem.GroupService.GroupDbContext, "Reads unpublished events", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.OutboxPublisher, EXEGroupManagementSystem.GroupEvents, "Publishes", $techn="XADD", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.DeadlineEnforcer, EXEGroupManagementSystem.GroupService.GroupDbContext, "Locks groups, writes GroupClosed", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService.GroupDbContext, EXEGroupManagementSystem.GroupDb, "Reads and writes", $techn="SQL", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService, EXEGroupManagementSystem.GroupService.GroupMembershipGrpcService, "GetGroupContext, AddMemberIfEligible", $techn="gRPC, HTTP/2 :8081", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService, EXEGroupManagementSystem.GroupEvents, "Consumes", $techn="XREADGROUP / XACK", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

@@ -1,0 +1,47 @@
+@startuml
+title <size:24>Component View: EXE Group Management System - Join Request Service</size>\n<size:24>Level 3: Join Request Service.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("EXEGroupManagementSystem_boundary", "EXE Group Management System", $tags="") {
+  Container_Boundary("EXEGroupManagementSystem.JoinRequestService_boundary", "Join Request Service", $tags="") {
+    Component(EXEGroupManagementSystem.JoinRequestService.JoinRequestsController, "JoinRequestsController", $techn="ASP.NET Core MVC", $descr="[Planned] Submit, cancel, approve (202), reject.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.JoinRequestService.GroupMembershipClient, "GroupMembershipClient", $techn="Grpc.Net.ClientFactory", $descr="Typed gRPC client with correlation and 5 s deadline interceptors.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.JoinRequestService.GroupEventsConsumer, "GroupEventsConsumer", $techn="BackgroundService", $descr="[Planned] XREADGROUP, idempotent apply, XACK after commit, XAUTOCLAIM.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.JoinRequestService.ProcessingReconciler, "ProcessingReconciler", $techn="BackgroundService", $descr="[Planned] Every 1 min: retries AddMemberIfEligible for stuck Processing requests.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.JoinRequestService.JoinRequestDbContext, "JoinRequestDbContext", $techn="EF Core 10", $descr="JoinRequests, ProcessedEvents.", $tags="", $link="")
+  }
+
+  Container(EXEGroupManagementSystem.GroupService, "Group Service", $techn="ASP.NET Core 10 Web API + gRPC server", $descr="Semesters, courses, classes, rosters, groups; gRPC GroupMembership; outbox.", $tags="", $link="")
+  ContainerDb(EXEGroupManagementSystem.RequestDb, "RequestDb", $techn="SQL Server 2022", $descr="Join requests and processed event ids.", $tags="", $link="")
+  ContainerQueue(EXEGroupManagementSystem.GroupEvents, "Group Events", $techn="Redis 7 Stream", $descr="Stream group-events: GroupMemberAdded, GroupClosed.", $tags="", $link="")
+  Container(EXEGroupManagementSystem.APIGateway, "API Gateway", $techn="ASP.NET Core 10, YARP 2.3", $descr="Single public entry point: JWT check at the edge, path routing, merged Swagger UI, sign-in rate limit.", $tags="", $link="")
+}
+
+Rel(EXEGroupManagementSystem.APIGateway, EXEGroupManagementSystem.GroupService, "Routes /api/v1/semesters", $techn="HTTP", $tags="", $link="")
+Rel(EXEGroupManagementSystem.APIGateway, EXEGroupManagementSystem.JoinRequestService.JoinRequestsController, "Routes /api/v1/join-requests", $techn="HTTP", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService, EXEGroupManagementSystem.GroupEvents, "Publishes", $techn="XADD", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService.JoinRequestsController, EXEGroupManagementSystem.JoinRequestService.GroupMembershipClient, "Checks eligibility, adds member", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService.JoinRequestsController, EXEGroupManagementSystem.JoinRequestService.JoinRequestDbContext, "Reads and writes requests", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService.GroupMembershipClient, EXEGroupManagementSystem.GroupService, "GetGroupContext, AddMemberIfEligible", $techn="gRPC, HTTP/2 :8081", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService.ProcessingReconciler, EXEGroupManagementSystem.JoinRequestService.GroupMembershipClient, "Retries AddMemberIfEligible", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService.GroupEventsConsumer, EXEGroupManagementSystem.GroupEvents, "Consumes", $techn="XREADGROUP / XACK", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService.GroupEventsConsumer, EXEGroupManagementSystem.JoinRequestService.JoinRequestDbContext, "Approves, cancels, rejects requests", $techn="", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService.JoinRequestDbContext, EXEGroupManagementSystem.RequestDb, "Reads and writes", $techn="SQL", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

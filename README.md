@@ -29,6 +29,18 @@ approve-flow dynamic view are generated from [`docs/architecture/workspace.dsl`]
 |---|---|
 | ![System Context](docs/diagrams/fig1_c4_l1_context.png) | ![Container](docs/diagrams/fig2_c4_l2_container.png) |
 
+Generated views (Structurizr DSL → C4-PlantUML; components marked [Planned] are designed but not implemented yet):
+
+| View | Diagram |
+|---|---|
+| Level 3 – Identity Service | [IdentityComponents](docs/architecture/diagrams/structurizr-IdentityComponents.png) |
+| Level 3 – Group Service | [GroupComponents](docs/architecture/diagrams/structurizr-GroupComponents.png) |
+| Level 3 – Join Request Service | [JoinRequestComponents](docs/architecture/diagrams/structurizr-JoinRequestComponents.png) |
+| Dynamic – approving a join request | [ApproveJoinRequest](docs/architecture/diagrams/structurizr-ApproveJoinRequest.png) |
+| Deployment – Docker Compose | [Deployment](docs/architecture/diagrams/structurizr-Deployment.png) |
+
+Regenerate after a change: `docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr export -workspace /usr/local/structurizr/workspace.dsl -format plantuml/c4plantuml -output /usr/local/structurizr/diagrams`, then render with `plantuml/plantuml -tpng`.
+
 | Container | Technology | Responsibility |
 |---|---|---|
 | Single-Page App | React 19, TypeScript, Vite, served by nginx | UI for all roles; nginx forwards `/api` and `/swagger` to the gateway (same origin, no CORS) |
