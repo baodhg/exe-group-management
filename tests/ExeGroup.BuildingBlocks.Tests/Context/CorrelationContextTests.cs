@@ -26,7 +26,7 @@ public sealed class CorrelationContextTests
         async Task<string?> Run(string id)
         {
             using var scope = context.Begin(id);
-            await Task.Delay(10);
+            await Task.Delay(10, TestContext.Current.CancellationToken);
             return context.CorrelationId;
         }
 

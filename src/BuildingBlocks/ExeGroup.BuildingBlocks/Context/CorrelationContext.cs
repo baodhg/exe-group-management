@@ -14,6 +14,8 @@ public sealed class CorrelationContext : ICorrelationContext
 
     private static readonly AsyncLocal<string?> Current = new();
 
+    public static string? CurrentId => Current.Value;
+
     public string? CorrelationId => Current.Value;
 
     public IDisposable Begin(string? correlationId)
