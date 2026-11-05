@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { LoginPage } from "../features/auth/LoginPage";
-import { RoleHomePage } from "../features/home/RoleHomePage";
+import { AdminHomePage } from "../features/home/AdminHomePage";
+import { MyCoursesPage } from "../features/home/MyCoursesPage";
 import { SemestersPage } from "../features/semesters/SemestersPage";
 import { AuthProvider } from "../shared/auth/AuthProvider";
 import { RequireRole } from "../shared/auth/RequireRole";
@@ -19,9 +20,9 @@ export function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route element={<AppLayout />}>
-              <Route path="/student" element={<RequireRole roles={["Student"]}><RoleHomePage area="student" /></RequireRole>} />
-              <Route path="/lecturer" element={<RequireRole roles={["Lecturer"]}><RoleHomePage area="lecturer" /></RequireRole>} />
-              <Route path="/admin" element={<RequireRole roles={["Administrator"]}><RoleHomePage area="admin" /></RequireRole>} />
+              <Route path="/student" element={<RequireRole roles={["Student"]}><MyCoursesPage area="student" /></RequireRole>} />
+              <Route path="/lecturer" element={<RequireRole roles={["Lecturer"]}><MyCoursesPage area="lecturer" /></RequireRole>} />
+              <Route path="/admin" element={<RequireRole roles={["Administrator"]}><AdminHomePage /></RequireRole>} />
               <Route path="/admin/semesters" element={<RequireRole roles={["Administrator"]}><SemestersPage /></RequireRole>} />
             </Route>
             <Route path="*" element={<Navigate to="/login" replace />} />
