@@ -52,11 +52,13 @@ services:
     cpus: 2
     environment:
       MSSQL_MEMORY_LIMIT_MB: "2048"
+    ports: !reset []
 
   redis:
     restart: unless-stopped
     mem_limit: 256m
     cpus: 1
+    ports: !reset []
 
   identity-service:
     <<: *demo-limits

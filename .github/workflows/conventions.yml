@@ -1,0 +1,39 @@
+name: conventions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: conventions-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  conventions:
+    name: conventions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+      - name: Test the convention rules
+        run: node --test "scripts/*.test.mjs"
+      - name: Check the changes against the project conventions
+        run: node scripts/check-conventions.mjs
+      - name: Scan the new commits for secrets
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" \
+            zricethezav/gitleaks@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055 \
+            detect --source /repo --log-opts="$BASE_SHA..HEAD" --redact --no-banner --exit-code 1

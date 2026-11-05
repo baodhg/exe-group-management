@@ -1,8 +1,0 @@
-services:
-  sqlserver:
-    ports:
-      - "${SQL_HOST_PORT:-14330}:1433"
-
-  redis:
-    ports:
-      - "${REDIS_HOST_PORT:-16379}:6379"

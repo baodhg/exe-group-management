@@ -27,6 +27,12 @@ jobs:
       - run: dotnet restore ExeGroup.sln
       - run: dotnet build ExeGroup.sln --no-restore -c Release
       - run: dotnet format ExeGroup.sln --verify-no-changes --no-restore
+      - name: Every model change has a migration
+        run: |
+          for service in IdentityService/ExeGroup.Identity GroupService/ExeGroup.Group JoinRequestService/ExeGroup.JoinRequest; do
+            dotnet ef migrations has-pending-model-changes --no-build --configuration Release \
+              --project "src/$service.Repositories" --startup-project "src/$service.API"
+          done
       - run: dotnet test --solution ExeGroup.sln --no-build -c Release
 
   web:
@@ -56,9 +62,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - run: cp .env.example .env
-      - run: docker compose -f docker-compose.yml config --quiet
+      - run: docker compose config --quiet
       - run: node scripts/check-demo-compose.mjs
-      - run: docker compose -f docker-compose.yml build
+      - run: docker compose build
 
   architecture:
     name: architecture

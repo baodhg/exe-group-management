@@ -6,11 +6,17 @@ set -euo pipefail
 state_dir="${DEMO_STATE_DIR:?Set DEMO_STATE_DIR}"
 env_file="$state_dir/demo.env"
 last_good_file="$state_dir/last-good"
-compose=(docker compose -f docker-compose.yml -f docker-compose.demo.yml --env-file "$env_file")
+compose=(docker compose -f docker-compose.yml -f deploy/docker-compose.demo.yml --env-file "$env_file")
 database_services=(identity-service group-service join-request-service)
 
 if [[ ! -f "$env_file" ]]; then
   echo "Missing $env_file: create it with SA_PASSWORD and JWT_SIGNING_KEY first." >&2
+  exit 1
+fi
+
+sample_key="$(grep '^JWT_SIGNING_KEY=' .env.example)"
+if grep -qxF "$sample_key" "$env_file"; then
+  echo "Missing a real JWT_SIGNING_KEY in $env_file: it still holds the sample from .env.example." >&2
   exit 1
 fi
 
