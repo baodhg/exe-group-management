@@ -10,7 +10,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace ExeGroup.Realtime.IntegrationTests;
 
-public sealed class RealtimeApiFixture : IAsyncLifetime
+public class RealtimeApiFixture : IAsyncLifetime
 {
     public ServiceApiFactory<Program> Api { get; private set; } = null!;
 
@@ -19,7 +19,7 @@ public sealed class RealtimeApiFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         ConnectionString = (await SqlServerContainer.SharedAsync()).NewDatabaseConnectionString("chat");
-        Api = new ServiceApiFactory<Program>(DependencyInjection.ConnectionName, ConnectionString);
+        Api = new ServiceApiFactory<Program>(DependencyInjection.ConnectionName, ConnectionString, await SettingsAsync());
         await Api.MigrateAsync();
     }
 
@@ -47,8 +47,17 @@ public sealed class RealtimeApiFixture : IAsyncLifetime
         await database.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<T> QueryAsync<T>(Func<ChatDbContext, Task<T>> query)
+    {
+        await using var scope = Api.Services.CreateAsyncScope();
+        return await query(scope.ServiceProvider.GetRequiredService<ChatDbContext>());
+    }
+
     public async ValueTask DisposeAsync()
     {
         await Api.DisposeAsync();
     }
+
+    protected virtual Task<Dictionary<string, string?>> SettingsAsync() =>
+        Task.FromResult(new Dictionary<string, string?> { ["Jobs:GroupEventsConsumer:Enabled"] = "false" });
 }

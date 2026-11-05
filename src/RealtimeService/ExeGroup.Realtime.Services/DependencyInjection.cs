@@ -1,5 +1,6 @@
 using ExeGroup.Realtime.Repositories;
 using ExeGroup.Realtime.Services.Conversations;
+using ExeGroup.Realtime.Services.Events;
 using ExeGroup.Realtime.Services.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ public static class DependencyInjection
         services.AddRealtimeRepositories(configuration);
         services.AddScoped<IConversationService, ConversationService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IGroupEventHandler, GroupEventHandler>();
         return services;
     }
 }
