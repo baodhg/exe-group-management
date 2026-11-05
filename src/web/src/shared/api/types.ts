@@ -34,4 +34,5 @@ export interface ListParams {
   pageSize?: number;
   fields?: string;
   expand?: string;
+  [filter: string]: string | number | boolean | undefined;
 }

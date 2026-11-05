@@ -101,6 +101,115 @@ describe("apiClient", () => {
     expect(onSignedOut).toHaveBeenCalledOnce();
   });
 
+  it("does not spend a rotated refresh token when a parallel call gets its 401 after the refresh finished", async () => {
+    const spentTokens: string[] = [];
+    let releaseLateCall!: () => void;
+    const lateCall = new Promise<void>((resolve) => {
+      releaseLateCall = resolve;
+    });
+    const fetcher = vi.fn(async (path: string, init: RequestInit) => {
+      if (path === "/api/v1/auth/refresh-token") {
+        spentTokens.push((JSON.parse(init.body as string) as { refreshToken: string }).refreshToken);
+        return envelope(200, { success: true, message: "Token refreshed", data: { accessToken: "new-access", refreshToken: "refresh-2" }, errors: null, traceId: "t" });
+      }
+
+      if (new Headers(init.headers).get("Authorization") === "Bearer old-access") {
+        if (path === "/late") {
+          await lateCall;
+        }
+
+        return envelope(401, { success: false, message: "Authentication required", data: null, errors: [{ code: "UNAUTHORIZED", field: null, message: "expired" }], traceId: "t" });
+      }
+
+      return envelope(200, { success: true, message: "ok", data: path, errors: null, traceId: "t" });
+    });
+    const store = memoryStore(session);
+    const onSignedOut = vi.fn();
+    const client = createApiClient({ fetcher: fetcher as unknown as typeof fetch, store, onSignedOut });
+
+    const first = client.get<string>("/first");
+    const late = client.get<string>("/late");
+    await first;
+    releaseLateCall();
+
+    expect((await late).data).toBe("/late");
+    expect(spentTokens).toEqual(["refresh-1"]);
+    expect(onSignedOut).not.toHaveBeenCalled();
+    expect(store.current?.refreshToken).toBe("refresh-2");
+  });
+
+  it.each([429, 502])("keeps the session when the refresh answers %i, so the user can retry", async (status) => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(envelope(401, { success: false, message: "Authentication required", data: null, errors: [{ code: "UNAUTHORIZED", field: null, message: "expired" }], traceId: "t" }))
+      .mockResolvedValueOnce(envelope(status, { success: false, message: "Unavailable", data: null, errors: [{ code: "TOO_MANY_REQUESTS", field: null, message: "later" }], traceId: "t" }));
+    const store = memoryStore(session);
+    const onSignedOut = vi.fn();
+    const client = createApiClient({ fetcher, store, onSignedOut });
+
+    await expect(client.get("/api/v1/semesters")).rejects.toMatchObject({ status: 401 });
+
+    expect(store.current).toEqual(session);
+    expect(onSignedOut).not.toHaveBeenCalled();
+  });
+
+  it("keeps the session when the refresh cannot reach the server", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(envelope(401, { success: false, message: "Authentication required", data: null, errors: [{ code: "UNAUTHORIZED", field: null, message: "expired" }], traceId: "t" }))
+      .mockRejectedValueOnce(new TypeError("network down"));
+    const store = memoryStore(session);
+    const client = createApiClient({ fetcher, store });
+
+    await expect(client.get("/api/v1/semesters")).rejects.toMatchObject({ status: 401 });
+
+    expect(store.current).toEqual(session);
+  });
+
+  it("clears the session at once on sign-out and asks the server to revoke the refresh token", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const store = memoryStore(session);
+    const client = createApiClient({ fetcher, store });
+
+    const signedOut = client.signOut();
+    expect(store.current).toBeNull();
+    await signedOut;
+
+    const [path, init] = fetcher.mock.calls[0]!;
+    expect(path).toBe("/api/v1/auth/logout");
+    expect(JSON.parse(init.body)).toEqual({ refreshToken: "refresh-1" });
+    expect(new Headers(init.headers).get("Authorization")).toBeNull();
+  });
+
+  it("still signs out locally when the server cannot be reached", async () => {
+    const fetcher = vi.fn().mockRejectedValue(new TypeError("network down"));
+    const store = memoryStore(session);
+    const client = createApiClient({ fetcher, store });
+
+    await expect(client.signOut()).resolves.toBeUndefined();
+
+    expect(store.current).toBeNull();
+  });
+
+  it("sends a partial update with PATCH", async () => {
+    const fetcher = vi.fn().mockResolvedValue(envelope(200, { success: true, message: "ok", data: { status: "Locked" }, errors: null, traceId: "t" }));
+    const client = createApiClient({ fetcher, store: memoryStore(session) });
+
+    const result = await client.patch<{ status: string }>("/api/v1/users/1/status", { status: "Locked" });
+
+    expect(result.data.status).toBe("Locked");
+    expect(fetcher.mock.calls[0]![1].method).toBe("PATCH");
+  });
+
+  it("passes resource filters along with the list parameters", async () => {
+    const fetcher = vi.fn().mockResolvedValue(envelope(200, { success: true, message: "ok", data: [], errors: null, traceId: "t" }));
+    const client = createApiClient({ fetcher, store: memoryStore(session) });
+
+    await client.get("/api/v1/join-requests", { mine: true, status: "Pending", page: 2, search: "" });
+
+    expect(fetcher.mock.calls[0]![0]).toBe("/api/v1/join-requests?mine=true&status=Pending&page=2");
+  });
+
   it("reports a non-json gateway failure as an upstream error", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response("<html>Bad Gateway</html>", { status: 502 }));
     const client = createApiClient({ fetcher, store: memoryStore(null) });

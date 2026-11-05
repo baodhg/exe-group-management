@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { createApiClient } from "../api/apiClient";
 import { AuthContext, type AuthState } from "./authContext";
@@ -9,17 +10,23 @@ function currentUser(): SessionUser | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<SessionUser | null>(currentUser);
 
-  const signOut = useCallback(() => {
-    browserSessionStore.clear();
+  const forgetUser = useCallback(() => {
+    queryClient.clear();
     setUser(null);
-  }, []);
+  }, [queryClient]);
 
   const api = useMemo(
-    () => createApiClient({ store: browserSessionStore, onSignedOut: () => setUser(null) }),
-    [],
+    () => createApiClient({ store: browserSessionStore, onSignedOut: forgetUser }),
+    [forgetUser],
   );
+
+  const signOut = useCallback(() => {
+    void api.signOut();
+    forgetUser();
+  }, [api, forgetUser]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
