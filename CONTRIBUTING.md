@@ -104,7 +104,7 @@ Mở song song các tệp của `Semesters` trong `src/GroupService` và làm y 
 |---|---|---|
 | 1. Entity | `ExeGroup.Group.Repositories/Entities/Semester.cs` | `Entities/Course.cs` |
 | 2. Cấu hình EF (tên bảng, index, CHECK **đúng tên trong `database/schema.sql`**) | `Data/Configurations/SemesterConfiguration.cs` | `CourseConfiguration.cs` + `DbSet` trong `GroupDbContext` |
-| 3. Migration | `scripts/ef.sh Group migrations add AddCourses` (Windows: `./scripts/ef.ps1 Group migrations add AddCourses`) | kiểm `scripts/ef.sh Group migrations script` khớp `schema.sql` |
+| 3. Migration | `scripts/ef.sh Group migrations add AddCourses` (Windows: `./scripts/ef.ps1 Group migrations add AddCourses`) | kiểm `scripts/ef.sh Group migrations script` khớp `schema.sql`; test tích hợp so DB thật với `schema.sql` bằng `SchemaSql` (mẫu: `tests/ExeGroup.Identity.IntegrationTests`) |
 | 4. Repository | `Interfaces/ISemesterRepository.cs`, `Repositories/SemesterRepository.cs` (SortMap có `ByDefault` + `TieBreaker`) | đăng ký trong `Repositories/DependencyInjection.cs` |
 | 5. Business model + service | `ExeGroup.Group.Services/Semesters/*` | luật nghiệp vụ, ném exception có mã; đăng ký trong `Services/DependencyInjection.cs` |
 | 6. Request / Response / mapping | `ExeGroup.Group.API/Models/Semesters/*` | DataAnnotations + 1 FluentValidator nếu có luật chéo trường |
@@ -133,7 +133,7 @@ Danh sách nhận sẵn: `search`, `sort=title,-createdAt` (nhiều trường, `
 | `web` | Lint, kiểm kiểu, test, build |
 | `docker` | Compose hợp lệ, build được mọi image |
 | `architecture` | Sơ đồ C4 hợp lệ |
-| `conventions` | Tiêu đề PR, có issue, có test, không thêm chú thích, controller dùng envelope, không chép version package, migration có thao tác đi cùng `schema.sql`, không đổi số field proto (bỏ cả file contract thì được), web không viết cứng địa chỉ server, quét secret |
+| `conventions` | Tiêu đề PR, có issue, có test, không thêm chú thích, controller dùng envelope, không chép version package, migration chỉ tạo bảng, cột, index, khóa đã khai báo trong `schema.sql` (đổi, xóa cấu trúc hoặc SQL tay thì sửa `schema.sql` cùng PR), không đổi số field proto (bỏ cả file contract thì được), web không viết cứng địa chỉ server, quét secret |
 | `infra-guard` | PR của thành viên sửa tệp ngoài `.github/member-paths.txt`, hoặc bất kỳ tệp build nào (`*.csproj`, `Directory.*`, Dockerfile...), phải được PM duyệt đúng commit mới nhất, rồi bấm Re-run job này |
 - Mã: tên định danh, message lỗi, log bằng **tiếng Anh**; chuỗi hiển thị trên web bằng tiếng Việt có dấu.
 
