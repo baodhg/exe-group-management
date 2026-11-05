@@ -1,5 +1,7 @@
 using ExeGroup.BuildingBlocks.Data;
 using ExeGroup.Identity.Repositories.Data;
+using ExeGroup.Identity.Repositories.Interfaces;
+using ExeGroup.Identity.Repositories.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,6 +14,8 @@ public static class DependencyInjection
     public static IServiceCollection AddIdentityRepositories(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSqlServerDatabase<IdentityDbContext>(configuration, ConnectionName);
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         return services;
     }
 }

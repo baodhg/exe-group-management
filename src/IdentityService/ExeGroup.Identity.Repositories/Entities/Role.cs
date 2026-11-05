@@ -1,3 +1,5 @@
+using ExeGroup.BuildingBlocks.Context;
+
 namespace ExeGroup.Identity.Repositories.Entities;
 
 public sealed class Role
@@ -5,6 +7,13 @@ public sealed class Role
     public static readonly Guid StudentId = Guid.Parse("6B1F2A40-0001-4C1A-9F00-000000000001");
     public static readonly Guid LecturerId = Guid.Parse("6B1F2A40-0002-4C1A-9F00-000000000002");
     public static readonly Guid AdministratorId = Guid.Parse("6B1F2A40-0003-4C1A-9F00-000000000003");
+
+    public static IReadOnlyDictionary<string, Guid> IdsByName { get; } = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase)
+    {
+        [Roles.Student] = StudentId,
+        [Roles.Lecturer] = LecturerId,
+        [Roles.Administrator] = AdministratorId,
+    };
 
     public Guid RoleId { get; set; }
 
