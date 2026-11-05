@@ -41,6 +41,29 @@ public sealed class EnrollStudentsRequest
     public List<Guid>? StudentIds { get; init; }
 }
 
+public sealed class SkillRatingRequest
+{
+    [Required]
+    public Guid? SkillId { get; init; }
+
+    [Required]
+    [Range(StudentProfileService.MinLevel, StudentProfileService.MaxLevel)]
+    public int? Level { get; init; }
+}
+
+public sealed record SkillLevelResponse(Guid SkillId, string SkillCode, string SkillName, byte Level, DateTime UpdatedAt);
+
+public sealed record StudentProfileResponse(
+    Guid SemesterId,
+    Guid StudentId,
+    string StudentCode,
+    string FullName,
+    Guid MajorId,
+    string MajorCode,
+    string MajorName,
+    bool SkillsLocked,
+    IReadOnlyList<SkillLevelResponse> Skills);
+
 public sealed record SemesterStudentResponse(
     Guid StudentId,
     string StudentCode,
@@ -74,6 +97,18 @@ public static class RosterMappings
 
     public static SemesterStudentResponse ToResponse(this SemesterStudentModel model) =>
         new(model.StudentId, model.StudentCode, model.FullName, model.Email, model.MajorId, model.MajorCode, model.MajorName, model.AddedAt, model.CourseCount);
+
+    public static StudentProfileResponse ToResponse(this StudentProfileModel model) =>
+        new(
+            model.SemesterId,
+            model.StudentId,
+            model.StudentCode,
+            model.FullName,
+            model.MajorId,
+            model.MajorCode,
+            model.MajorName,
+            model.SkillsLocked,
+            model.Skills.Select(skill => new SkillLevelResponse(skill.SkillId, skill.SkillCode, skill.SkillName, skill.Level, skill.UpdatedAt)).ToList());
 
     public static RosterEntryResponse ToResponse(this RosterEntryModel model) =>
         new(model.StudentId, model.StudentCode, model.FullName, model.Email, model.MajorId, model.MajorCode, model.EnrolledAt, model.RoomId, model.RoomName);

@@ -51,6 +51,16 @@ public interface IRosterRepository
 
     Task RemoveEnrollmentAsync(CourseEnrollment enrollment, CancellationToken cancellationToken);
 
+    Task<SemesterStudent?> FindWithSkillsAsync(Guid semesterId, Guid studentId, CancellationToken cancellationToken);
+
+    Task<Dictionary<Guid, Skill>> FindSkillsAsync(IReadOnlyCollection<Guid> skillIds, CancellationToken cancellationToken);
+
+    Task<Major?> FindMajorAsync(Guid majorId, CancellationToken cancellationToken);
+
+    Task<bool> HasClosedCourseAsync(Guid semesterId, Guid studentId, CancellationToken cancellationToken);
+
+    void RemoveSkill(StudentSkill skill);
+
     void Add(SemesterStudent student);
 
     void Add(CourseEnrollment enrollment);

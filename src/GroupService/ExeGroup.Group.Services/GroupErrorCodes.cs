@@ -20,4 +20,5 @@ public static class GroupErrorCodes
     public const string StudentEnrolled = "STUDENT_ENROLLED";
     public const string StudentNotInSemester = "STUDENT_NOT_IN_SEMESTER";
     public const string StudentInRoom = "STUDENT_IN_ROOM";
+    public const string SkillsLocked = "SKILLS_LOCKED";
 }
