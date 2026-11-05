@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RecommendationService\ExeGroup.Recommendation.API\ExeGroup.Recommendation.API.csproj" />
+    <ProjectReference Include="..\ExeGroup.Testing\ExeGroup.Testing.csproj" />
+  </ItemGroup>
+</Project>

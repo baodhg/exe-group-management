@@ -63,6 +63,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExeGroup.Recommendation.Ser
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExeGroup.Recommendation.Repositories", "src\RecommendationService\ExeGroup.Recommendation.Repositories\ExeGroup.Recommendation.Repositories.csproj", "{C178FF4A-1A5F-42F4-825D-3D739149A6FC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExeGroup.Recommendation.Tests", "tests\ExeGroup.Recommendation.Tests\ExeGroup.Recommendation.Tests.csproj", "{3893530B-BE7A-4C24-9BBD-831C42D049AE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -325,6 +327,18 @@ Global
 		{C178FF4A-1A5F-42F4-825D-3D739149A6FC}.Release|x64.Build.0 = Release|Any CPU
 		{C178FF4A-1A5F-42F4-825D-3D739149A6FC}.Release|x86.ActiveCfg = Release|Any CPU
 		{C178FF4A-1A5F-42F4-825D-3D739149A6FC}.Release|x86.Build.0 = Release|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Debug|x64.Build.0 = Debug|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Debug|x86.Build.0 = Debug|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Release|x64.ActiveCfg = Release|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Release|x64.Build.0 = Release|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Release|x86.ActiveCfg = Release|Any CPU
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -358,5 +372,6 @@ Global
 		{C4EB8D4C-5F47-4744-A0C7-FC45B563AB90} = {F4A54A56-9BF8-FA90-32EF-98E6BA86BF6E}
 		{0D094DC4-5362-4194-8989-93754E3665B6} = {F4A54A56-9BF8-FA90-32EF-98E6BA86BF6E}
 		{C178FF4A-1A5F-42F4-825D-3D739149A6FC} = {F4A54A56-9BF8-FA90-32EF-98E6BA86BF6E}
+		{3893530B-BE7A-4C24-9BBD-831C42D049AE} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
