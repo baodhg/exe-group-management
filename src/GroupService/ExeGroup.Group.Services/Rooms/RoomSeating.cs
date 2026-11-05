@@ -80,6 +80,16 @@ public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, I
     public async Task AddMemberAsync(Room room, Course course, Guid studentId, string joinedVia, CancellationToken cancellationToken)
     {
         await EnsureSeatAsync(room, course, studentId, cancellationToken);
+        Seat(room, studentId, joinedVia);
+        await requests.CloseAsync(await rooms.ListPendingForStudentAsync(room.CourseId, studentId, cancellationToken), JoinRequestReasons.JoinedAnotherRoom, null, cancellationToken);
+        if (room.MemberCount >= room.Capacity)
+        {
+            await requests.CloseAsync(await rooms.ListPendingForRoomAsync(room.RoomId, cancellationToken), JoinRequestReasons.RoomFull, null, cancellationToken);
+        }
+    }
+
+    public void Seat(Room room, Guid studentId, string joinedVia)
+    {
         rooms.Add(new RoomMember
         {
             MembershipId = Guid.NewGuid(),
@@ -100,12 +110,47 @@ public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, I
         {
             LeaderChanged(room);
         }
+    }
 
-        await requests.CloseAsync(await rooms.ListPendingForStudentAsync(room.CourseId, studentId, cancellationToken), JoinRequestReasons.JoinedAnotherRoom, null, cancellationToken);
-        if (room.MemberCount >= room.Capacity)
+    public async Task EndMembershipAsync(
+        Room room,
+        IReadOnlyCollection<RoomMember> members,
+        RoomMember membership,
+        string reason,
+        string? note,
+        Guid? endedBy,
+        CancellationToken cancellationToken)
+    {
+        membership.EndedAt = clock.UtcNow;
+        membership.EndReason = reason;
+        membership.EndNote = note;
+        membership.EndedBy = endedBy;
+        room.MemberCount--;
+        outbox.Enqueue(
+            GroupEventTypes.RoomMemberLeft,
+            room.RoomId,
+            new RoomMemberLeftEvent(room.CourseId, room.RoomId, room.Name, membership.StudentId, reason, note));
+        if (room.LeaderId == membership.StudentId)
         {
-            await requests.CloseAsync(await rooms.ListPendingForRoomAsync(room.RoomId, cancellationToken), JoinRequestReasons.RoomFull, null, cancellationToken);
+            room.LeaderId = members
+                .Where(member => member.EndedAt is null && member.StudentId != membership.StudentId)
+                .OrderBy(member => member.JoinedAt)
+                .FirstOrDefault()?.StudentId;
+            LeaderChanged(room);
         }
+
+        if (room.MemberCount == 0 && room.Status == RoomStatuses.Locked)
+        {
+            await ReopenAsync(room, cancellationToken);
+        }
+    }
+
+    public async Task ReopenAsync(Room room, CancellationToken cancellationToken)
+    {
+        room.Status = RoomStatuses.Open;
+        room.LockedAt = null;
+        StatusChanged(room);
+        await requests.CloseAsync(await rooms.ListPendingForRoomAsync(room.RoomId, cancellationToken), JoinRequestReasons.RoomReopened, null, cancellationToken);
     }
 
     public void LeaderChanged(Room room) =>

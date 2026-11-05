@@ -26,8 +26,6 @@ public sealed class RoomMembershipService(
     IRoomRepository rooms,
     IRoomService roomService,
     RoomSeating seating,
-    RequestCloser requests,
-    IOutbox outbox,
     ITransactionRunner transactions,
     ICurrentUser currentUser,
     IClock clock) : IRoomMembershipService
@@ -66,7 +64,7 @@ public sealed class RoomMembershipService(
                 var members = await rooms.ListActiveMembersAsync(roomId, token);
                 var membership = members.SingleOrDefault(member => member.StudentId == studentId)
                     ?? throw RoomSeating.Conflict(GroupErrorCodes.NotRoomMember, "You are not a member of this room.");
-                await EndMembershipAsync(room, members, membership, MembershipEndReasons.Left, null, null, token);
+                await seating.EndMembershipAsync(room, members, membership, MembershipEndReasons.Left, null, null, token);
                 await rooms.SaveChangesAsync(token);
                 return true;
             },
@@ -101,7 +99,7 @@ public sealed class RoomMembershipService(
             {
                 if (room.Status == RoomStatuses.Locked)
                 {
-                    await ReopenAsync(room, token);
+                    await seating.ReopenAsync(room, token);
                 }
             },
             cancellationToken);
@@ -127,7 +125,7 @@ public sealed class RoomMembershipService(
 
                 var membership = members.SingleOrDefault(member => member.StudentId == studentId)
                     ?? throw RoomSeating.Conflict(GroupErrorCodes.NotRoomMember, "The student is not a member of this room.");
-                await EndMembershipAsync(room, members, membership, MembershipEndReasons.Removed, note, leaderId, token);
+                await seating.EndMembershipAsync(room, members, membership, MembershipEndReasons.Removed, note, leaderId, token);
             },
             cancellationToken);
         return await roomService.GetAsync(roomId, cancellationToken);
@@ -175,43 +173,5 @@ public sealed class RoomMembershipService(
                 return true;
             },
             cancellationToken);
-    }
-
-    private async Task EndMembershipAsync(
-        Room room,
-        List<RoomMember> members,
-        RoomMember membership,
-        string reason,
-        string? note,
-        Guid? endedBy,
-        CancellationToken cancellationToken)
-    {
-        membership.EndedAt = clock.UtcNow;
-        membership.EndReason = reason;
-        membership.EndNote = note;
-        membership.EndedBy = endedBy;
-        room.MemberCount--;
-        outbox.Enqueue(
-            GroupEventTypes.RoomMemberLeft,
-            room.RoomId,
-            new RoomMemberLeftEvent(room.CourseId, room.RoomId, room.Name, membership.StudentId, reason, note));
-        if (room.LeaderId == membership.StudentId)
-        {
-            room.LeaderId = members.Where(member => member.StudentId != membership.StudentId).OrderBy(member => member.JoinedAt).FirstOrDefault()?.StudentId;
-            seating.LeaderChanged(room);
-        }
-
-        if (room.MemberCount == 0 && room.Status == RoomStatuses.Locked)
-        {
-            await ReopenAsync(room, cancellationToken);
-        }
-    }
-
-    private async Task ReopenAsync(Room room, CancellationToken cancellationToken)
-    {
-        room.Status = RoomStatuses.Open;
-        room.LockedAt = null;
-        seating.StatusChanged(room);
-        await requests.CloseAsync(await rooms.ListPendingForRoomAsync(room.RoomId, cancellationToken), JoinRequestReasons.RoomReopened, null, cancellationToken);
     }
 }

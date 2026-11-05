@@ -67,6 +67,12 @@ public interface IRoomRepository
 
     Task<List<RoomMember>> ListActiveMembersAsync(Guid roomId, CancellationToken cancellationToken);
 
+    Task<List<Room>> ListRoomsForUpdateAsync(Guid courseId, CancellationToken cancellationToken);
+
+    Task<List<RoomMember>> ListCourseMembershipsAsync(Guid courseId, CancellationToken cancellationToken);
+
+    Task RemoveWithHistoryAsync(Room room, CancellationToken cancellationToken);
+
     Task<RoomMember?> FindActiveMembershipAsync(Guid courseId, Guid studentId, CancellationToken cancellationToken);
 
     Task<bool> WasRemovedFromRoomAsync(Guid roomId, Guid studentId, CancellationToken cancellationToken);

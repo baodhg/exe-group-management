@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupTypeService, GroupTypeService>();
         services.AddScoped<ICourseService, CourseService>();
         services.AddScoped<ICoursePhaseService, CoursePhaseService>();
+        services.AddScoped<ICourseProgressService, CourseProgressService>();
         services.AddScoped<IRosterService, RosterService>();
         services.AddScoped<IStudentProfileService, StudentProfileService>();
         services.AddScoped<RequestCloser>();
