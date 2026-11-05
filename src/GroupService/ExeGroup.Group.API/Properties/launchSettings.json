@@ -6,7 +6,7 @@
       "applicationUrl": "http://localhost:5102",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "Redis__Connection": "localhost:16379"
+        "Redis__Connection": "127.0.0.1:16379"
       }
     }
   }
