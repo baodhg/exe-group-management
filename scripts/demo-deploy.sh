@@ -89,6 +89,7 @@ if [[ -n "$previous_tag" && "$previous_tag" != "$IMAGE_TAG" ]]; then
   echo "Rolled back to $previous_tag" >&2
 else
   echo "No earlier good version to roll back to" >&2
+  IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" stop || true
 fi
 
 exit 1
