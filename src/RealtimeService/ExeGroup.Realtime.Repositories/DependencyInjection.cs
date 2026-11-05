@@ -1,5 +1,7 @@
 using ExeGroup.BuildingBlocks.Data;
 using ExeGroup.Realtime.Repositories.Data;
+using ExeGroup.Realtime.Repositories.Interfaces;
+using ExeGroup.Realtime.Repositories.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,6 +14,9 @@ public static class DependencyInjection
     public static IServiceCollection AddRealtimeRepositories(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSqlServerDatabase<ChatDbContext>(configuration, ConnectionName);
+        services.AddScoped<IConversationRepository, ConversationRepository>();
+        services.AddScoped<IMessageRepository, MessageRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
         return services;
     }
 }
