@@ -5,6 +5,8 @@ import { useAuth } from "../../shared/auth/useAuth";
 import { phaseLabels, roomStatusLabels } from "../common/messages";
 import type { Course, JoinRequest, RoomDetail, RoomSummary } from "../common/types";
 import { Badge, ErrorNote, Loading } from "../common/ui";
+import { leadsRoom } from "./leader";
+import { LeaderPanel, MemberActions } from "./LeaderPanel";
 import { studentActionFor } from "./roomActions";
 
 export function RoomPage() {
@@ -66,6 +68,7 @@ export function RoomPage() {
     isStudent && phase && myRoom.isSuccess
       ? studentActionFor({ phase, room: detail, myRoomId: myRoom.data.data[0]?.id ?? null, hasPendingApplication: myPending.length > 0 })
       : "none";
+  const isLeader = leadsRoom(detail, user?.userId, phase);
   const back = hasRole("Administrator") ? `/admin/courses/${detail.courseId}` : hasRole("Lecturer") ? `/lecturer/courses/${detail.courseId}` : `/student/courses/${detail.courseId}`;
 
   return (
@@ -125,6 +128,8 @@ export function RoomPage() {
         <ErrorNote error={act.error} />
       </section>
 
+      {isLeader && <LeaderPanel key={detail.id} room={detail} />}
+
       <section className="card">
         <h2>Ngành</h2>
         <table>
@@ -157,6 +162,7 @@ export function RoomPage() {
               <th>Họ tên</th>
               <th>Ngành</th>
               <th>Skill</th>
+              {isLeader && <th />}
             </tr>
           </thead>
           <tbody>
@@ -168,6 +174,7 @@ export function RoomPage() {
                 </td>
                 <td>{member.majorCode}</td>
                 <td>{member.skills.map((skill) => `${skill.skillCode} ${skill.level}`).join(", ") || <span className="muted">—</span>}</td>
+                {isLeader && <td>{!member.isLeader && <MemberActions room={detail} studentId={member.studentId} />}</td>}
               </tr>
             ))}
           </tbody>
