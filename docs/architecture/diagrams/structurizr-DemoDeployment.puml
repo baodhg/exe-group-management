@@ -1,0 +1,77 @@
+@startuml
+title <size:24>Deployment View: EXE Group Management System - Demo</size>\n<size:24>Demo on the shared server behind the existing reverse proxy.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Deployment>
+
+Deployment_Node(Demo.GitHub, "GitHub", $type="github.com", $descr="", $tags="", $link="") {
+  Deployment_Node(Demo.GitHub.GitHubActions, "GitHub Actions", $type="Hosted runner", $descr="Deploys main after CI is green; holds a key limited to the deploy command", $tags="", $link="")
+}
+
+Deployment_Node(Demo.Cloudflare, "Cloudflare", $type="Proxied DNS", $descr="", $tags="", $link="") {
+  Deployment_Node(Demo.Cloudflare.Cloudflareproxy, "Cloudflare proxy", $type="Full (strict) TLS", $descr="Protects exe.qizhub.com", $tags="", $link="")
+}
+
+Deployment_Node(Demo.Sharedserver, "Shared server", $type="Ubuntu 24.04, Docker", $descr="No host ports; project exe-group-demo", $tags="", $link="") {
+  Deployment_Node(Demo.Sharedserver.NginxProxyManager, "Nginx Proxy Manager", $type="nginx-network", $descr="Owns ports 80 and 443; terminates TLS for exe.qizhub.com", $tags="", $link="")
+  Deployment_Node(Demo.Sharedserver.web, "web", $type="nginx:1.27-alpine", $descr="Alias exe-group-web on nginx-network", $tags="", $link="") {
+    Container(Demo.Sharedserver.web.SinglePageApp_1, "Single-Page App", $techn="React 19, TypeScript, Vite, nginx", $descr="UI for all roles; nginx also proxies /api and /swagger to the gateway.", $tags="", $link="")
+  }
+
+  Deployment_Node(Demo.Sharedserver.gateway, "gateway", $type="mcr.microsoft.com/dotnet/aspnet:10.0", $descr="Internal 8080", $tags="", $link="") {
+    Container(Demo.Sharedserver.gateway.APIGateway_1, "API Gateway", $techn="ASP.NET Core 10, YARP 2.3", $descr="Single public entry point: JWT check at the edge, path routing, merged Swagger UI, sign-in rate limit.", $tags="", $link="")
+  }
+
+  Deployment_Node(Demo.Sharedserver.identityservice, "identity-service", $type="mcr.microsoft.com/dotnet/aspnet:10.0", $descr="Internal 8080", $tags="", $link="") {
+    Container(Demo.Sharedserver.identityservice.IdentityService_1, "Identity Service", $techn="ASP.NET Core 10 Web API", $descr="Sign-in, JWT access and refresh tokens, users and roles.", $tags="", $link="")
+  }
+
+  Deployment_Node(Demo.Sharedserver.groupservice, "group-service", $type="mcr.microsoft.com/dotnet/aspnet:10.0", $descr="Internal 8080 (REST) and 8081 (gRPC, HTTP/2 only)", $tags="", $link="") {
+    Container(Demo.Sharedserver.groupservice.GroupService_1, "Group Service", $techn="ASP.NET Core 10 Web API + gRPC server", $descr="Semesters, courses, classes, rosters, groups; gRPC GroupMembership; outbox.", $tags="", $link="")
+  }
+
+  Deployment_Node(Demo.Sharedserver.joinrequestservice, "join-request-service", $type="mcr.microsoft.com/dotnet/aspnet:10.0", $descr="Internal 8080", $tags="", $link="") {
+    Container(Demo.Sharedserver.joinrequestservice.JoinRequestService_1, "Join Request Service", $techn="ASP.NET Core 10 Web API + gRPC client", $descr="Join-request lifecycle T1-T11; event consumer and reconciler.", $tags="", $link="")
+  }
+
+  Deployment_Node(Demo.Sharedserver.sqlserver, "sqlserver", $type="mcr.microsoft.com/mssql/server:2022-latest", $descr="Internal 1433, limited to 2 GB", $tags="", $link="") {
+    ContainerDb(Demo.Sharedserver.sqlserver.IdentityDb_1, "IdentityDb", $techn="SQL Server 2022", $descr="Users, roles and refresh tokens.", $tags="", $link="")
+    ContainerDb(Demo.Sharedserver.sqlserver.GroupDb_1, "GroupDb", $techn="SQL Server 2022", $descr="Semesters, courses, classes, rosters, groups, memberships, outbox.", $tags="", $link="")
+    ContainerDb(Demo.Sharedserver.sqlserver.RequestDb_1, "RequestDb", $techn="SQL Server 2022", $descr="Join requests and processed event ids.", $tags="", $link="")
+  }
+
+  Deployment_Node(Demo.Sharedserver.redis, "redis", $type="redis:7-alpine", $descr="Internal 6379, appendonly yes", $tags="", $link="") {
+    ContainerQueue(Demo.Sharedserver.redis.GroupEvents_1, "Group Events", $techn="Redis 7 Stream", $descr="Stream group-events: GroupMemberAdded, GroupClosed.", $tags="", $link="")
+  }
+
+}
+
+Rel(Demo.Sharedserver.web.SinglePageApp_1, Demo.Sharedserver.gateway.APIGateway_1, "Makes API calls", $techn="JSON envelope over HTTPS, /api/v1", $tags="", $link="")
+Rel(Demo.Sharedserver.gateway.APIGateway_1, Demo.Sharedserver.identityservice.IdentityService_1, "Routes /api/v1/auth, /api/v1/users", $techn="HTTP", $tags="", $link="")
+Rel(Demo.Sharedserver.gateway.APIGateway_1, Demo.Sharedserver.groupservice.GroupService_1, "Routes /api/v1/semesters", $techn="HTTP", $tags="", $link="")
+Rel(Demo.Sharedserver.gateway.APIGateway_1, Demo.Sharedserver.joinrequestservice.JoinRequestService_1, "Routes /api/v1/join-requests", $techn="HTTP", $tags="", $link="")
+Rel(Demo.Sharedserver.joinrequestservice.JoinRequestService_1, Demo.Sharedserver.groupservice.GroupService_1, "GetGroupContext, AddMemberIfEligible", $techn="gRPC, HTTP/2 :8081", $tags="", $link="")
+Rel(Demo.Sharedserver.identityservice.IdentityService_1, Demo.Sharedserver.sqlserver.IdentityDb_1, "Reads and writes", $techn="SQL", $tags="", $link="")
+Rel(Demo.Sharedserver.groupservice.GroupService_1, Demo.Sharedserver.sqlserver.GroupDb_1, "Reads and writes", $techn="SQL", $tags="", $link="")
+Rel(Demo.Sharedserver.joinrequestservice.JoinRequestService_1, Demo.Sharedserver.sqlserver.RequestDb_1, "Reads and writes", $techn="SQL", $tags="", $link="")
+Rel(Demo.Sharedserver.groupservice.GroupService_1, Demo.Sharedserver.redis.GroupEvents_1, "Publishes", $techn="XADD", $tags="", $link="")
+Rel(Demo.Sharedserver.joinrequestservice.JoinRequestService_1, Demo.Sharedserver.redis.GroupEvents_1, "Consumes", $techn="XREADGROUP / XACK", $tags="", $link="")
+Rel(Demo.Sharedserver.NginxProxyManager, Demo.Sharedserver.web.SinglePageApp_1, "Forwards exe.qizhub.com", $techn="HTTP", $tags="", $link="")
+Rel(Demo.GitHub.GitHubActions, Demo.Sharedserver.web, "Runs the deploy command for one commit", $techn="SSH", $tags="", $link="")
+Rel(Demo.Cloudflare.Cloudflareproxy, Demo.Sharedserver.NginxProxyManager, "Forwards exe.qizhub.com", $techn="HTTPS", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

@@ -38,6 +38,7 @@ Generated views (Structurizr DSL → C4-PlantUML; components marked [Planned] ar
 | Level 3 – Join Request Service | [JoinRequestComponents](docs/architecture/diagrams/structurizr-JoinRequestComponents.png) |
 | Dynamic – approving a join request | [ApproveJoinRequest](docs/architecture/diagrams/structurizr-ApproveJoinRequest.png) |
 | Deployment – Docker Compose | [Deployment](docs/architecture/diagrams/structurizr-Deployment.png) |
+| Deployment – demo server | [DemoDeployment](docs/architecture/diagrams/structurizr-DemoDeployment.png) |
 
 Regenerate after a change: `docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr export -workspace /usr/local/structurizr/workspace.dsl -format plantuml/c4plantuml -output /usr/local/structurizr/diagrams`, then render with `plantuml/plantuml -tpng`.
 
@@ -184,6 +185,28 @@ Notes:
 - gRPC from inside the network: `docker run --rm --network exe-group_default fullstorydev/grpcurl -plaintext group-service:8081 list`.
 - Stream inspection: `docker compose exec redis redis-cli XRANGE group-events - +` and
   `docker compose exec redis redis-cli XINFO GROUPS group-events`.
+
+### Demo on the shared server
+
+Merging into `main` redeploys the demo at `https://exe.qizhub.com`. After `ci` turns green on `main`, the `deploy-demo`
+workflow asks the server to deploy that commit. The server builds it, runs the smoke checks and returns to the last good
+version if anything fails. Follow it in the **Actions** tab; a failed deployment never blocks pull requests.
+
+- `docker-compose.demo.yml` is an overlay on `docker-compose.yml`: project `exe-group-demo`, Production, migrations on
+  start-up, no host ports, memory and CPU limits. `node scripts/check-demo-compose.mjs` verifies this in CI.
+- Traffic goes through Cloudflare and the server's reverse proxy to the `web` container, the only container on the shared
+  network.
+- The deploy key can only run `scripts/demo-deploy-entry.sh` for a commit that is on `main`. It lives in the `demo`
+  GitHub environment, which only `main` can use, so pull requests cannot read it.
+- Secrets stay in `demo.env` on the server (`SA_PASSWORD`, `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`,
+  `ASPNETCORE_ENVIRONMENT=Production`), never in the repository. Do not store real student data on this demo.
+- The server hosts other projects: never run `docker system prune` or `docker compose down -v` there.
+
+### Merging into main
+
+`main` accepts pull requests only. The checks `dotnet`, `web`, `docker` and `architecture` must be green on a branch that is
+up to date with `main`; nobody can skip them. Use **Update branch** when asked, and **Enable auto-merge** to let GitHub
+squash-merge once everything passes.
 
 ## 6. Demo script (end-to-end)
 

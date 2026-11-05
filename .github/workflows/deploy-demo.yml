@@ -1,0 +1,49 @@
+name: deploy-demo
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: demo
+      url: ${{ vars.DEMO_URL }}
+    env:
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+      SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.DEMO_SSH_KNOWN_HOSTS }}
+      SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
+      SSH_USER: ${{ secrets.DEMO_SSH_USER }}
+      DEMO_URL: ${{ vars.DEMO_URL }}
+    steps:
+      - name: Deploy the commit on the server
+        run: |
+          umask 077
+          printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/deploy_key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/known_hosts"
+          ssh -i "$RUNNER_TEMP/deploy_key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" \
+            -o ConnectTimeout=30 -o ServerAliveInterval=30 \
+            "$SSH_USER@$SSH_HOST" "deploy $COMMIT"
+      - name: Check the public address
+        if: env.DEMO_URL != ''
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors --output /dev/null "$DEMO_URL/health/live"
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' "$DEMO_URL/api/v1/semesters")"
+          test "$status" = 401
