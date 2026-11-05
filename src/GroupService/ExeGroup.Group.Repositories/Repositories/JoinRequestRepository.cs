@@ -60,6 +60,14 @@ public sealed class JoinRequestRepository(GroupDbContext context) : IJoinRequest
     public Task<JoinRequest?> FindAsync(Guid requestId, CancellationToken cancellationToken) =>
         context.JoinRequests.SingleOrDefaultAsync(request => request.RequestId == requestId, cancellationToken);
 
+    public Task<List<StudentSkillRow>> ListSkillsAsync(Guid semesterId, IReadOnlyCollection<Guid> studentIds, CancellationToken cancellationToken) =>
+        (from rating in context.StudentSkills.AsNoTracking()
+         where rating.SemesterId == semesterId && studentIds.Contains(rating.StudentId)
+         join skill in context.Skills on rating.SkillId equals skill.SkillId
+         orderby skill.Code
+         select new StudentSkillRow(rating.StudentId, skill.Code, rating.Level))
+            .ToListAsync(cancellationToken);
+
     public Task<bool> HasPendingAsync(Guid roomId, Guid studentId, CancellationToken cancellationToken) =>
         context.JoinRequests.AnyAsync(
             request => request.RoomId == roomId && request.StudentId == studentId && request.Status == JoinRequestStatuses.Pending,
@@ -74,6 +82,8 @@ public sealed class JoinRequestRepository(GroupDbContext context) : IJoinRequest
         join room in context.Rooms on request.RoomId equals room.RoomId
         join student in context.SemesterStudents on new { room.SemesterId, request.StudentId } equals new { student.SemesterId, student.StudentId } into students
         from student in students.DefaultIfEmpty()
+        join major in context.Majors on student.MajorId equals major.MajorId into majors
+        from major in majors.DefaultIfEmpty()
         select new JoinRequestRow
         {
             Request = request,
@@ -81,5 +91,7 @@ public sealed class JoinRequestRepository(GroupDbContext context) : IJoinRequest
             LeaderId = room.LeaderId,
             StudentCode = student.StudentCode,
             StudentName = student.FullName,
+            SemesterId = room.SemesterId,
+            MajorCode = major.Code,
         };
 }

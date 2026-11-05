@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ExeGroup.Group.API.Models.Rooms;
 using ExeGroup.Group.Services.JoinRequests;
 
 namespace ExeGroup.Group.API.Models.JoinRequests;
@@ -26,6 +27,8 @@ public sealed record JoinRequestResponse(
     Guid StudentId,
     string? StudentCode,
     string? StudentName,
+    string? MajorCode,
+    IReadOnlyList<RoomSkillResponse> Skills,
     string? Message,
     string Status,
     string? ReasonCode,
@@ -45,6 +48,8 @@ public static class JoinRequestMappings
             model.StudentId,
             model.StudentCode,
             model.StudentName,
+            model.MajorCode,
+            model.Skills.Select(skill => new RoomSkillResponse(skill.SkillCode, skill.Level)).ToList(),
             model.Message,
             model.Status,
             model.ReasonCode,
