@@ -1,3 +1,4 @@
+using System.Net;
 using ExeGroup.BuildingBlocks.Context;
 using ExeGroup.Testing;
 using Microsoft.AspNetCore.Builder;
@@ -13,6 +14,9 @@ namespace ExeGroup.ApiGateway.Tests;
 public sealed class GatewayFixture : IAsyncLifetime
 {
     public const int AuthPermits = 3;
+    public const string TestPeerHeader = "X-Test-Peer";
+
+    public int Permits { get; init; } = 1000;
 
     private WebApplication _downstream = null!;
     private WebApplicationFactory<Program> _gateway = null!;
@@ -32,7 +36,9 @@ public sealed class GatewayFixture : IAsyncLifetime
                 host.UseSetting(key, value);
             }
 
-            host.UseSetting("Gateway:AuthRateLimit:PermitLimit", AuthPermits.ToString());
+            host.UseSetting("Gateway:AuthRateLimit:PermitLimit", Permits.ToString());
+            host.UseSetting("Gateway:TrustedProxyHost", "localhost");
+            host.ConfigureServices(services => services.AddSingleton<IStartupFilter, TestPeerStartupFilter>());
             host.UseSetting("ReverseProxy:Clusters:identity:Destinations:primary:Address", echo);
             host.UseSetting("ReverseProxy:Clusters:group:Destinations:primary:Address", echo);
             host.UseSetting("ReverseProxy:Clusters:join-request:Destinations:primary:Address", "http://127.0.0.1:9");
@@ -43,6 +49,23 @@ public sealed class GatewayFixture : IAsyncLifetime
     {
         await _gateway.DisposeAsync();
         await _downstream.DisposeAsync();
+    }
+
+    private sealed class TestPeerStartupFilter : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((context, proceed) =>
+            {
+                if (IPAddress.TryParse(context.Request.Headers[TestPeerHeader], out var peer))
+                {
+                    context.Connection.RemoteIpAddress = peer;
+                }
+
+                return proceed(context);
+            });
+            next(app);
+        };
     }
 
     private static async Task<WebApplication> StartEchoServiceAsync()

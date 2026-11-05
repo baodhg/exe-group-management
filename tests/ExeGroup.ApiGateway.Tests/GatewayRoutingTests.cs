@@ -27,6 +27,7 @@ public sealed class GatewayRoutingTests(GatewayFixture gateway) : IClassFixture<
     [Theory]
     [InlineData("/api/v1/auth/login")]
     [InlineData("/api/v1/auth/refresh-token")]
+    [InlineData("/api/v1/auth/logout")]
     public async Task Sign_in_routes_pass_through_without_a_token(string path)
     {
         var (status, body) = await SendAsync(HttpMethod.Post, path);

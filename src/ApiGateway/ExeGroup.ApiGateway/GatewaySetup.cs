@@ -24,6 +24,7 @@ public static class GatewaySetup
         builder.Services.AddJwtAuthentication(builder.Configuration);
         builder.Services.AddHealthChecks();
         builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+        builder.Services.AddSingleton<ClientAddressResolver>();
 
         var permits = builder.Configuration.GetValue("Gateway:AuthRateLimit:PermitLimit", 10);
         var window = TimeSpan.FromSeconds(builder.Configuration.GetValue("Gateway:AuthRateLimit:WindowSeconds", 60));
@@ -31,7 +32,7 @@ public static class GatewaySetup
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.AddPolicy(AuthRateLimitPolicy, context => RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                context.RequestServices.GetRequiredService<ClientAddressResolver>().Resolve(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = window, QueueLimit = 0 }));
         });
 
