@@ -22,6 +22,490 @@ namespace ExeGroup.Group.Repositories.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Course", b =>
+                {
+                    b.Property<Guid>("CourseId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ClassCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime?>("ExpireAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FinalizedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LecturerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LecturerName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("MaxGroupSize")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(6, "DF_Courses_MaxGroupSize");
+
+                    b.Property<int>("MinGroupSize")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(4, "DF_Courses_MinGroupSize");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Setup", "DF_Courses_Phase");
+
+                    b.Property<DateTime?>("PublishAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("RoomFactor")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(3, 2)
+                        .HasColumnType("decimal(3,2)")
+                        .HasDefaultValue(1.20m, "DF_Courses_RoomFactor");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CourseId")
+                        .HasName("PK_Courses");
+
+                    b.HasAlternateKey("CourseId", "SemesterId")
+                        .HasName("AK_Courses_CourseId_SemesterId");
+
+                    b.HasIndex("LecturerId")
+                        .HasDatabaseName("IX_Courses_LecturerId")
+                        .HasFilter("[LecturerId] IS NOT NULL");
+
+                    b.HasIndex("Phase")
+                        .HasDatabaseName("IX_Courses_Phase");
+
+                    b.HasIndex("SubjectId")
+                        .HasDatabaseName("IX_Courses_SubjectId");
+
+                    b.HasIndex("SemesterId", "SubjectId", "ClassCode")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Courses_Semester_Subject_Class");
+
+                    b.ToTable("Courses", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Courses_GroupSize", "[MinGroupSize] >= 1 AND [MaxGroupSize] >= [MinGroupSize]");
+
+                            t.HasCheckConstraint("CK_Courses_Phase", "[Phase] IN ('Setup', 'Published', 'Expired', 'Finalized')");
+
+                            t.HasCheckConstraint("CK_Courses_RoomFactor", "[RoomFactor] >= 1.00");
+
+                            t.HasCheckConstraint("CK_Courses_Schedule", "[PublishAt] IS NULL OR [ExpireAt] IS NULL OR [ExpireAt] > [PublishAt]");
+                        });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.CourseEnrollment", b =>
+                {
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EnrolledAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_CourseEnrollments_EnrolledAt");
+
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CourseId", "StudentId")
+                        .HasName("PK_CourseEnrollments");
+
+                    b.HasIndex("SemesterId", "StudentId")
+                        .HasDatabaseName("IX_CourseEnrollments_Semester_Student");
+
+                    b.ToTable("CourseEnrollments", (string)null);
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.GroupType", b =>
+                {
+                    b.Property<Guid>("GroupTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("MinDistinctMajors")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(2, "DF_GroupTypes_MinDistinctMajors");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("GroupTypeId")
+                        .HasName("PK_GroupTypes");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_GroupTypes_Code");
+
+                    b.ToTable("GroupTypes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroupTypes_MinDistinctMajors", "[MinDistinctMajors] >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.GroupTypeMajor", b =>
+                {
+                    b.Property<Guid>("GroupTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MajorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("MinMembers")
+                        .HasColumnType("int");
+
+                    b.HasKey("GroupTypeId", "MajorId")
+                        .HasName("PK_GroupTypeMajors");
+
+                    b.HasIndex("MajorId")
+                        .HasDatabaseName("IX_GroupTypeMajors_MajorId");
+
+                    b.ToTable("GroupTypeMajors", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroupTypeMajors_MinMembers", "[MinMembers] >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.JoinRequest", b =>
+                {
+                    b.Property<Guid>("RequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_JoinRequests_CreatedAt");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DecidedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("ReasonText")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Pending", "DF_JoinRequests_Status");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("RequestId")
+                        .HasName("PK_JoinRequests");
+
+                    b.HasIndex("RoomId", "Status")
+                        .HasDatabaseName("IX_JoinRequests_Room_Status");
+
+                    b.HasIndex("RoomId", "StudentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_JoinRequests_Pending")
+                        .HasFilter("[Status] = 'Pending'");
+
+                    b.HasIndex("CourseId", "StudentId", "Status")
+                        .HasDatabaseName("IX_JoinRequests_Course_Student_Status");
+
+                    b.ToTable("JoinRequests", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_JoinRequests_ReasonCode", "[ReasonCode] IS NULL OR [ReasonCode] IN ('REJECTED_BY_LEADER', 'WITHDRAWN', 'ROOM_FULL', 'ROOM_REOPENED', 'COMPOSITION_RULE', 'JOINED_ANOTHER_ROOM', 'GROUPING_EXPIRED')");
+
+                            t.HasCheckConstraint("CK_JoinRequests_Status", "[Status] IN ('Pending', 'Approved', 'Rejected', 'Cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Major", b =>
+                {
+                    b.Property<Guid>("MajorId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("MajorId")
+                        .HasName("PK_Majors");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Majors_Code");
+
+                    b.ToTable("Majors", (string)null);
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.OutboxEvent", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AggregateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_OutboxEvents_OccurredAtUtc");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0, "DF_OutboxEvents_RetryCount");
+
+                    b.HasKey("EventId")
+                        .HasName("PK_OutboxEvents");
+
+                    b.HasIndex("OccurredAtUtc")
+                        .HasDatabaseName("IX_OutboxEvents_Unpublished")
+                        .HasFilter("[PublishedAtUtc] IS NULL");
+
+                    b.HasIndex("PublishedAtUtc")
+                        .HasDatabaseName("IX_OutboxEvents_PublishedAtUtc")
+                        .HasFilter("[PublishedAtUtc] IS NOT NULL");
+
+                    b.ToTable("OutboxEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OutboxEvents_Payload", "ISJSON([Payload]) = 1");
+                        });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Room", b =>
+                {
+                    b.Property<Guid>("RoomId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("GroupNo")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroupTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LeaderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MemberCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0, "DF_Rooms_MemberCount");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Open", "DF_Rooms_Status");
+
+                    b.Property<string>("Topic")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("RoomId")
+                        .HasName("PK_Rooms");
+
+                    b.HasAlternateKey("RoomId", "CourseId")
+                        .HasName("AK_Rooms_RoomId_CourseId");
+
+                    b.HasIndex("CourseId", "GroupNo")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Rooms_Course_GroupNo")
+                        .HasFilter("[GroupNo] IS NOT NULL");
+
+                    b.HasIndex("CourseId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Rooms_Course_Name");
+
+                    b.HasIndex("SemesterId", "GroupTypeId")
+                        .HasDatabaseName("IX_Rooms_Semester_GroupType");
+
+                    b.ToTable("Rooms", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Rooms_Leader", "([MemberCount] = 0 AND [LeaderId] IS NULL) OR ([MemberCount] > 0 AND [LeaderId] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_Rooms_MemberCount", "[MemberCount] >= 0 AND [MemberCount] <= [Capacity]");
+
+                            t.HasCheckConstraint("CK_Rooms_Status", "[Status] IN ('Open', 'Locked', 'Finalized')");
+                        });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.RoomMember", b =>
+                {
+                    b.Property<Guid>("MembershipId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EndNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("EndReason")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("EndedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_RoomMembers_JoinedAt");
+
+                    b.Property<string>("JoinedVia")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("MembershipId")
+                        .HasName("PK_RoomMembers");
+
+                    b.HasIndex("CourseId", "StudentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RoomMembers_Course_Student")
+                        .HasFilter("[EndedAt] IS NULL");
+
+                    b.HasIndex("RoomId", "StudentId")
+                        .HasDatabaseName("IX_RoomMembers_Room_Student");
+
+                    b.ToTable("RoomMembers", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RoomMembers_End", "([EndedAt] IS NULL AND [EndReason] IS NULL) OR ([EndedAt] IS NOT NULL AND [EndReason] IN ('Left', 'Removed', 'Moved'))");
+
+                            t.HasCheckConstraint("CK_RoomMembers_JoinedVia", "[JoinedVia] IN ('Open', 'Application', 'Admin')");
+
+                            t.HasCheckConstraint("CK_RoomMembers_RemovedNote", "[EndReason] IS NULL OR [EndReason] <> 'Removed' OR [EndNote] IS NOT NULL");
+                        });
+                });
+
             modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Semester", b =>
                 {
                     b.Property<Guid>("SemesterId")
@@ -56,6 +540,321 @@ namespace ExeGroup.Group.Repositories.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_Semesters_Dates", "[EndDate] > [StartDate]");
                         });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.SemesterGroupType", b =>
+                {
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("GroupTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("SemesterId", "GroupTypeId")
+                        .HasName("PK_SemesterGroupTypes");
+
+                    b.HasIndex("GroupTypeId")
+                        .HasDatabaseName("IX_SemesterGroupTypes_GroupTypeId");
+
+                    b.ToTable("SemesterGroupTypes", (string)null);
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.SemesterStudent", b =>
+                {
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AddedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_SemesterStudents_AddedAt");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("MajorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StudentCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("SemesterId", "StudentId")
+                        .HasName("PK_SemesterStudents");
+
+                    b.HasIndex("MajorId")
+                        .HasDatabaseName("IX_SemesterStudents_MajorId");
+
+                    b.ToTable("SemesterStudents", (string)null);
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Skill", b =>
+                {
+                    b.Property<Guid>("SkillId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("SkillId")
+                        .HasName("PK_Skills");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Skills_Code");
+
+                    b.ToTable("Skills", (string)null);
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.StudentSkill", b =>
+                {
+                    b.Property<Guid>("SemesterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SkillId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Level")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_StudentSkills_UpdatedAt");
+
+                    b.HasKey("SemesterId", "StudentId", "SkillId")
+                        .HasName("PK_StudentSkills");
+
+                    b.HasIndex("SkillId")
+                        .HasDatabaseName("IX_StudentSkills_SkillId");
+
+                    b.ToTable("StudentSkills", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_StudentSkills_Level", "[Level] BETWEEN 1 AND 5");
+                        });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Subject", b =>
+                {
+                    b.Property<Guid>("SubjectId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("SubjectId")
+                        .HasName("PK_Subjects");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Subjects_Code");
+
+                    b.ToTable("Subjects", (string)null);
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Course", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Semester", null)
+                        .WithMany()
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_Courses_Semesters");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Subject", null)
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_Courses_Subjects");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.CourseEnrollment", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId", "SemesterId")
+                        .HasPrincipalKey("CourseId", "SemesterId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_CourseEnrollments_Courses");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.SemesterStudent", null)
+                        .WithMany()
+                        .HasForeignKey("SemesterId", "StudentId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_CourseEnrollments_SemesterStudents");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.GroupTypeMajor", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.GroupType", null)
+                        .WithMany("Majors")
+                        .HasForeignKey("GroupTypeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_GroupTypeMajors_GroupTypes");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Major", null)
+                        .WithMany()
+                        .HasForeignKey("MajorId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_GroupTypeMajors_Majors");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.JoinRequest", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.CourseEnrollment", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId", "StudentId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_JoinRequests_CourseEnrollments");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId", "CourseId")
+                        .HasPrincipalKey("RoomId", "CourseId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_JoinRequests_Rooms");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Room", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId", "SemesterId")
+                        .HasPrincipalKey("CourseId", "SemesterId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_Rooms_Courses");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.SemesterGroupType", null)
+                        .WithMany()
+                        .HasForeignKey("SemesterId", "GroupTypeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_Rooms_SemesterGroupTypes");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.RoomMember", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.CourseEnrollment", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId", "StudentId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_RoomMembers_CourseEnrollments");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Room", null)
+                        .WithMany("Members")
+                        .HasForeignKey("RoomId", "CourseId")
+                        .HasPrincipalKey("RoomId", "CourseId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_RoomMembers_Rooms");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.SemesterGroupType", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.GroupType", null)
+                        .WithMany()
+                        .HasForeignKey("GroupTypeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_SemesterGroupTypes_GroupTypes");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Semester", null)
+                        .WithMany()
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_SemesterGroupTypes_Semesters");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.SemesterStudent", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Major", null)
+                        .WithMany()
+                        .HasForeignKey("MajorId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_SemesterStudents_Majors");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Semester", null)
+                        .WithMany()
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_SemesterStudents_Semesters");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.StudentSkill", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Skill", null)
+                        .WithMany()
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_StudentSkills_Skills");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.SemesterStudent", null)
+                        .WithMany("Skills")
+                        .HasForeignKey("SemesterId", "StudentId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_StudentSkills_SemesterStudents");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.GroupType", b =>
+                {
+                    b.Navigation("Majors");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Room", b =>
+                {
+                    b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.SemesterStudent", b =>
+                {
+                    b.Navigation("Skills");
                 });
 #pragma warning restore 612, 618
         }
