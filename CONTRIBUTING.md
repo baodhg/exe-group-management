@@ -14,7 +14,7 @@ Tài liệu này là **chuẩn chung** của nhóm. Hạ tầng, khuôn mẫu v�
 ```bash
 git clone https://github.com/baodhg/exe-group-management.git
 cd exe-group-management
-cp .env.example .env            # rồi đổi SA_PASSWORD và JWT_SIGNING_KEY (openssl rand -base64 48; khoá mẫu cố ý quá ngắn nên service sẽ không chạy nếu quên đổi)
+cp .env.example .env            # giá trị mẫu dùng ngay được trên máy cá nhân, không cần sửa
 dotnet tool restore             # cài dotnet-ef đúng phiên bản của repo
 dotnet build ExeGroup.sln
 dotnet test                     # cần Docker đang chạy
@@ -100,7 +100,17 @@ Danh sách nhận sẵn: `search`, `sort=title,-createdAt` (nhiều trường, `
 
 - Nhánh: `feat/<số-issue>-<mô-tả-ngắn>` (ví dụ `feat/20-exe-classes`), `fix/...`, cắt từ `main` mới nhất. **Không push thẳng `main`** (đã bật branch protection).
 - Commit: Conventional Commits **tiếng Anh**, ≤ 72 ký tự, nói điều thay đổi cho người đọc — `feat: let leaders approve join requests`, `fix: reject joins after the class deadline`.
-- PR: theo template, liên kết issue (`Closes #20`), ghi đã kiểm gì. CI phải xanh; tệp nền cần PM duyệt.
+- PR: tiêu đề dạng `feat(group): thêm tìm kiếm môn học` (đây sẽ là commit trên `main`). PR `feat` và `fix` phải có `Closes #20`.
+- **Merge khi và chỉ khi CI xanh, không ai có ngoại lệ, kể cả PM.** Không cần chờ review. Bấm **Enable auto-merge** là xong, nhánh cũ thì bấm **Update branch**.
+
+| Check | Máy kiểm gì |
+|---|---|
+| `dotnet` | Build không warning, `dotnet format`, toàn bộ test, đổi entity phải có migration |
+| `web` | Lint, kiểm kiểu, test, build |
+| `docker` | Compose hợp lệ, build được mọi image |
+| `architecture` | Sơ đồ C4 hợp lệ |
+| `conventions` | Tiêu đề PR, có issue, có test, không thêm chú thích, controller dùng envelope, không chép version package, migration đi cùng `schema.sql`, không đổi số field proto, web không viết cứng địa chỉ server, quét secret |
+| `infra-guard` | PR chạm hạ tầng (danh sách ở `.github/CODEOWNERS`) của thành viên phải được PM duyệt đúng commit mới nhất, rồi bấm Re-run job này |
 - Mã: tên định danh, message lỗi, log bằng **tiếng Anh**; chuỗi hiển thị trên web bằng tiếng Việt có dấu.
 
 ## 7. Web (`src/web`)
