@@ -276,3 +276,84 @@ summary {
   padding: 8px;
   border-radius: 6px;
 }
+
+.bell {
+  color: #fff;
+  text-decoration: none;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.bell .count {
+  background: #ef4444;
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 0.8em;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+
+.dot-connected {
+  background: #22c55e;
+}
+
+.dot-reconnecting,
+.dot-connecting {
+  background: #f59e0b;
+}
+
+.chat {
+  list-style: none;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.chat li {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 6px 10px;
+  max-width: 80%;
+}
+
+.chat li.own {
+  background: #dbeafe;
+  justify-self: end;
+}
+
+.chat p {
+  margin: 4px 0;
+  white-space: pre-wrap;
+}
+
+.notifications {
+  list-style: none;
+  padding: 0;
+}
+
+.notifications li {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 8px 0;
+}
+
+.notifications li.unread {
+  border-left: 3px solid #0b4a8b;
+  padding-left: 8px;
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: #0b4a8b;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}

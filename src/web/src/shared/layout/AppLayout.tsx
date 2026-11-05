@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import { useAuth } from "../auth/useAuth";
 
@@ -8,7 +9,7 @@ const links = [
   { to: "/admin/semesters", label: "Học kỳ", role: "Administrator" },
 ] as const;
 
-export function AppLayout() {
+export function AppLayout({ actions }: { actions?: ReactNode }) {
   const { user, hasRole, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -25,6 +26,7 @@ export function AppLayout() {
               </NavLink>
             ))}
         </nav>
+        {actions}
         <span className="who">{user?.roles.join(", ")}</span>
         <button
           type="button"
