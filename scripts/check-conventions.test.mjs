@@ -129,7 +129,10 @@ test("a whole proto contract can be retired", () => {
 
 test("rejects a committed env file but not the example", () => {
   assert.deepEqual(rulesFor([fileWith(".env", "A=1")]), ["secrets"]);
+  assert.deepEqual(rulesFor([fileWith(".env.local", "A=1")]), ["secrets"]);
+  assert.deepEqual(rulesFor([fileWith("src/GroupService/.env.local", "A=1")]), ["secrets"]);
   assert.deepEqual(rulesFor([fileWith(".env.example", "A=1")]), []);
+  assert.deepEqual(rulesFor([fileWith(".env.local.example", "A=1")]), []);
 });
 
 test("checks the title that becomes the commit on main", () => {

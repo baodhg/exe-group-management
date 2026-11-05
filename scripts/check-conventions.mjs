@@ -157,8 +157,8 @@ function isEmptyMigration(file) {
 export function checkFiles(files) {
   const problems = [];
   for (const file of files) {
-    if (/(^|\/)\.env$/.test(file.path)) {
-      problems.push({ path: file.path, rule: "secrets", message: "Never commit .env." });
+    if (/(^|\/)\.env(\.local)?$/.test(file.path)) {
+      problems.push({ path: file.path, rule: "secrets", message: "Never commit .env or .env.local." });
     }
 
     const rules = lineRules(file.path);
