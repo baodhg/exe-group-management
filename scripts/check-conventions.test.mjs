@@ -80,6 +80,25 @@ test("requires schema.sql to move with a migration", () => {
   assert.deepEqual(rulesFor([migration, fileWith("database/schema.sql", "CREATE TABLE Courses (Id int);")]), []);
 });
 
+test("lets a migration without operations skip schema.sql", () => {
+  const up = "protected override void Up(MigrationBuilder migrationBuilder)";
+  const added = fileWith("src/RealtimeService/R.Repositories/Data/Migrations/20261105_Baseline.cs", up, "{", "}");
+  const removed = { path: "src/JoinRequestService/J.Repositories/Data/Migrations/20261104_Baseline.cs", removed: [up, "{", "}"], added: [], deleted: true };
+  assert.deepEqual(rulesFor([added]), []);
+  assert.deepEqual(rulesFor([removed]), []);
+});
+
+test("judges a moved or emptied migration by its whole content", () => {
+  const moved = { path: "src/R/Data/Migrations/20261105_AddChat.cs", removed: ["namespace J.Migrations"], added: [{ line: 1, text: "namespace R.Migrations" }] };
+  const withTable = 'void Up(MigrationBuilder migrationBuilder) { migrationBuilder.CreateTable("Messages"); }';
+  const withoutTable = "void Up(MigrationBuilder migrationBuilder) { }";
+  assert.deepEqual(rulesFor([moved]), ["schema"]);
+  assert.deepEqual(rulesFor([{ ...moved, content: withTable }]), ["schema"]);
+  assert.deepEqual(rulesFor([{ ...moved, content: withoutTable }]), []);
+  const emptied = { ...moved, removed: ['migrationBuilder.CreateTable("Courses");'], added: [], content: withoutTable };
+  assert.deepEqual(rulesFor([emptied]), ["schema"]);
+});
+
 test("protects existing proto field numbers", () => {
   const changed = { path: "a.proto", removed: ["  string id = 1;"], added: [{ line: 1, text: "  string id = 2;" }] };
   const reserved = { path: "a.proto", removed: ["  string id = 1;"], added: [{ line: 1, text: "  reserved 1;" }] };
@@ -99,6 +118,13 @@ test("protects existing proto field numbers", () => {
   assert.deepEqual(rulesFor([changed]), ["proto"]);
   assert.deepEqual(rulesFor([reserved]), []);
   assert.deepEqual(rulesFor([added]), []);
+});
+
+test("a whole proto contract can be retired", () => {
+  const diff = ["diff --git a/a.proto b/a.proto", "deleted file mode 100644", "--- a/a.proto", "+++ /dev/null", "@@ -1 +0,0 @@", "-  string id = 1;"].join("\n");
+  const files = parseDiff(diff);
+  assert.equal(files[0].deleted, true);
+  assert.deepEqual(rulesFor(files), []);
 });
 
 test("rejects a committed env file but not the example", () => {

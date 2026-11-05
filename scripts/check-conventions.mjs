@@ -35,7 +35,11 @@ export function parseDiff(diff) {
       current = path === "/dev/null" ? null : fileAt(path.replace(/^a\//, ""));
     } else if (inHeader && text.startsWith("+++ ")) {
       const path = clean(text);
-      if (path !== "/dev/null") {
+      if (path === "/dev/null") {
+        if (current) {
+          current.deleted = true;
+        }
+      } else {
         files.delete(current?.path);
         current = fileAt(path.replace(/^b\//, ""));
       }
@@ -177,7 +181,7 @@ export function checkFiles(files) {
       }
     }
 
-    if (file.path.endsWith(".proto")) {
+    if (file.path.endsWith(".proto") && !file.deleted) {
       problems.push(...protoProblems(file));
     }
   }
