@@ -3,6 +3,9 @@
 Usage: python c4gen.py <out_dir>
 Writes fig1_c4_l1_context.svg and fig2_c4_l2_container.svg (UTF-8, no BOM).
 Edit the texts in level1() / level2() and re-run to regenerate.
+DRAFT v3.2: Student / Room Leader, Admin (the moderator of the feedback), Lecturer (read-only);
+Group Service (courses, rooms and applications) calls the Recommendation Service (gRPC only, no database);
+Group Service publishes to Redis Streams and the Realtime Service (SignalR, ChatDb) consumes.
 The diagram title lives in the Word caption (e.g. "Figure 2. Container diagram for
 EXE Group Management System"). Both figures are sized for a portrait A4 page (15.9 cm wide),
 and every connector is made of horizontal and vertical segments.
@@ -103,8 +106,10 @@ def box(s, cx, cy, w, h, name_lines, kind, tech, desc=(), fill=CONT_FILL, stroke
     x, y = cx - w / 2, cy - h / 2
     s.add(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="10" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>')
     lines = [(n, f["name"], "700") for n in name_lines]
-    if tech and split_tech:
-        lines += [(f"[{kind}:", f["small"], "400"), (f"{tech}]", f["small"], "400")]
+    if tech and split_tech:  # tech may be a list of lines, e.g. ["ASP.NET Core", "SignalR"]
+        tl = [tech] if isinstance(tech, str) else list(tech)
+        tl[-1] += "]"
+        lines += [(f"[{kind}:", f["small"], "400")] + [(t, f["small"], "400") for t in tl]
     else:
         lines.append((f"[{kind}: {tech}]" if tech else f"[{kind}]", f["small"], "400"))
     if desc:
@@ -139,11 +144,12 @@ def stream(s, cx, cy, w, h, name_lines, tech, e=13):
     lines = [(n, f["pname"], "700") for n in name_lines] + [("[Container:", f["small"], "400"), (f"{tech}]", f["small"], "400")]
     s.text_block(cx - e / 2, cy, lines)
 
-    def left_at(yy):  # x of the rounded left end at height yy, so arrows touch the outline
-        k = max(0.0, 1 - ((yy - cy) / (h / 2)) ** 2)
-        return x + e - e * math.sqrt(k)
+    def bulge(yy):
+        return e * math.sqrt(max(0.0, 1 - ((yy - cy) / (h / 2)) ** 2))
 
-    return dict(l=x, r=x + w, t=y, b=y + h, cx=cx, cy=cy, left_at=left_at)
+    # x of the rounded ends at height yy, so arrows touch the outline
+    return dict(l=x, r=x + w, t=y, b=y + h, cx=cx, cy=cy,
+                left_at=lambda yy: x + e - bulge(yy), right_at=lambda yy: x + w - e + bulge(yy))
 
 
 def boundary(s, x, y, w, h, name, kind):
@@ -222,43 +228,47 @@ def legend(s, x, y, items):
 
 # Shared by L1 and L2 so the zoom-in stays consistent (same people, same relationship meaning).
 PEOPLE = [
-    (["Student /", "Team Leader"], ["EXE student;", "may lead a group"]),
-    (["Lecturer"], ["Teaches EXE", "classes"]),
-    (["Administrator"], ["System", "administrator"]),
+    (["Student /", "Room Leader"], ["EXE student;", "may lead a room"]),
+    (["Admin"], ["Moderates group", "formation"]),
+    (["Lecturer"], ["Teaches an", "EXE class"]),
 ]
-REL_L1 = [["Forms & joins groups,", "reviews join requests"], ["Monitors grouping", "progress"], ["Manages users,", "classes & deadlines"]]
-REL_L2 = [["Forms & joins", "groups, reviews", "join requests"], ["Monitors", "grouping", "progress"], ["Manages users,", "classes &", "deadlines"]]
+REL_L1 = [["Rates skills, joins rooms,", "applies, chats"], ["Manages accounts, courses", "& rooms; finalizes groups"],
+          ["Views class progress", "and groups"]]
+REL_L2 = [["Rates skills,", "joins rooms,", "applies, chats"], ["Manages accounts,", "courses & rooms,", "finalizes groups"],
+          ["Views class", "progress", "& groups"]]
 
 
 # ---------- Level 2: Container ----------
 
-def level2(stream_name=("Group", "Events"), stream_tech="Redis Stream"):
+def level2(stream_name=("Event", "Streams"), stream_tech="Redis Streams"):
     s = Svg(0, 0, FONTS["l2"])
     f = s.f
     pad = 10
     fit = lambda *lines: max(text_width(t, sz, wt) for t, sz, wt in lines) + 2 * pad
     nm = lambda *t: [(x, f["name"], "700") for x in t]
     sm = lambda *t: [(x, f["small"], "400") for x in t]
-    yTop, yMid, yBot = 140, 445, 775
+    # service rows: Identity, Recommendation (gRPC only: no gateway route, no database), Group, Realtime
+    yTop, yRec, yMid, yRt = 140, 375, 667, 997
 
-    # people (left column)
+    # people (left column): Student, Admin, Lecturer
     wP = fit(*[(t, f["pname"], "700") for n, _ in PEOPLE for t in n], *sm(*[t for _, d in PEOPLE for t in d]))
     xP = 6 + wP / 2
-    ppl = [person(s, xP, y, n, d, w=wP, h=150 if len(n) > 1 else 124) for y, (n, d) in zip((yTop, yMid, yBot), PEOPLE)]
+    yStu, yLec = yRec, 930
+    ppl = [person(s, xP, y, n, d, w=wP, h=150 if len(n) > 1 else 124) for y, (n, d) in zip((yStu, yMid, yLec), PEOPLE)]
 
     # containers, left to right; gaps are sized to the labels that sit in them
     xb0 = ppl[1]["r"] + 16 + label_size(s, REL_L2[1])[0]                 # system boundary, left edge
     spa_desc, gw_desc = ["UI for all roles"], ["Routing,", "JWT check"]
     wSpa = fit(*nm("Single-Page"), *sm("[Container:", "React]", *spa_desc))
     wGw = fit(*nm("API Gateway"), *sm("[Container:", "YARP]", *gw_desc))
-    svc_desc = {"ids": ["Users, roles, JWT"], "grp": ["Classes, groups,", "outbox & jobs"],
-                "jrs": ["Join requests,", "consumer & jobs"]}
-    wSvc = fit(*nm("Join Request"), *sm("[Container:", "ASP.NET Core]", *sum(svc_desc.values(), [])))
-    wDb = max(text_width(t, f["pname"], "700") for t in ("IdentityDb", "GroupDb", "RequestDb")) + 24
+    svc_desc = {"ids": ["Users, roles, JWT"], "rec": ["Suggests rooms by", "major & skills"],
+                "grp": ["Courses, rooms,", "applications,", "outbox & jobs"], "rt": ["Group chat,", "notifications"]}
+    wSvc = fit(*nm("Recommendation"), *sm("[Container:", "ASP.NET Core]", *sum(svc_desc.values(), [])))
+    wDb = max(text_width(t, f["pname"], "700") for t in ("IdentityDb", "GroupDb", "ChatDb")) + 24
     wSt = max(text_width(t, f["small"]) for t in ("[Container:", f"{stream_tech}]")) + 12 + 3 * 13
 
-    api = (["Makes API", "calls"], "HTTPS")
-    route = (["Routes by", "path prefix"], "HTTP")
+    api = (["API calls,", "live updates"], "HTTPS, WSS")
+    route = (["Routes by", "path prefix"], "HTTP, WebSocket")
     rw, pub, con = (["Reads &", "writes"], "SQL"), (["Publishes"], "Redis"), (["Consumes"], "Redis")
     xSpa = xb0 + 16 + wSpa / 2
     xGw = xSpa + wSpa / 2 + label_size(s, *api)[0] + 12 + wGw / 2
@@ -270,55 +280,62 @@ def level2(stream_name=("Group", "Events"), stream_tech="Redis Stream"):
     spa = box(s, xSpa, yMid, wSpa, 160, ["Single-Page", "App"], "Container", "React", spa_desc, split_tech=True)
     gw = box(s, xGw, yMid, wGw, 144, ["API Gateway"], "Container", "YARP", gw_desc, split_tech=True)
     ids = box(s, xSvc, yTop, wSvc, 152, ["Identity", "Service"], "Container", "ASP.NET Core", svc_desc["ids"], split_tech=True)
-    grp = box(s, xSvc, yMid, wSvc, 186, ["Group", "Service"], "Container", "ASP.NET Core", svc_desc["grp"], split_tech=True)
-    jrs = box(s, xSvc, yBot, wSvc, 176, ["Join Request", "Service"], "Container", "ASP.NET Core", svc_desc["jrs"], split_tech=True)
+    rec = box(s, xSvc, yRec, wSvc, 206, ["Recommendation", "Service"], "Container", ["ASP.NET Core", "gRPC"],
+              svc_desc["rec"], split_tech=True)
+    grp = box(s, xSvc, yMid, wSvc, 208, ["Group", "Service"], "Container", "ASP.NET Core", svc_desc["grp"], split_tech=True)
+    rt = box(s, xSvc, yRt, wSvc, 206, ["Realtime", "Service"], "Container", ["ASP.NET Core", "SignalR"], svc_desc["rt"],
+             split_tech=True)
 
+    # data column; the stream sits between the publishing (Group) and the consuming (Realtime) service
+    yp, yc = grp["b"] - 18, rt["t"] + 20
     idb = database(s, xData, yTop, wDb, 120, "IdentityDb", "SQL Server")
     gdb = database(s, xData, yMid - 50, wDb, 120, "GroupDb", "SQL Server")
-    evs = stream(s, xData, 608, wSt, 220, stream_name, stream_tech)
-    rdb = database(s, xData, 812, wDb, 120, "RequestDb", "SQL Server")
+    evs = stream(s, xData, (yp + yc) / 2, wSt, 220, stream_name, stream_tech)
+    cdb = database(s, xData, yRt + 40, wDb, 120, "ChatDb", "SQL Server")
 
-    right = max(idb["r"], evs["r"]) + 14
-    bottom = max(jrs["b"], rdb["b"]) + 62
+    right = max(evs["r"], idb["r"]) + 24
+    bottom = max(rt["b"], cdb["b"]) + 62
     boundary(s, xb0, 26, right - xb0, bottom - 26, "EXE Group Management System", "Software System")
 
     # people -> single-page app: the top and bottom people enter from above / below
     lw = label_size(s, REL_L2[0])[0]
-    edge(s, [(ppl[0]["r"], yTop), (xSpa, yTop), (xSpa, spa["t"])], REL_L2[0], None, (xSpa + 8 + lw / 2, (yTop + spa["t"]) / 2))
+    edge(s, [(ppl[0]["r"], yStu), (xSpa, yStu), (xSpa, spa["t"])], REL_L2[0], None, (xSpa + 8 + lw / 2, (yStu + spa["t"]) / 2))
     lw = label_size(s, REL_L2[1])[0]
     edge(s, [(ppl[1]["r"], yMid), (spa["l"], yMid)], REL_L2[1], None, (ppl[1]["r"] + 8 + lw / 2, yMid - 8 - label_size(s, REL_L2[1])[1] / 2))
     lw = label_size(s, REL_L2[2])[0]
-    edge(s, [(ppl[2]["r"], yBot), (xSpa, yBot), (xSpa, spa["b"])], REL_L2[2], None, (xSpa + 8 + lw / 2, (yBot + spa["b"]) / 2))
+    edge(s, [(ppl[2]["r"], yLec), (xSpa, yLec), (xSpa, spa["b"])], REL_L2[2], None, (xSpa + 8 + lw / 2, (yLec + spa["b"]) / 2))
 
     # spa -> gateway
     edge(s, [(spa["r"], yMid), (gw["l"], yMid)], *api, ((spa["r"] + gw["l"]) / 2, yMid - 8 - label_size(s, *api)[1] / 2))
 
     # gateway -> services: one routing bus, one label next to it
     line(s, [(gw["r"], yMid), (jx, yMid)], arrow=False)
-    line(s, [(jx, yTop), (jx, yBot)], arrow=False)
+    line(s, [(jx, yTop), (jx, yRt)], arrow=False)
     s.add(f'<circle cx="{jx:.1f}" cy="{yMid}" r="5" fill="{EDGE}"/>')
-    for target in (ids, grp, jrs):
+    for target in (ids, grp, rt):                                        # no route to the gRPC-only service
         line(s, [(jx, target["cy"]), (target["l"], target["cy"])])
     rw_, rh_ = label_size(s, *route)
     label(s, (jx - 8 - rw_ / 2, (yTop + gw["t"]) / 2 + 20), *route)
 
-    # join request service -> group service (synchronous gRPC)
-    gx = grp["l"] + 26
-    cw, _ = label_size(s, ["Checks group,", "adds member"], "gRPC")
-    edge(s, [(gx, jrs["t"]), (gx, grp["b"])], ["Checks group,", "adds member"], "gRPC", (gx + 8 + cw / 2, (grp["b"] + jrs["t"]) / 2))
+    # group service (REST API) -> recommendation service: the only gRPC call
+    sug = (["Gets room", "suggestions"], "gRPC")
+    rx = grp["r"] - 30
+    sw_, _ = label_size(s, *sug)
+    edge(s, [(rx, grp["t"]), (rx, rec["b"])], *sug, (rx - 8 - sw_ / 2, (rec["b"] + grp["t"]) / 2))
 
     # services -> their own databases
     mid = (grp["r"] + idb["l"]) / 2
     h3 = label_size(s, *rw)[1]
     edge(s, [(ids["r"], yTop), (idb["l"], yTop)], *rw, (mid, yTop - 8 - h3 / 2))
     edge(s, [(grp["r"], gdb["cy"]), (gdb["l"], gdb["cy"])], *rw, (mid, gdb["cy"] - 8 - h3 / 2))
-    edge(s, [(jrs["r"], rdb["cy"]), (rdb["l"], rdb["cy"])], *rw, (mid, rdb["cy"] + 8 + h3 / 2))
+    edge(s, [(rt["r"], cdb["cy"]), (cdb["l"], cdb["cy"])], *rw, (mid, cdb["cy"] - 8 - h3 / 2))
 
-    # asynchronous events: Group Service = producer, Join Request Service = consumer
-    yp, yc = grp["b"] - 18, jrs["t"] + 16
+    # asynchronous events: Group publishes (outbox), Realtime consumes; labels centred on the gap to the
+    # stream, which is wider than the databases
     h2 = label_size(s, *pub)[1]
-    edge(s, [(grp["r"], yp), (evs["left_at"](yp), yp)], *pub, (mid, yp - 8 - h2 / 2), asynchronous=True)
-    edge(s, [(jrs["r"], yc), (evs["left_at"](yc), yc)], *con, (mid, yc + 8 + h2 / 2), asynchronous=True)
+    mid_s = (grp["r"] + evs["l"]) / 2
+    edge(s, [(grp["r"], yp), (evs["left_at"](yp), yp)], *pub, (mid_s, yp - 8 - h2 / 2), asynchronous=True)
+    edge(s, [(rt["r"], yc), (evs["left_at"](yc), yc)], *con, (mid_s, yc - 8 - h2 / 2), asynchronous=True)
 
     key_bottom = legend(s, 8, ppl[2]["b"] + 44, ["person", "container", "database", "stream", "sync", "async"])
     s.w, s.h = right + 6, max(bottom, key_bottom) + 10
@@ -333,7 +350,7 @@ def level1():
     yPeople = [124, 304, 484]
     ppl = [person(s, xP, y, n, d, w=196, h=134 if len(n) > 1 else 118) for y, (n, d) in zip(yPeople, PEOPLE)]
     sysb = box(s, 712, 304, 330, 210, ["EXE Group", "Management System"], "Software System", None,
-               ["Group formation, join", "requests and class", "monitoring for EXE courses"],
+               ["Admin-led group formation,", "applications, room suggestions", "and group chat"],
                fill=SYSTEM_FILL, stroke=SYSTEM_STROKE)
     xe = sysb["l"] + 70                       # the top and bottom people enter the system from above / below
     mid = (ppl[0]["r"] + xe) / 2
