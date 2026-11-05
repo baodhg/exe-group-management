@@ -22,6 +22,9 @@ case "$args" in
   *"health/ready"*)
     if [[ "$IMAGE_TAG" == "$FAKE_BROKEN_READY" ]]; then exit 22; fi
     ;;
+  *"builder prune"*)
+    if [[ -n "$FAKE_BROKEN_PRUNE" ]]; then exit 1; fi
+    ;;
 esac
 exit 0
 `;
@@ -80,6 +83,7 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
         FAKE_BROKEN_READY: fake.brokenReady ?? "",
         FAKE_BROKEN_REV_PARSE: fake.brokenRevParse ?? "",
         FAKE_OLD_SCRIPT: fake.oldScript ?? "",
+        FAKE_BROKEN_PRUNE: fake.brokenPrune ?? "",
       },
     });
     const read = (name) => (existsSync(join(state, name)) ? readFileSync(join(state, name), "utf8").trim() : null);
@@ -95,6 +99,26 @@ test("a healthy deploy records the good version", () => {
   assert.match(result.output, /Deployed new/);
   assert.equal(result.lastGood, "new");
   assert.equal(result.lastGoodCommit, "commit-of-new");
+});
+
+test("a successful deploy removes only build cache older than a week", () => {
+  const result = deployment({ lastGood: "old" });
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.calls, /docker builder prune --force --filter until=168h/);
+  assert.doesNotMatch(result.calls, /system prune|volume prune|image prune/);
+});
+
+test("a failed deploy leaves the build cache alone", () => {
+  const result = deployment({ lastGood: "old", lastGoodCommit: "abc", brokenWeb: "new" });
+  assert.equal(result.status, 1, result.output);
+  assert.doesNotMatch(result.calls, /builder prune/);
+});
+
+test("a cache cleanup that fails does not fail a good deploy", () => {
+  const result = deployment({ lastGood: "old", brokenPrune: "yes" });
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /Deployed new/);
+  assert.equal(result.lastGood, "new");
 });
 
 test("a page answering 500 fails the deploy and returns to the good version", () => {
