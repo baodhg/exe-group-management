@@ -99,5 +99,12 @@ public static class GroupSeed
         return room;
     }
 
+    public static SemesterStudent Enroll(this GroupDbContext database, Course course, Guid studentId, Guid? majorId = null)
+    {
+        var student = database.Student(course.SemesterId, majorId ?? database.Major().MajorId, studentId);
+        database.CourseEnrollments.Add(new CourseEnrollment { CourseId = course.CourseId, SemesterId = course.SemesterId, StudentId = studentId });
+        return student;
+    }
+
     public static JsonElement Data(this JsonElement body) => body.GetProperty("data");
 }
