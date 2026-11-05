@@ -172,8 +172,8 @@ cd src/web && npm ci && npm run lint && npm run typecheck && npm test && npm run
 
 Notes:
 
-- `docker-compose.override.yml` is loaded automatically in development and is the only file that publishes the SQL
-  Server and Redis ports. For a submission or demo build without it: `docker compose -f docker-compose.yml up -d --build`.
+- `docker-compose.yml` is the only file a developer needs. SQL Server and Redis publish their ports on `127.0.0.1` so `dotnet run`
+  and database tools can reach them.
 - The gateway checks the JWT for every route except `/api/v1/auth/login`, `/api/v1/auth/refresh-token`, `/api/v1/auth/logout`, `/swagger/**`
   and `/health/**`; each service checks it again and applies the business permissions.
 - Configuration comes from `appsettings.json`, overridden by environment variables such as
@@ -192,7 +192,7 @@ Merging into `main` redeploys the demo at `https://exe.qizhub.com`. After `ci` t
 workflow asks the server to deploy that commit. The server builds it, runs the smoke checks and returns to the last good
 version if anything fails. Follow it in the **Actions** tab; a failed deployment never blocks pull requests.
 
-- `docker-compose.demo.yml` is an overlay on `docker-compose.yml`: project `exe-group-demo`, Production, migrations on
+- `deploy/docker-compose.demo.yml` is an overlay on `docker-compose.yml`: project `exe-group-demo`, Production, migrations on
   start-up, no host ports, memory and CPU limits. `node scripts/check-demo-compose.mjs` verifies this in CI.
 - Traffic goes through Cloudflare and the server's reverse proxy to the `web` container, the only container on the shared
   network.
@@ -204,9 +204,10 @@ version if anything fails. Follow it in the **Actions** tab; a failed deployment
 
 ### Merging into main
 
-`main` accepts pull requests only. The checks `dotnet`, `web`, `docker` and `architecture` must be green on a branch that is
-up to date with `main`; nobody can skip them. Use **Update branch** when asked, and **Enable auto-merge** to let GitHub
-squash-merge once everything passes.
+`main` accepts pull requests only and nobody can skip the rules, administrators included. A pull request merges when
+`dotnet`, `web`, `docker`, `architecture`, `conventions` and `infra-guard` are green on a branch that is up to date with
+`main`. No review is required, except that `infra-guard` asks the project manager to approve member changes to the
+infrastructure files listed in `.github/CODEOWNERS`. See `CONTRIBUTING.md` for what each check verifies.
 
 ## 6. Demo script (end-to-end)
 

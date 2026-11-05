@@ -8,6 +8,7 @@
 /.dockerignore @baodhg
 /.env.example @baodhg
 /docker-compose*.yml @baodhg
+/deploy/ @baodhg
 /docker/ @baodhg
 /scripts/ @baodhg
 /.github/ @baodhg
@@ -21,8 +22,5 @@
 /tests/Directory.Build.props @baodhg
 /tests/ExeGroup.Testing/ @baodhg
 /tests/ExeGroup.ArchitectureTests/ @baodhg
-/database/ @baodhg
-/docs/ @baodhg
-/README.md @baodhg
 /CONTRIBUTING.md @baodhg
 /ExeGroup.sln @baodhg
