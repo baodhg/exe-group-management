@@ -16,4 +16,8 @@ public static class GroupErrorCodes
     public const string CourseNotInSetup = "COURSE_NOT_IN_SETUP";
     public const string CourseFinalized = "COURSE_FINALIZED";
     public const string CourseScheduleLocked = "COURSE_SCHEDULE_LOCKED";
+    public const string StudentMajorLocked = "STUDENT_MAJOR_LOCKED";
+    public const string StudentEnrolled = "STUDENT_ENROLLED";
+    public const string StudentNotInSemester = "STUDENT_NOT_IN_SEMESTER";
+    public const string StudentInRoom = "STUDENT_IN_ROOM";
 }

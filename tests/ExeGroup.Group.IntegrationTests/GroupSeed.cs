@@ -106,5 +106,21 @@ public static class GroupSeed
         return student;
     }
 
+    public static RoomMember Join(this GroupDbContext database, Room room, Guid studentId, string joinedVia = JoinMethods.Open)
+    {
+        var member = new RoomMember
+        {
+            MembershipId = Guid.NewGuid(),
+            RoomId = room.RoomId,
+            CourseId = room.CourseId,
+            StudentId = studentId,
+            JoinedVia = joinedVia,
+        };
+        database.RoomMembers.Add(member);
+        room.MemberCount++;
+        room.LeaderId ??= studentId;
+        return member;
+    }
+
     public static JsonElement Data(this JsonElement body) => body.GetProperty("data");
 }
