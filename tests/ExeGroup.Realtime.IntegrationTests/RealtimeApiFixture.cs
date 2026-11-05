@@ -12,16 +12,13 @@ namespace ExeGroup.Realtime.IntegrationTests;
 
 public sealed class RealtimeApiFixture : IAsyncLifetime
 {
-    private readonly SqlServerContainer _sql = new();
-
     public ServiceApiFactory<Program> Api { get; private set; } = null!;
 
     public string ConnectionString { get; private set; } = string.Empty;
 
     public async ValueTask InitializeAsync()
     {
-        await _sql.StartAsync();
-        ConnectionString = _sql.NewDatabaseConnectionString("chat");
+        ConnectionString = (await SqlServerContainer.SharedAsync()).NewDatabaseConnectionString("chat");
         Api = new ServiceApiFactory<Program>(DependencyInjection.ConnectionName, ConnectionString);
         await Api.MigrateAsync();
     }
@@ -46,6 +43,5 @@ public sealed class RealtimeApiFixture : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         await Api.DisposeAsync();
-        await _sql.DisposeAsync();
     }
 }
