@@ -8,6 +8,7 @@ Tài liệu này là **chuẩn chung** của nhóm. Hạ tầng, khuôn mẫu v�
 |---|---|---|
 | .NET SDK | 10.0.403 trở lên (ghim ở `global.json`) | `winget install Microsoft.DotNet.SDK.10` |
 | Docker Desktop | có Compose v2 | cần cho `docker compose up` và cho test tích hợp (Testcontainers) |
+| Visual Studio | 2026 (18.0 trở lên) | chỉ khi muốn chạy F5, cần bộ ASP.NET and web development. VS 2022 không mở được solution này vì SDK đòi MSBuild 18 |
 | Node.js | 22 | chỉ khi làm web (`src/web`) |
 | Git | bất kỳ | |
 
@@ -22,6 +23,28 @@ docker compose up -d --build    # cả hệ: web http://localhost:3000, gateway 
 ```
 
 Máy đã cài SQL Server sẵn (chiếm cổng 1433)? Không sao — container SQL mở ra host ở **14330** (`SQL_HOST_PORT` trong `.env`).
+
+### Chạy và debug bằng Visual Studio (F5)
+
+Cách này chạy các service ngay trên máy, chỉ SQL Server và Redis nằm trong Docker.
+
+```bash
+cp .env.local.example .env.local      # cấu hình cho F5 và dotnet run, git không theo dõi tệp này
+docker compose up -d sqlserver redis
+```
+
+1. Mở `ExeGroup.sln`. Solution Explorer phải báo đủ số project, không có `(unloaded)`.
+2. Bật một lần: **Tools > Options > All Settings > Preview Features > Enable Multi-Project Launch Profiles**.
+3. Chọn profile **All services** trên thanh công cụ rồi bấm F5.
+4. Mở gateway ở `http://localhost:5100/swagger`.
+
+- Đã đổi `SA_PASSWORD`, `SQL_HOST_PORT` hoặc `REDIS_HOST_PORT` trong `.env` thì đổi giống vậy trong `.env.local`, nếu không service sẽ không vào được SQL Server hoặc Redis.
+- Đã đổi `JWT_SIGNING_KEY`, `JWT_ISSUER` hoặc `JWT_AUDIENCE` trong `.env` thì đặt `Jwt__SigningKey`, `Jwt__Issuer`, `Jwt__Audience` giống vậy, nếu không token từ `dev-token.mjs` sẽ bị từ chối.
+- Trong `.env.local`, luôn trỏ SQL Server tới `127.0.0.1`. Với `localhost`, service trên Windows có thể hết thời gian chờ khi kết nối rồi dừng hẳn.
+- Mỗi dòng trong `.env.local` có dạng `KHOÁ=GIÁ_TRỊ`, không bọc dấu nháy và không có `export`. Chú thích chỉ hợp lệ khi nằm trên dòng riêng bắt đầu bằng `#`.
+- Thứ tự ưu tiên: dòng lệnh, biến môi trường thật, `.env.local`, rồi `appsettings`. Biến trong `launchSettings.json` cũng là biến môi trường thật, nên cổng và địa chỉ đặt ở đó không đổi được bằng `.env.local`.
+
+Không dùng Visual Studio: `dotnet run --project src/GroupService/ExeGroup.Group.API --launch-profile group-service`, các service khác tương tự.
 
 Token để thử API khi chưa có đăng nhập thật: `node scripts/dev-token.mjs Administrator` (hoặc `Student`, `Lecturer`) → dán vào nút **Authorize** trên Swagger.
 

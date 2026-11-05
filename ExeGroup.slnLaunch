@@ -1,0 +1,27 @@
+[
+  {
+    "Name": "All services",
+    "Projects": [
+      {
+        "Path": "src\\IdentityService\\ExeGroup.Identity.API\\ExeGroup.Identity.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\GroupService\\ExeGroup.Group.API\\ExeGroup.Group.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\RecommendationService\\ExeGroup.Recommendation.API\\ExeGroup.Recommendation.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\RealtimeService\\ExeGroup.Realtime.API\\ExeGroup.Realtime.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\ApiGateway\\ExeGroup.ApiGateway\\ExeGroup.ApiGateway.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

@@ -21,5 +21,8 @@ Thumbs.db
 
 # Secrets - never commit
 .env
+.env.*
+!.env.example
+!.env.local.example
 *.pfx
 appsettings.*.local.json

@@ -5,8 +5,7 @@
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5102",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "Redis__Connection": "localhost:16379"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }
   }

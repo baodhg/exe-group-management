@@ -129,7 +129,44 @@ test("a whole proto contract can be retired", () => {
 
 test("rejects a committed env file but not the example", () => {
   assert.deepEqual(rulesFor([fileWith(".env", "A=1")]), ["secrets"]);
+  assert.deepEqual(rulesFor([fileWith(".env.local", "A=1")]), ["secrets"]);
+  assert.deepEqual(rulesFor([fileWith("src/GroupService/.env.local", "A=1")]), ["secrets"]);
+  for (const name of [".env.local.txt", ".env.local.bak", ".env.development.local", ".ENV.LOCAL", ".env.Local", "deploy/.env.production"]) {
+    assert.deepEqual(rulesFor([fileWith(name, "A=1")]), ["secrets"], name);
+  }
   assert.deepEqual(rulesFor([fileWith(".env.example", "A=1")]), []);
+  assert.deepEqual(rulesFor([fileWith(".env.local.example", "A=1")]), []);
+  assert.deepEqual(rulesFor([fileWith("src/web/environment.ts", "export const a = 1;")]), []);
+});
+
+test("an env file renamed from the template without any change is still found", () => {
+  const diff = ["diff --git a/.env.local.example b/.env.local", "similarity index 100%", "rename from .env.local.example", "rename to .env.local"].join("\n");
+  const files = parseDiff(diff);
+  assert.deepEqual(files.map((file) => file.path), [".env.local"]);
+  assert.deepEqual(rulesFor(files), ["secrets"]);
+});
+
+test("an env file committed as binary is still found", () => {
+  const diff = ["diff --git a/.env.local b/.env.local", "new file mode 100644", "index 0000000..1111111", "Binary files /dev/null and b/.env.local differ"].join("\n");
+  const files = parseDiff(diff);
+  assert.deepEqual(files.map((file) => file.path), [".env.local"]);
+  assert.deepEqual(rulesFor(files), ["secrets"]);
+});
+
+test("deleting a binary file is not read as adding it", () => {
+  const diff = ["diff --git a/docs/a.png b/docs/a.png", "deleted file mode 100644", "Binary files a/docs/a.png and /dev/null differ"].join("\n");
+  assert.deepEqual(parseDiff(diff), []);
+});
+
+test("moving a migration without changing it does not ask for a schema change", () => {
+  const moved = { path: "src/GroupService/ExeGroup.Group.Repositories/Migrations/1_Add.cs", added: [], removed: [], content: "protected override void Up(MigrationBuilder migrationBuilder) { migrationBuilder.CreateTable(); }" };
+  assert.deepEqual(rulesFor([moved]), []);
+  const edited = { ...moved, added: [{ line: 1, text: "migrationBuilder.DropTable();" }] };
+  assert.deepEqual(rulesFor([edited]), ["schema"]);
+});
+
+test("the local settings template follows the no comment rule", () => {
+  assert.equal(hasComment(".env.local.example", "# note"), true);
 });
 
 test("checks the title that becomes the commit on main", () => {
