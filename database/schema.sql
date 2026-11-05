@@ -52,9 +52,23 @@ CREATE TABLE dbo.[UserRoles] (
 CREATE INDEX [IX_UserRoles_RoleId] ON dbo.[UserRoles] ([RoleId]);
 GO
 
--- Foreign keys (NO ACTION except UserRoles -> Users, to avoid multiple cascade paths)
+CREATE TABLE dbo.[RefreshTokens] (
+    [RefreshTokenId] uniqueidentifier NOT NULL,
+    [UserId] uniqueidentifier NOT NULL,
+    [TokenHash] char(64) NOT NULL,
+    [ExpiresAt] datetime2 NOT NULL,
+    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_RefreshTokens_CreatedAt] DEFAULT (SYSUTCDATETIME()),
+    [RevokedAt] datetime2 NULL,
+    [ReplacedByTokenId] uniqueidentifier NULL,
+    CONSTRAINT [PK_RefreshTokens] PRIMARY KEY CLUSTERED ([RefreshTokenId])
+);
+CREATE UNIQUE INDEX [UX_RefreshTokens_TokenHash] ON dbo.[RefreshTokens] ([TokenHash]);
+CREATE INDEX [IX_RefreshTokens_UserId] ON dbo.[RefreshTokens] ([UserId]);
+GO
+
 ALTER TABLE dbo.[UserRoles] ADD CONSTRAINT [FK_UserRoles_Users] FOREIGN KEY ([UserId]) REFERENCES dbo.[Users] ([UserId]) ON DELETE CASCADE;
 ALTER TABLE dbo.[UserRoles] ADD CONSTRAINT [FK_UserRoles_Roles] FOREIGN KEY ([RoleId]) REFERENCES dbo.[Roles] ([RoleId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[RefreshTokens] ADD CONSTRAINT [FK_RefreshTokens_Users] FOREIGN KEY ([UserId]) REFERENCES dbo.[Users] ([UserId]) ON DELETE CASCADE;
 GO
 
 -- Seed data: global roles

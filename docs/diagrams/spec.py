@@ -4,8 +4,8 @@ PROJECT = {
     "style": "Microservices architecture, documented with the C4 model (Level 1 & Level 2)",
     "instructor": "PhuongLHK",
     "semester": "Fall 2026 (FA26)",
-    "version": "2.1",
-    "date": "November 4, 2026",
+    "version": "2.2",
+    "date": "November 5, 2026",
 }
 
 STATUS_VALUES = {
@@ -37,10 +37,6 @@ def col(name, sqltype, nullable=False, key="", default=None, desc=""):
     return {"name": name, "type": sqltype, "null": nullable, "key": key, "default": default, "desc": desc}
 
 
-# ---------------------------------------------------------------------------
-# Physical model (SQL Server 2022, one instance hosting three databases)
-# key codes: PK, FK, UK (part of a unique key), LR = logical (cross-database) reference, no FK
-# ---------------------------------------------------------------------------
 DATABASES = [
     {
         "name": "IdentityDb",
@@ -89,6 +85,23 @@ DATABASES = [
                     ("FK_UserRoles_Users", ["UserId"], "Users", ["UserId"], "CASCADE"),
                     ("FK_UserRoles_Roles", ["RoleId"], "Roles", ["RoleId"], "NO ACTION"),
                 ],
+            },
+            {
+                "name": "RefreshTokens",
+                "desc": "Rotating refresh tokens; only a hash is stored.",
+                "columns": [
+                    col("RefreshTokenId", "uniqueidentifier", key="PK", desc="Surrogate key."),
+                    col("UserId", "uniqueidentifier", key="FK", desc="References Users(UserId); cascade delete."),
+                    col("TokenHash", "char(64)", key="UK", desc="SHA-256 (hex) of the refresh token; the token itself is never stored."),
+                    col("ExpiresAt", "datetime2", desc="Expiry (UTC); default lifetime 7 days (Jwt:RefreshTokenDays)."),
+                    col("CreatedAt", "datetime2", default="SYSUTCDATETIME()", desc="Issue time (UTC)."),
+                    col("RevokedAt", "datetime2", True, desc="Set when the token is used (rotation), on sign-out or when the account is locked."),
+                    col("ReplacedByTokenId", "uniqueidentifier", True, desc="Token issued when this one was rotated; reuse of a revoked token revokes the whole chain."),
+                ],
+                "pk": ["RefreshTokenId"],
+                "unique_indexes": [("UX_RefreshTokens_TokenHash", ["TokenHash"], None)],
+                "indexes": [("IX_RefreshTokens_UserId", ["UserId"], None, None)],
+                "fks": [("FK_RefreshTokens_Users", ["UserId"], "Users", ["UserId"], "CASCADE")],
             },
         ],
     },
@@ -326,10 +339,9 @@ LR_TARGET = {
     ("ProcessedEvents", "EventId"): "OutboxEvents",
 }
 
-# Cross-database references (no physical FK; integrity is kept by the owning service).
 LOGICAL_REFS = [
     ("GroupDb.ExeClasses.LecturerId", "IdentityDb.Users", "The Administrator picks a user with the Lecturer role when creating or updating the class."),
-    ("GroupDb.ClassEnrollments.StudentId", "IdentityDb.Users", "The Administrator enrolls existing Student accounts chosen from GET /api/users?role=Student; code, name and e-mail are stored as snapshots and refreshed when the roster is imported again."),
+    ("GroupDb.ClassEnrollments.StudentId", "IdentityDb.Users", "The Administrator enrolls existing Student accounts chosen from GET /api/v1/users?role=Student; code, name and e-mail are stored as snapshots and refreshed when the roster is imported again."),
     ("GroupDb.Groups.LeaderId", "IdentityDb.Users", "A member of the group while it is not Dissolved (checked in Group Service)."),
     ("GroupDb.GroupMembers.StudentId", "IdentityDb.Users", "The FK to ClassEnrollments guarantees the student is enrolled in the class."),
     ("GroupDb.AddMemberRequests.StudentId", "IdentityDb.Users", "Copied from the AddMemberIfEligible request."),
@@ -339,48 +351,46 @@ LOGICAL_REFS = [
     ("RequestDb.ProcessedEvents.EventId", "GroupDb.OutboxEvents.EventId", "Carried in the Redis Streams message envelope; used for de-duplication."),
 ]
 
-# ---------------------------------------------------------------------------
-# REST API (all routes go through the API Gateway; JSON)
-# ---------------------------------------------------------------------------
 ENDPOINTS = {
     "Identity Service": [
-        ("POST", "/api/auth/login", "Anonymous", "Verify credentials and issue a JWT access token (60 min)."),
-        ("GET", "/api/auth/me", "Any signed-in user", "Current profile and roles."),
-        ("PUT", "/api/auth/me", "Any signed-in user", "Update own profile (full name)."),
-        ("GET", "/api/users", "Administrator", "Search users; filter by `role` and `status`; sort and paging."),
-        ("GET", "/api/users/{id}", "Administrator", "User details."),
-        ("POST", "/api/users", "Administrator", "Create an account with roles (Student accounts require a user code)."),
-        ("PUT", "/api/users/{id}", "Administrator", "Update e-mail, user code and full name."),
-        ("PATCH", "/api/users/{id}/status", "Administrator", "Lock or unlock an account (accounts are deactivated, not deleted)."),
-        ("PUT", "/api/users/{id}/roles", "Administrator", "Replace the role set of a user."),
+        ("POST", "/api/v1/auth/login", "Anonymous", "Verify credentials and issue a JWT access token (60 min) and a refresh token (7 days)."),
+        ("POST", "/api/v1/auth/refresh-token", "Anonymous", "Rotate a refresh token: revoke it and issue a new access + refresh token pair."),
+        ("GET", "/api/v1/auth/me", "Any signed-in user", "Current profile and roles."),
+        ("PUT", "/api/v1/auth/me", "Any signed-in user", "Update own profile (full name)."),
+        ("GET", "/api/v1/users", "Administrator", "Search users; filter by `role` and `status`; sort and paging."),
+        ("GET", "/api/v1/users/{id}", "Administrator", "User details."),
+        ("POST", "/api/v1/users", "Administrator", "Create an account with roles (Student accounts require a user code)."),
+        ("PUT", "/api/v1/users/{id}", "Administrator", "Update e-mail, user code and full name."),
+        ("PATCH", "/api/v1/users/{id}/status", "Administrator", "Lock or unlock an account (accounts are deactivated, not deleted)."),
+        ("PUT", "/api/v1/users/{id}/roles", "Administrator", "Replace the role set of a user."),
     ],
     "Group Service": [
-        ("GET", "/api/semesters", "Any signed-in user", "List semesters (paged, sortable)."),
-        ("POST / PUT / DELETE", "/api/semesters[/{id}]", "Administrator", "Create, update, delete a semester (delete only when it has no classes)."),
-        ("GET", "/api/courses", "Any signed-in user", "List courses (paged, sortable)."),
-        ("POST / PUT / DELETE", "/api/courses[/{id}]", "Administrator", "Create, update, delete a course (delete only when unused)."),
-        ("GET", "/api/classes", "Any signed-in user", "Filter by `semesterId`, `courseId`, `search`; `mine=true` returns the classes the caller is enrolled in (with `myGroupId` and `isLeader`) or teaches."),
-        ("GET", "/api/classes/{id}", "Any signed-in user", "Class details with MinMembers, MaxMembers, Deadline, Status."),
-        ("POST / PUT / DELETE", "/api/classes[/{id}]", "Administrator", "Create; update lecturer, limits and deadline (rule BR-09); delete only when the class has no groups – its roster is deleted in the same transaction."),
-        ("GET", "/api/classes/{id}/enrollments", "Lecturer (assigned), Administrator", "Class roster; `grouped=false` lists the ungrouped students; search and paging."),
-        ("POST", "/api/classes/{id}/enrollments", "Administrator", "Enroll or refresh a batch of students picked from the user list (studentId plus code, name and e-mail snapshots; upsert)."),
-        ("DELETE", "/api/classes/{id}/enrollments/{studentId}", "Administrator", "Remove a student who is not in a group."),
-        ("GET", "/api/classes/{id}/overview", "Lecturer (assigned), Administrator", "Grouping statistics: grouped / ungrouped counts, groups by status, under-filled groups."),
-        ("GET", "/api/groups", "Any signed-in user (scoped)", "Search groups of the caller's classes (Students: enrolled, Lecturers: assigned, Administrators: all); filter by `classId`, `status`, `hasOpenSlots`; sort by `createdAt`, `title` or `memberCount`; paging."),
-        ("GET", "/api/groups/{id}", "Any signed-in user (scoped)", "Group details with member list (names from the roster snapshot)."),
-        ("POST", "/api/groups", "Student (eligible)", "Create a group; the creator becomes Team Leader and first member."),
-        ("PUT", "/api/groups/{id}", "Team Leader", "Edit title and description."),
-        ("DELETE", "/api/groups/{id}", "Team Leader", "Dissolve the group: only when the leader is the sole member, before the deadline."),
-        ("PUT", "/api/groups/{id}/leader", "Team Leader", "Transfer leadership to another member."),
-        ("DELETE", "/api/groups/{id}/members/{studentId}", "Member (self), Team Leader", "Leave the group or remove a member, before the deadline; the leader must transfer leadership first."),
+        ("GET", "/api/v1/semesters", "Any signed-in user", "List semesters (paged, sortable)."),
+        ("POST / PUT / DELETE", "/api/v1/semesters[/{id}]", "Administrator", "Create, update, delete a semester (delete only when it has no classes)."),
+        ("GET", "/api/v1/courses", "Any signed-in user", "List courses (paged, sortable)."),
+        ("POST / PUT / DELETE", "/api/v1/courses[/{id}]", "Administrator", "Create, update, delete a course (delete only when unused)."),
+        ("GET", "/api/v1/classes", "Any signed-in user", "Filter by `semesterId`, `courseId`, `search`; `mine=true` returns the classes the caller is enrolled in (with `myGroupId` and `isLeader`) or teaches."),
+        ("GET", "/api/v1/classes/{id}", "Any signed-in user", "Class details with MinMembers, MaxMembers, Deadline, Status."),
+        ("POST / PUT / DELETE", "/api/v1/classes[/{id}]", "Administrator", "Create; update lecturer, limits and deadline (rule BR-09); delete only when the class has no groups – its roster is deleted in the same transaction."),
+        ("GET", "/api/v1/classes/{id}/enrollments", "Lecturer (assigned), Administrator", "Class roster; `grouped=false` lists the ungrouped students; search and paging."),
+        ("POST", "/api/v1/classes/{id}/enrollments", "Administrator", "Enroll or refresh a batch of students picked from the user list (studentId plus code, name and e-mail snapshots; upsert)."),
+        ("DELETE", "/api/v1/classes/{id}/enrollments/{studentId}", "Administrator", "Remove a student who is not in a group."),
+        ("GET", "/api/v1/classes/{id}/overview", "Lecturer (assigned), Administrator", "Grouping statistics: grouped / ungrouped counts, groups by status, under-filled groups."),
+        ("GET", "/api/v1/groups", "Any signed-in user (scoped)", "Search groups of the caller's classes (Students: enrolled, Lecturers: assigned, Administrators: all); filter by `classId`, `status`, `hasOpenSlots`; sort by `createdAt`, `title` or `memberCount`; paging."),
+        ("GET", "/api/v1/groups/{id}", "Any signed-in user (scoped)", "Group details with member list (names from the roster snapshot)."),
+        ("POST", "/api/v1/groups", "Student (eligible)", "Create a group; the creator becomes Team Leader and first member."),
+        ("PUT", "/api/v1/groups/{id}", "Team Leader", "Edit title and description."),
+        ("DELETE", "/api/v1/groups/{id}", "Team Leader", "Dissolve the group: only when the leader is the sole member, before the deadline."),
+        ("PUT", "/api/v1/groups/{id}/leader", "Team Leader", "Transfer leadership to another member."),
+        ("DELETE", "/api/v1/groups/{id}/members/{studentId}", "Member (self), Team Leader", "Leave the group or remove a member, before the deadline; the leader must transfer leadership first."),
     ],
     "Join Request Service": [
-        ("GET", "/api/join-requests", "Student; Team Leader", "`mine=true` returns own requests (with group title); `groupId={id}` returns the requests of the leader's group (with the requester's code and name); filter by `status`; paging."),
-        ("GET", "/api/join-requests/{id}", "Requester, Team Leader", "Request details and current status (used for polling after approve)."),
-        ("POST", "/api/join-requests", "Student (eligible)", "Submit a request to a group → 201, status Pending."),
-        ("POST", "/api/join-requests/{id}/cancel", "Requester", "Cancel a Pending request → Cancelled."),
-        ("POST", "/api/join-requests/{id}/approve", "Team Leader", "Approve → 202 Accepted with `Location: /api/join-requests/{id}` and `{ requestId, status: Processing }`; 409 with the rule that failed."),
-        ("POST", "/api/join-requests/{id}/reject", "Team Leader", "Reject with an optional text → Rejected (REJECTED_BY_LEADER)."),
+        ("GET", "/api/v1/join-requests", "Student; Team Leader", "`mine=true` returns own requests (with group title); `groupId={id}` returns the requests of the leader's group (with the requester's code and name); filter by `status`; paging."),
+        ("GET", "/api/v1/join-requests/{id}", "Requester, Team Leader", "Request details and current status (used for polling after approve)."),
+        ("POST", "/api/v1/join-requests", "Student (eligible)", "Submit a request to a group → 201, status Pending."),
+        ("POST", "/api/v1/join-requests/{id}/cancel", "Requester", "Cancel a Pending request → Cancelled."),
+        ("POST", "/api/v1/join-requests/{id}/approve", "Team Leader", "Approve → 202 Accepted with `Location: /api/join-requests/{id}` and `{ requestId, status: Processing }`; 409 with the rule that failed."),
+        ("POST", "/api/v1/join-requests/{id}/reject", "Team Leader", "Reject with an optional text → Rejected (REJECTED_BY_LEADER)."),
     ],
 }
 
@@ -449,9 +459,6 @@ JOBS = [
      "Deletes OutboxEvents published more than 7 days ago and AddMemberRequests and ProcessedEvents older than 30 days; the stream itself is capped by XADD MAXLEN ~ 10000."),
 ]
 
-# ---------------------------------------------------------------------------
-# Deployment (Docker Compose)
-# ---------------------------------------------------------------------------
 COMPOSE = [
     ("web", "nginx:1.27-alpine + React build", "3000 → 80", "gateway", "Serves the Single-Page App and reverse-proxies /api and /swagger to the gateway (same origin, so no CORS)."),
     ("gateway", "Build: src/ApiGateway (YARP)", "8080 → 8080", "identity-service, group-service, join-request-service", "Single public API entry point; validates the JWT; routes by path prefix; Swagger UI."),
@@ -463,9 +470,9 @@ COMPOSE = [
 ]
 
 GATEWAY_ROUTES = [
-    ("/api/auth/login", "identity-service – anonymous (no JWT required)"),
-    ("/api/auth/**, /api/users/**", "identity-service"),
-    ("/api/semesters/**, /api/courses/**, /api/classes/**, /api/groups/**", "group-service"),
-    ("/api/join-requests/**", "join-request-service"),
+    ("/api/v1/auth/login, /api/v1/auth/refresh-token", "identity-service – anonymous (no JWT required), rate limited"),
+    ("/api/v1/auth/**, /api/v1/users/**", "identity-service"),
+    ("/api/v1/semesters/**, /api/v1/courses/**, /api/v1/classes/**, /api/v1/groups/**", "group-service"),
+    ("/api/v1/join-requests/**", "join-request-service"),
     ("/swagger/{identity|group|join-request}/**", "OpenAPI document of the matching service (prefix removed); the Swagger UI at /swagger lists all three"),
 ]

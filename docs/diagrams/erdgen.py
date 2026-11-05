@@ -394,13 +394,17 @@ def physical_identitydb():
     users = T["Users"].at(20, 20)
     ur = T["UserRoles"].at(users.r + 120, users.y)
     roles = T["Roles"].at(ur.x, ur.b + 78)
+    tokens = T["RefreshTokens"].at(users.x, users.b + 78)
     y = row_y(users, "UserId")
     connector(svg, [(users.r, y), (ur.l, y)], "one", "many")
     label(svg, (users.r + ur.l) / 2, y - 14, "UserId", PF["label"])
     x = ur.x + min(ur.w, roles.w) / 2
     connector(svg, [(x, roles.t), (x, ur.b)], "one", "many")
     label(svg, x + 8, (ur.b + roles.t) / 2, "RoleId", PF["label"], "start")
-    return finish(svg, [users, ur, roles], "IdentityDb", KEY_TEXT + [NOTATION[0], NOTATION[2]])  # no zero-or-one here
+    xt = users.x + min(users.w, tokens.w) / 2
+    connector(svg, [(xt, users.b), (xt, tokens.t)], "one", "many")
+    label(svg, xt + 8, (users.b + tokens.t) / 2, "UserId", PF["label"], "start")
+    return finish(svg, [users, ur, roles, tokens], "IdentityDb", KEY_TEXT + [NOTATION[0], NOTATION[2]])
 
 
 def physical_groupdb():
