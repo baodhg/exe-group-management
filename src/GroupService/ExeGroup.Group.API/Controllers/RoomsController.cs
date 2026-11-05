@@ -34,7 +34,7 @@ public sealed class CourseRoomsController(IRoomService rooms, ISuggestionService
         Success((await suggestions.SuggestRoomsAsync(courseId, top, cancellationToken)).ToResponse(), "Room suggestions loaded");
 
     [HttpGet]
-    [EndpointSummary("Rooms of a course; filter status, hasSeat, groupTypeId; search name or topic")]
+    [EndpointSummary("Rooms of a course; filter status, hasSeat, groupTypeId, mine=true for my room; search name or topic")]
     [ProducesResponseType<ApiResponse<IReadOnlyList<RoomSummaryResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> List(
@@ -43,10 +43,11 @@ public sealed class CourseRoomsController(IRoomService rooms, ISuggestionService
         [FromQuery] string? status,
         [FromQuery] bool? hasSeat,
         [FromQuery] Guid? groupTypeId,
+        [FromQuery] bool? mine,
         CancellationToken cancellationToken)
     {
         var query = request.ToListQuery();
-        var page = await rooms.ListAsync(courseId, new RoomListFilter(status, hasSeat, groupTypeId), query, cancellationToken);
+        var page = await rooms.ListAsync(courseId, new RoomListFilter(status, hasSeat, groupTypeId, mine == true), query, cancellationToken);
         return Paged(page.Map(model => model.ToResponse()), query, "Rooms loaded");
     }
 }

@@ -51,7 +51,7 @@ public sealed record RoomDetailModel(
 
 public sealed record RoomChanges(string? Name, string? Topic, Guid? GroupTypeId);
 
-public sealed record RoomListFilter(string? Status, bool? HasSeat, Guid? GroupTypeId);
+public sealed record RoomListFilter(string? Status, bool? HasSeat, Guid? GroupTypeId, bool Mine = false);
 
 public sealed record RoomGenerationModel(int Target, int Created, IReadOnlyList<RoomSummaryModel> Rooms);
 
@@ -83,7 +83,8 @@ public sealed class RoomService(IRoomRepository rooms, ITransactionRunner transa
                 ?? throw new ValidationFailedException("status", $"Status must be one of {string.Join(", ", Statuses)}.");
         }
 
-        return (await rooms.GetPageAsync(courseId, new RoomFilter(status, filter.HasSeat, filter.GroupTypeId), query, cancellationToken)).Map(ToSummary);
+        var memberId = filter.Mine ? currentUser.RequireUserId() : (Guid?)null;
+        return (await rooms.GetPageAsync(courseId, new RoomFilter(status, filter.HasSeat, filter.GroupTypeId, memberId), query, cancellationToken)).Map(ToSummary);
     }
 
     public async Task<RoomDetailModel> GetAsync(Guid roomId, CancellationToken cancellationToken)

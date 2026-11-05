@@ -37,6 +37,22 @@ public sealed class RoomsEndpointTests(GroupApiFixture fixture) : IClassFixture<
     }
 
     [Fact]
+    public async Task Mine_lists_only_the_room_I_am_in()
+    {
+        var (member, waiting) = (Guid.NewGuid(), Guid.NewGuid());
+        var scenario = await RoomScenario.CreateAsync(fixture, [(member, false), (waiting, false)], rooms: 3);
+        await RoomScenario.As(fixture, member).PostAsync($"/api/v1/rooms/{scenario.Rooms[1]}/join", null, Ct);
+
+        var mine = await DataAsync(await RoomScenario.As(fixture, member).GetAsync($"/api/v1/courses/{scenario.CourseId}/rooms?mine=true", Ct));
+        var none = await DataAsync(await RoomScenario.As(fixture, waiting).GetAsync($"/api/v1/courses/{scenario.CourseId}/rooms?mine=true", Ct));
+        var all = await DataAsync(await RoomScenario.As(fixture, waiting).GetAsync($"/api/v1/courses/{scenario.CourseId}/rooms", Ct));
+
+        Assert.Equal(scenario.Rooms[1], Assert.Single(mine.EnumerateArray()).GetProperty("id").GetGuid());
+        Assert.Empty(none.EnumerateArray());
+        Assert.Equal(3, all.GetArrayLength());
+    }
+
+    [Fact]
     public async Task The_leader_sets_the_topic_and_administrators_rename_only_in_setup()
     {
         var (leader, member) = (Guid.NewGuid(), Guid.NewGuid());

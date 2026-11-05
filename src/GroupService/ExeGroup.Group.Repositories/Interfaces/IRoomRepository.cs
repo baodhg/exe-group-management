@@ -12,7 +12,7 @@ public sealed class RoomRow
     public string? LeaderName { get; init; }
 }
 
-public sealed record RoomFilter(string? Status, bool? HasSeat, Guid? GroupTypeId);
+public sealed record RoomFilter(string? Status, bool? HasSeat, Guid? GroupTypeId, Guid? MemberId = null);
 
 public sealed record MemberProfile(
     Guid StudentId,
