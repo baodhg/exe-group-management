@@ -38,6 +38,7 @@ Generated views (Structurizr DSL → C4-PlantUML; components marked [Planned] ar
 | Level 3 – Join Request Service | [JoinRequestComponents](docs/architecture/diagrams/structurizr-JoinRequestComponents.png) |
 | Dynamic – approving a join request | [ApproveJoinRequest](docs/architecture/diagrams/structurizr-ApproveJoinRequest.png) |
 | Deployment – Docker Compose | [Deployment](docs/architecture/diagrams/structurizr-Deployment.png) |
+| Deployment – demo server | [DemoDeployment](docs/architecture/diagrams/structurizr-DemoDeployment.png) |
 
 Regenerate after a change: `docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr export -workspace /usr/local/structurizr/workspace.dsl -format plantuml/c4plantuml -output /usr/local/structurizr/diagrams`, then render with `plantuml/plantuml -tpng`.
 
@@ -184,6 +185,20 @@ Notes:
 - gRPC from inside the network: `docker run --rm --network exe-group_default fullstorydev/grpcurl -plaintext group-service:8081 list`.
 - Stream inspection: `docker compose exec redis redis-cli XRANGE group-events - +` and
   `docker compose exec redis redis-cli XINFO GROUPS group-events`.
+
+### Demo on the shared server
+
+Merging into `main` redeploys the demo at `https://exe.qizhub.com`. Jenkins polls `main` every 5 minutes (`Jenkinsfile`),
+builds images tagged `jenkins-<build>` and runs `scripts/demo-deploy.sh`, which starts the stack, runs the smoke checks
+and returns to the last good tag if anything fails.
+
+- `docker-compose.demo.yml` is an overlay on `docker-compose.yml`: project `exe-group-demo`, Production, migrations on
+  start-up, no host ports, memory and CPU limits. `node scripts/check-demo-compose.mjs` verifies this in CI.
+- The existing Nginx Proxy Manager forwards the domain to `exe-group-web:80` over the shared `nginx-network`. Only the
+  `web` container joins that network. Keep the DNS record DNS-only so the client address reaches the sign-in rate limit.
+- Secrets live on the server in `/var/jenkins_home/exe-group-demo/demo.env` (`SA_PASSWORD`, `JWT_SIGNING_KEY`,
+  `JWT_ISSUER`, `JWT_AUDIENCE`, `ASPNETCORE_ENVIRONMENT=Production`), never in the repository.
+- The server hosts other projects: never run `docker system prune` or `docker compose down -v` there.
 
 ## 6. Demo script (end-to-end)
 

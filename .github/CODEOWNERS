@@ -8,6 +8,7 @@
 /.dockerignore @baodhg
 /.env.example @baodhg
 /docker-compose*.yml @baodhg
+/Jenkinsfile @baodhg
 /docker/ @baodhg
 /scripts/ @baodhg
 /.github/ @baodhg

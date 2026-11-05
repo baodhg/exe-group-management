@@ -104,6 +104,38 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
                 }
             }
         }
+
+        demo = deploymentEnvironment "Demo" {
+            server = deploymentNode "Shared server" "No host ports; project exe-group-demo" "Ubuntu 24.04, Docker" {
+                proxy = infrastructureNode "Nginx Proxy Manager" "Owns ports 80 and 443; terminates TLS for exe.qizhub.com" "nginx-network"
+                jenkins = infrastructureNode "Jenkins" "Builds main and runs the deploy script with smoke checks and rollback" "Pipeline on the built-in node"
+                webNode = deploymentNode "web" "Alias exe-group-web on nginx-network" "nginx:1.27-alpine" {
+                    webInstance = containerInstance exe.spa
+                }
+                deploymentNode "gateway" "Internal 8080" "mcr.microsoft.com/dotnet/aspnet:10.0" {
+                    containerInstance exe.gateway
+                }
+                deploymentNode "identity-service" "Internal 8080" "mcr.microsoft.com/dotnet/aspnet:10.0" {
+                    containerInstance exe.identity
+                }
+                deploymentNode "group-service" "Internal 8080 (REST) and 8081 (gRPC, HTTP/2 only)" "mcr.microsoft.com/dotnet/aspnet:10.0" {
+                    containerInstance exe.group
+                }
+                deploymentNode "join-request-service" "Internal 8080" "mcr.microsoft.com/dotnet/aspnet:10.0" {
+                    containerInstance exe.joinRequest
+                }
+                deploymentNode "sqlserver" "Internal 1433, limited to 2 GB" "mcr.microsoft.com/mssql/server:2022-latest" {
+                    containerInstance exe.identityDb
+                    containerInstance exe.groupDb
+                    containerInstance exe.requestDb
+                }
+                deploymentNode "redis" "Internal 6379, appendonly yes" "redis:7-alpine" {
+                    containerInstance exe.events
+                }
+            }
+        }
+        demo.server.proxy -> demo.server.webNode.webInstance "Forwards exe.qizhub.com" "HTTP"
+        demo.server.jenkins -> demo.server.webNode "Deploys tagged images of the whole stack" "Docker socket"
     }
 
     views {
@@ -146,6 +178,11 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
         }
 
         deployment exe compose "Deployment" "Docker Compose deployment (7 containers)." {
+            include *
+            autoLayout lr
+        }
+
+        deployment exe demo "DemoDeployment" "Demo on the shared server behind the existing reverse proxy." {
             include *
             autoLayout lr
         }
