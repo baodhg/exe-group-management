@@ -45,6 +45,19 @@ public static class DbContextExtensions
             cancellationToken);
     }
 
+    public static async Task<bool> TrySaveChangesAsync(this DbContext context, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateException exception) when (exception.IsUniqueViolation())
+        {
+            return false;
+        }
+    }
+
     public static bool IsUniqueViolation(this DbUpdateException exception) =>
         exception.InnerException is SqlException { Number: 2601 or 2627 };
 }

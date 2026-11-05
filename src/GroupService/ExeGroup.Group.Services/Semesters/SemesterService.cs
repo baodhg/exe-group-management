@@ -1,9 +1,7 @@
-using ExeGroup.BuildingBlocks.Data;
 using ExeGroup.BuildingBlocks.Errors;
 using ExeGroup.BuildingBlocks.Paging;
 using ExeGroup.Group.Repositories.Entities;
 using ExeGroup.Group.Repositories.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace ExeGroup.Group.Services.Semesters;
 
@@ -31,7 +29,6 @@ public sealed class SemesterService(ISemesterRepository semesters) : ISemesterSe
     public async Task<SemesterModel> CreateAsync(SemesterInput input, CancellationToken cancellationToken)
     {
         input = Normalize(input);
-        EnsureDatesAreOrdered(input);
         await EnsureCodeIsFreeAsync(input.Code, null, cancellationToken);
 
         var semester = new Semester();
@@ -44,7 +41,6 @@ public sealed class SemesterService(ISemesterRepository semesters) : ISemesterSe
     public async Task<SemesterModel> UpdateAsync(Guid id, SemesterInput input, CancellationToken cancellationToken)
     {
         input = Normalize(input);
-        EnsureDatesAreOrdered(input);
         var semester = await RequireAsync(id, cancellationToken);
         await EnsureCodeIsFreeAsync(input.Code, id, cancellationToken);
 
@@ -73,21 +69,9 @@ public sealed class SemesterService(ISemesterRepository semesters) : ISemesterSe
 
     private async Task SaveAsync(string code, CancellationToken cancellationToken)
     {
-        try
-        {
-            await semesters.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException exception) when (exception.IsUniqueViolation())
+        if (!await semesters.TrySaveChangesAsync(cancellationToken))
         {
             throw CodeTaken(code);
-        }
-    }
-
-    private static void EnsureDatesAreOrdered(SemesterInput input)
-    {
-        if (input.EndDate <= input.StartDate)
-        {
-            throw new ValidationFailedException("endDate", "End date must be after the start date.");
         }
     }
 

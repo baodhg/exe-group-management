@@ -14,7 +14,7 @@ Tài liệu này là **chuẩn chung** của nhóm. Hạ tầng, khuôn mẫu v�
 ```bash
 git clone https://github.com/baodhg/exe-group-management.git
 cd exe-group-management
-cp .env.example .env            # rồi đổi SA_PASSWORD, JWT_SIGNING_KEY (≥ 32 ký tự)
+cp .env.example .env            # rồi đổi SA_PASSWORD và JWT_SIGNING_KEY (openssl rand -base64 48; khoá mẫu cố ý quá ngắn nên service sẽ không chạy nếu quên đổi)
 dotnet tool restore             # cài dotnet-ef đúng phiên bản của repo
 dotnet build ExeGroup.sln
 dotnet test                     # cần Docker đang chạy
@@ -68,7 +68,7 @@ docs/                    đề bài, Lab, thiết kế PRN232_v2, sơ đồ C4
    | vi phạm unique không bắt / `DbUpdateConcurrencyException` | 409 | `DUPLICATE` / `CONCURRENCY_CONFLICT` |
 5. **Route có version**: `[ApiVersion(1.0)]` + `[Route("api/v{version:apiVersion}/<tài-nguyên-số-nhiều>")]`.
 6. **Mặc định phải đăng nhập** (fallback policy). Endpoint công khai phải ghi `[AllowAnonymous]` rõ ràng. Quyền theo vai trò: `[Authorize(Roles = Roles.Administrator)]`; quyền nghiệp vụ (leader của nhóm, lecturer của lớp) kiểm trong Services bằng `ICurrentUser`.
-7. **Transaction tự mở** chỉ qua `DbContext.ExecuteInTransactionAsync(...)`; đọc và sửa entity **bên trong** lambda (helper từ chối nếu context đang track entity từ trước).
+7. **Services không dùng EF Core** (test kiến trúc chặn). Mở transaction bằng `ITransactionRunner.ExecuteAsync(...)` inject vào service; đọc và sửa entity qua repository **bên trong** lambda (helper từ chối nếu context đang track entity từ trước). Bắt trùng unique trong repository bằng `TrySaveChangesAsync` rồi ném `ConflictException` có mã riêng ở service.
 8. **Không chép helper**: cần thứ dùng ≥ 2 service ⇒ đề xuất đưa vào `BuildingBlocks` (PR riêng, PM duyệt).
 9. **Không thêm package** trong csproj kèm `Version=`: phiên bản chỉ nằm ở `Directory.Packages.props` (PM).
 

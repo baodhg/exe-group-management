@@ -1,3 +1,4 @@
+using ExeGroup.BuildingBlocks.Data;
 using ExeGroup.BuildingBlocks.Paging;
 using ExeGroup.Group.Repositories.Data;
 using ExeGroup.Group.Repositories.Entities;
@@ -40,4 +41,6 @@ public sealed class SemesterRepository(GroupDbContext context) : ISemesterReposi
     public void Remove(Semester semester) => context.Semesters.Remove(semester);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
+
+    public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => context.TrySaveChangesAsync(cancellationToken);
 }

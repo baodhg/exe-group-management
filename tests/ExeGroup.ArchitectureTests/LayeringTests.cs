@@ -23,11 +23,12 @@ public sealed class LayeringTests
 
     [Theory]
     [MemberData(nameof(Services))]
-    public void Services_layer_stays_free_of_http_concerns(string service)
+    public void Services_layer_stays_free_of_http_and_database_concerns(string service)
     {
         AssertNoDependency(
             Layer(service, "Services"),
             AspNetCore,
+            EntityFramework,
             SharedWeb,
             $"ExeGroup.{service}.API");
     }

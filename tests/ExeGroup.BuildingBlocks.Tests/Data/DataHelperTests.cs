@@ -1,6 +1,8 @@
 using ExeGroup.BuildingBlocks.Data;
 using ExeGroup.BuildingBlocks.Paging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ExeGroup.BuildingBlocks.Tests.Data;
 
@@ -108,6 +110,54 @@ public sealed class DataHelperTests(SqlServerFixture sql)
 
         Assert.True(duplicate.IsUniqueViolation());
         Assert.False(missingParent.IsUniqueViolation());
+    }
+
+    [Fact]
+    public async Task Saving_a_duplicate_reports_false_and_other_failures_still_throw()
+    {
+        await using var context = await sql.NewDatabaseAsync();
+        context.Groups.Add(new ProbeGroup { Code = "SAME" });
+        Assert.True(await context.TrySaveChangesAsync(Ct));
+
+        context.Groups.Add(new ProbeGroup { Code = "SAME" });
+        Assert.False(await context.TrySaveChangesAsync(Ct));
+        context.ChangeTracker.Clear();
+
+        context.Members.Add(new ProbeMember { Id = Guid.NewGuid(), GroupId = Guid.NewGuid() });
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.TrySaveChangesAsync(Ct));
+    }
+
+    [Fact]
+    public async Task The_registered_transaction_runner_covers_repositories_of_the_same_scope()
+    {
+        await using var database = await sql.NewDatabaseAsync();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Probe"] = database.Database.GetConnectionString() })
+            .Build();
+        await using var provider = new ServiceCollection()
+            .AddLogging()
+            .AddSqlServerDatabase<ProbeDbContext>(configuration, "Probe")
+            .BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var runner = scope.ServiceProvider.GetRequiredService<ITransactionRunner>();
+        var context = scope.ServiceProvider.GetRequiredService<ProbeDbContext>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ExecuteAsync(async token =>
+        {
+            context.Groups.Add(new ProbeGroup { Code = "ROLLED-BACK" });
+            await context.SaveChangesAsync(token);
+            throw new InvalidOperationException("business rule failed after the write");
+        }, Ct));
+
+        context.ChangeTracker.Clear();
+        var saved = await runner.ExecuteAsync(async token =>
+        {
+            context.Groups.Add(new ProbeGroup { Code = "COMMITTED" });
+            return await context.SaveChangesAsync(token);
+        }, Ct);
+
+        Assert.Equal(1, saved);
+        Assert.Equal(["COMMITTED"], await context.Groups.AsNoTracking().Select(group => group.Code).ToListAsync(Ct));
     }
 
     [Fact]

@@ -21,6 +21,7 @@ public static class SqlServerRegistration
         }
 
         services.AddDbContext<TContext>(options => ConfigureSqlServer(options, connectionString));
+        services.AddScoped<ITransactionRunner, DbContextTransactionRunner<TContext>>();
         services.AddSingleton<IDatabaseMigrator, DatabaseMigrator<TContext>>();
         services.AddHealthChecks().AddDbContextCheck<TContext>(connectionName, HealthStatus.Unhealthy, [HealthTags.Ready]);
 

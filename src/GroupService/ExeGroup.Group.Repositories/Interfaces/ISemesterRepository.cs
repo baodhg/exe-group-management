@@ -16,4 +16,6 @@ public interface ISemesterRepository
     void Remove(Semester semester);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken);
 }
