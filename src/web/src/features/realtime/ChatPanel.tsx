@@ -8,6 +8,11 @@ import { mergeMessages, type ChatMessage, type MessagePage } from "./chat";
 import { useRealtime } from "./realtimeContext";
 
 const pageSize = 20;
+const syncAttempts = 15;
+
+function stillSyncing(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 404 || error.status === 403);
+}
 
 export function ChatPanel({ conversationId }: { conversationId: string }) {
   const { api, user } = useAuth();
@@ -19,7 +24,7 @@ export function ChatPanel({ conversationId }: { conversationId: string }) {
   const latest = useQuery({
     queryKey: ["chat", conversationId],
     queryFn: () => api.get<MessagePage>(`/api/v1/conversations/${conversationId}/messages`, { pageSize }),
-    retry: (count, error) => error instanceof ApiError && error.status === 404 && count < 5,
+    retry: (count, error) => stillSyncing(error) && count < syncAttempts,
     retryDelay: 2_000,
   });
 
@@ -47,13 +52,13 @@ export function ChatPanel({ conversationId }: { conversationId: string }) {
     onSuccess: (message) => setExtra((current) => mergeMessages(current, [{ ...message, content: null, deleted: true }])),
   });
 
-  const notReady = latest.error instanceof ApiError && latest.error.status === 404;
+  const notReady = stillSyncing(latest.error) || (latest.isFetching && latest.failureCount > 0);
   return (
     <section className="card">
       <h2>
         Chat của phòng <span className="muted">· {state === "connected" ? "trực tiếp" : state === "reconnecting" || state === "connecting" ? "đang kết nối…" : "mất kết nối"}</span>
       </h2>
-      {notReady ? <p className="muted">Phòng chat đang được tạo, chờ giây lát…</p> : <ErrorNote error={latest.error} />}
+      {notReady ? <p className="muted">Đang thêm bạn vào chat của phòng, chờ vài giây…</p> : <ErrorNote error={latest.error} />}
       {olderCursor && (
         <button type="button" disabled={older.isPending} onClick={() => older.mutate(olderCursor)}>
           Tải tin cũ hơn
