@@ -6,9 +6,10 @@ import { test } from "node:test";
 const owner = "baodhg";
 const repo = "exe-group-management";
 const head = "head-sha";
+const workflowCommit = "workflow-sha";
 const workflow = readFileSync(join(import.meta.dirname, "..", ".github", "workflows", "infra-guard.yml"), "utf8");
 const inlineScript = workflow.split("script: |\n")[1].replace(/^ {12}/gm, "");
-const memberPaths = readFileSync(join(import.meta.dirname, "..", ".github", "member-paths.txt"), "utf8");
+const devOpsPaths = readFileSync(join(import.meta.dirname, "..", ".github", "devops-paths.txt"), "utf8");
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 async function guard({
@@ -21,27 +22,34 @@ async function guard({
   changedFiles = files.length,
   headRepository = `${owner}/${repo}`,
 }) {
-  const result = { failure: null, info: [] };
+  const result = { failure: null, info: [], listRef: null };
   const listFiles = Symbol("listFiles");
   const listReviews = Symbol("listReviews");
   const github = {
     rest: {
-      repos: { getContent: async () => ({ data: { content: Buffer.from(memberPaths).toString("base64") } }) },
+      repos: {
+        getContent: async ({ ref }) => {
+          result.listRef = ref;
+          return { data: { content: Buffer.from(devOpsPaths).toString("base64") } };
+        },
+      },
       pulls: { listFiles, listReviews },
     },
-    paginate: async (endpoint) => (endpoint === listFiles ? files.map((filename) => ({ filename })) : reviews),
+    paginate: async (endpoint) =>
+      endpoint === listFiles ? files.map((file) => (typeof file === "string" ? { filename: file } : file)) : reviews,
     request: async () => ({ data: pushers.map((login) => ({ actor: { login } })) }),
   };
   const context = {
     repo: { owner, repo },
     actor,
+    sha: workflowCommit,
     payload: {
       action,
       pull_request: {
         number: 1,
         changed_files: changedFiles,
         user: { login: author },
-        base: { sha: "base-sha" },
+        base: { sha: "older-base-sha" },
         head: { sha: head, ref: "work", repo: { full_name: headRepository } },
       },
     },
@@ -58,55 +66,107 @@ async function guard({
 
 const approval = (commit = head) => ({ user: { login: owner }, state: "APPROVED", commit_id: commit });
 
-test("a member working inside the member areas passes without approval", async () => {
-  const paths = [
-    "src/GroupService/ExeGroup.Group.Services/Courses/CourseService.cs",
-    "src/GroupService/ExeGroup.Group.API/appsettings.json",
-    "src/GroupService/ExeGroup.Group.Repositories/Data/Migrations/20261105_AddCourses.cs",
-    "src/web/src/features/courses/CoursesPage.tsx",
-    "src/web/src/app/App.tsx",
-    "src/web/src/styles.css",
-    "tests/ExeGroup.Group.IntegrationTests/CoursesTests.cs",
-    "database/schema.sql",
-    "docs/notes.md",
-    "README.md",
-  ];
-  assert.equal((await guard({ files: paths })).failure, null);
-});
-
 for (const path of [
-  ".github/workflows/ci.yml",
-  ".github/member-paths.txt",
-  ".gitleaks.toml",
-  "compose.yaml",
-  "docker-compose.yml",
-  "deploy/docker-compose.demo.yml",
-  "scripts/demo-deploy.sh",
-  "scripts/check-conventions.mjs",
-  "global.json",
-  "Directory.Packages.props",
+  "src/GroupService/ExeGroup.Group.Services/Courses/CourseService.cs",
+  "src/GroupService/ExeGroup.Group.API/ExeGroup.Group.API.csproj",
+  "src/GroupService/ExeGroup.Group.API/appsettings.json",
+  "src/GroupService/ExeGroup.Group.Repositories/Data/Migrations/20261105_AddCourses.cs",
   "src/BuildingBlocks/ExeGroup.BuildingBlocks/Paging/ListQuery.cs",
   "src/ApiGateway/ExeGroup.ApiGateway/appsettings.json",
   "src/Contracts/ExeGroup.Contracts/recommendation.proto",
-  "src/GroupService/ExeGroup.Group.API/ExeGroup.Group.API.csproj",
-  "src/GroupService/Directory.Build.props",
-  "src/GroupService/Dockerfile",
-  "src/GroupService/Dockerfile.dev",
-  "src/GroupService/ExeGroup.Group.API/ExeGroup.Group.API.csproj.user",
+  "src/web/src/features/courses/CoursesPage.tsx",
+  "src/web/src/shared/api/apiClient.ts",
   "src/web/package.json",
   "src/web/package-lock.json",
   "src/web/vite.config.ts",
-  "src/web/nginx.conf",
-  "src/web/src/shared/api/apiClient.ts",
+  "tests/ExeGroup.Group.IntegrationTests/CoursesTests.cs",
   "tests/ExeGroup.ArchitectureTests/LayeringTests.cs",
   "tests/ExeGroup.Testing/TestTokens.cs",
+  "database/schema.sql",
+  "docs/notes.md",
+  "README.md",
+  "CONTRIBUTING.md",
+  "ExeGroup.sln",
+  "ExeGroup.slnLaunch",
+  "Directory.Packages.props",
+  ".editorconfig",
+  ".env.example",
+  ".env.local.example",
+  "dotnet-tools.json",
+  "scripts/seed-demo.mjs",
+  "scripts/smoke-e2e.mjs",
+  "scripts/dev-token.mjs",
+  "scripts/ef.sh",
+  "scripts/ef.ps1",
+]) {
+  test(`a member changing ${path} passes without approval`, async () => {
+    assert.equal((await guard({ files: [path] })).failure, null);
+  });
+}
+
+for (const path of [
+  ".github/workflows/ci.yml",
+  ".github/workflows/deploy-demo.yml",
+  ".github/devops-paths.txt",
+  ".github/dependabot.yml",
   ".GITHUB/workflows/ci.yml",
+  ".gitleaks.toml",
+  ".dockerignore",
+  "src/web/.dockerignore",
+  "compose.yaml",
+  "docker-compose.yml",
+  "docker-compose.override.yml",
+  "deploy/docker-compose.demo.yml",
+  "deploy/anything-new.conf",
+  "docker/dotnet-service.Dockerfile",
+  "src/web/Dockerfile",
+  "src/GroupService/Dockerfile.dev",
+  "src/GroupService/custom.Dockerfile",
+  "src/web/nginx.conf",
+  "global.json",
+  "nuget.config",
+  "src/GroupService/NuGet.Config",
+  "Directory.Build.props",
+  "Directory.Build.targets",
+  "tests/Directory.Build.props",
+  "scripts/check-conventions.mjs",
+  "scripts/check-conventions.test.mjs",
+  "scripts/check-demo-compose.mjs",
+  "scripts/demo-deploy.sh",
+  "scripts/demo-deploy-entry.sh",
+  "scripts/demo-deploy.test.mjs",
+  "scripts/infra-guard.test.mjs",
 ]) {
   test(`a member changing ${path} needs approval`, async () => {
     const result = await guard({ files: [path] });
     assert.match(result.failure ?? "", /must approve the latest commit/);
   });
 }
+
+test("the list is read from the commit the workflow runs from, not the older base of the pull request", async () => {
+  assert.equal((await guard({ files: ["docs/notes.md"] })).listRef, workflowCommit);
+});
+
+test("one DevOps file among many feature files still needs approval", async () => {
+  const result = await guard({ files: ["src/web/src/app/App.tsx", "deploy/docker-compose.demo.yml", "README.md"] });
+  assert.match(result.failure ?? "", /must approve/);
+  assert.ok(result.info.join("\n").includes("deploy/docker-compose.demo.yml"));
+  assert.ok(!result.info.join("\n").includes("README.md"));
+});
+
+test("moving a DevOps file somewhere else still needs approval", async () => {
+  const result = await guard({ files: [{ filename: "docs/old-compose.md", previous_filename: "docker-compose.yml" }] });
+  assert.match(result.failure ?? "", /must approve/);
+});
+
+test("moving a file into a DevOps folder needs approval", async () => {
+  const result = await guard({ files: [{ filename: ".github/workflows/x.yml", previous_filename: "docs/x.yml" }] });
+  assert.match(result.failure ?? "", /must approve/);
+});
+
+test("a folder that only starts like a DevOps folder passes", async () => {
+  assert.equal((await guard({ files: ["deployment-notes/plan.md", "docker-notes.md"] })).failure, null);
+});
 
 test("the owner's approval of the latest commit lets a member's change pass", async () => {
   assert.equal((await guard({ files: ["docker-compose.yml"], reviews: [approval()] })).failure, null);
@@ -134,7 +194,7 @@ test("another member's approval does not count", async () => {
   assert.match(result.failure ?? "", /must approve/);
 });
 
-test("the owner's own infrastructure pull request passes", async () => {
+test("the owner's own DevOps pull request passes", async () => {
   const result = await guard({ files: ["docker-compose.yml"], author: owner, pushers: [owner] });
   assert.equal(result.failure, null);
 });
@@ -144,7 +204,7 @@ test("the owner editing the title of their own pull request still passes", async
   assert.equal(result.failure, null);
 });
 
-test("a member pushing infrastructure onto the owner's pull request needs approval", async () => {
+test("a member pushing DevOps files onto the owner's pull request needs approval", async () => {
   const result = await guard({ files: ["docker-compose.yml"], author: owner, actor: "member", pushers: [owner, "member"] });
   assert.match(result.failure ?? "", /must approve/);
 });
@@ -159,8 +219,13 @@ test("a fork using the owner's name is not exempt", async () => {
   assert.match(result.failure ?? "", /must approve/);
 });
 
-test("a dependency bot changing packages needs approval", async () => {
+test("a dependency bot changing packages passes on green checks alone", async () => {
   const result = await guard({ files: ["src/web/package.json"], author: "dependabot[bot]", pushers: ["dependabot[bot]"] });
+  assert.equal(result.failure, null);
+});
+
+test("a dependency bot changing a workflow needs approval", async () => {
+  const result = await guard({ files: [".github/workflows/ci.yml"], author: "dependabot[bot]", pushers: ["dependabot[bot]"] });
   assert.match(result.failure ?? "", /must approve/);
 });
 

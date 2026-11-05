@@ -1,0 +1,10 @@
+.github/
+deploy/
+docker/
+scripts/check-conventions.mjs
+scripts/check-conventions.test.mjs
+scripts/check-demo-compose.mjs
+scripts/demo-deploy.sh
+scripts/demo-deploy-entry.sh
+scripts/demo-deploy.test.mjs
+scripts/infra-guard.test.mjs
