@@ -8,8 +8,12 @@ using ExeGroup.Group.Services.Rooms;
 
 namespace ExeGroup.Group.Services.Courses;
 
+public sealed record DuePhaseChanges(IReadOnlyList<Guid> ToPublish, IReadOnlyList<Guid> ToExpire);
+
 public interface ICoursePhaseService
 {
+    Task<DuePhaseChanges> ListDueAsync(CancellationToken cancellationToken);
+
     Task<CourseModel> PublishAsync(Guid courseId, CancellationToken cancellationToken);
 
     Task<CourseModel> ExpireAsync(Guid courseId, CancellationToken cancellationToken);
@@ -23,6 +27,12 @@ public sealed class CoursePhaseService(
     ITransactionRunner transactions,
     IClock clock) : ICoursePhaseService
 {
+    public async Task<DuePhaseChanges> ListDueAsync(CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        return new DuePhaseChanges(await courses.ListDueToPublishAsync(now, cancellationToken), await courses.ListDueToExpireAsync(now, cancellationToken));
+    }
+
     public async Task<CourseModel> PublishAsync(Guid courseId, CancellationToken cancellationToken)
     {
         await ChangePhaseAsync(

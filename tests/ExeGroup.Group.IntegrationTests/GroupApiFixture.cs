@@ -12,6 +12,7 @@ public class GroupApiFixture : IAsyncLifetime
     public static readonly IReadOnlyDictionary<string, string?> Settings = new Dictionary<string, string?>
     {
         ["Jobs:OutboxPublisher:Enabled"] = "false",
+        ["Jobs:PhaseScheduler:Enabled"] = "false",
     };
 
     public ServiceApiFactory<Program> Api { get; private set; } = null!;

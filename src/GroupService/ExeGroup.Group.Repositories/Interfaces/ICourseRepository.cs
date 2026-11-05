@@ -28,6 +28,10 @@ public interface ICourseRepository
 
     Task<Course?> FindAsync(Guid courseId, CancellationToken cancellationToken);
 
+    Task<List<Guid>> ListDueToPublishAsync(DateTime now, CancellationToken cancellationToken);
+
+    Task<List<Guid>> ListDueToExpireAsync(DateTime now, CancellationToken cancellationToken);
+
     Task<bool> ClassCodeExistsAsync(Guid semesterId, Guid subjectId, string classCode, Guid? exceptCourseId, CancellationToken cancellationToken);
 
     Task<bool> IsEnrolledAsync(Guid courseId, Guid studentId, CancellationToken cancellationToken);

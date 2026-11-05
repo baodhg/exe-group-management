@@ -15,6 +15,11 @@ if (builder.Configuration.GetValue(OutboxPublisher.EnabledKey, true))
     builder.Services.AddHostedService<OutboxPublisher>();
 }
 
+if (builder.Configuration.GetValue(PhaseScheduler.EnabledKey, true))
+{
+    builder.Services.AddHostedService<PhaseScheduler>();
+}
+
 var app = builder.Build();
 app.UseServiceDefaults();
 app.MapControllers();
