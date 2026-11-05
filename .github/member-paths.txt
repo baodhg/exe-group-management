@@ -1,12 +1,12 @@
 src/IdentityService/
 src/GroupService/
-src/JoinRequestService/
+src/RealtimeService/
 src/web/src/features/
 src/web/src/app/
 src/web/src/styles.css
 tests/ExeGroup.Group.IntegrationTests/
 tests/ExeGroup.Identity.IntegrationTests/
-tests/ExeGroup.JoinRequest.IntegrationTests/
+tests/ExeGroup.Realtime.IntegrationTests/
 database/
 docs/
 README.md

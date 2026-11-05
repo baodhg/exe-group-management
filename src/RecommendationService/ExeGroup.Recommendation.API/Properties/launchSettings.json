@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "recommendation-service": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5105",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Ports__Rest": "5105",
+        "Ports__Grpc": "5106"
+      }
+    }
+  }
+}

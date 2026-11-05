@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace ExeGroup.JoinRequest.Repositories.Data.Migrations
+namespace ExeGroup.Realtime.Repositories.Data.Migrations
 {
     /// <inheritdoc />
     public partial class Baseline : Migration

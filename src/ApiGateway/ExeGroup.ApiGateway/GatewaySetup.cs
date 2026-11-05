@@ -14,7 +14,7 @@ public static class GatewaySetup
     [
         ("identity", "Identity Service"),
         ("group", "Group Service"),
-        ("join-request", "Join Request Service"),
+        ("realtime", "Realtime Service"),
     ];
 
     public static WebApplicationBuilder AddGateway(this WebApplicationBuilder builder)

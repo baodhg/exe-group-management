@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const titlePattern = /^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert)(\([a-z0-9-]+\))?!?: \S.*[^.]$/;
@@ -10,7 +11,8 @@ const slashCommentFiles = /\.(cs|ts|tsx|js|jsx|mjs|proto)$/;
 const hashCommentFiles = /(\.(ya?ml|sh|conf|py)|(^|\/)(Dockerfile|[^/]*\.Dockerfile|\.env\.example))$/;
 const commentFreeExemptions = /(^|\/)(Migrations|node_modules|dist|bin|obj)\/|\.Designer\.cs$|^docs\/diagrams\//;
 const testFile = /(^|\/)tests?\/|\.test\.(ts|tsx|mjs)$/;
-const featureCode = /^src\/(Identity|Group|JoinRequest)Service\/[^/]+\.(API|Services)\/.+\.cs$/;
+const featureCode = /^src\/(Identity|Group|Recommendation|Realtime)Service\/[^/]+\.(API|Services)\/.+\.cs$/;
+const migrationFile = /\/Migrations\/\d+_[^/]+\.cs$/;
 
 export function parseDiff(diff) {
   const files = new Map();
@@ -142,6 +144,12 @@ function protoProblems(file) {
   return problems;
 }
 
+function isEmptyMigration(file) {
+  const current = file.content?.split("\n") ?? file.added.map((entry) => entry.text);
+  const lines = [...current, ...file.removed];
+  return lines.some((text) => /\bvoid Up\(/.test(text)) && !lines.some((text) => /\bmigrationBuilder\s*\./.test(text));
+}
+
 export function checkFiles(files) {
   const problems = [];
   for (const file of files) {
@@ -175,7 +183,7 @@ export function checkFiles(files) {
   }
 
   const paths = files.map((file) => file.path);
-  const changesMigration = paths.some((path) => /\/Migrations\/\d+_[^/]+\.cs$/.test(path) && !path.endsWith(".Designer.cs"));
+  const changesMigration = files.some((file) => migrationFile.test(file.path) && !file.path.endsWith(".Designer.cs") && !isEmptyMigration(file));
   if (changesMigration && !paths.includes("database/schema.sql")) {
     problems.push({ path: "database/schema.sql", rule: "schema", message: "A migration must update database/schema.sql in the same pull request." });
   }
@@ -225,7 +233,9 @@ function main() {
     encoding: "utf8",
     maxBuffer: 1 << 28,
   });
-  const files = parseDiff(diff);
+  const files = parseDiff(diff).map((file) =>
+    migrationFile.test(file.path) && existsSync(file.path) ? { ...file, content: readFileSync(file.path, "utf8") } : file,
+  );
   const problems = [...checkFiles(files), ...checkPullRequest({ title, body, author, paths: files.filter((file) => file.added.length > 0).map((file) => file.path) })];
   problems.forEach(annotate);
   if (problems.length > 0) {

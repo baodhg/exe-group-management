@@ -5,6 +5,6 @@
     <PackageReference Include="Grpc.Tools" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
   </ItemGroup>
   <ItemGroup>
-    <Protobuf Include="group_membership.proto" GrpcServices="Both" />
+    <Protobuf Include="recommendation.proto" GrpcServices="Both" />
   </ItemGroup>
 </Project>

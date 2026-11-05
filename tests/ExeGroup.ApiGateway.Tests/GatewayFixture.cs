@@ -41,7 +41,7 @@ public sealed class GatewayFixture : IAsyncLifetime
             host.ConfigureServices(services => services.AddSingleton<IStartupFilter, TestPeerStartupFilter>());
             host.UseSetting("ReverseProxy:Clusters:identity:Destinations:primary:Address", echo);
             host.UseSetting("ReverseProxy:Clusters:group:Destinations:primary:Address", echo);
-            host.UseSetting("ReverseProxy:Clusters:join-request:Destinations:primary:Address", "http://127.0.0.1:9");
+            host.UseSetting("ReverseProxy:Clusters:realtime:Destinations:primary:Address", "http://127.0.0.1:9");
         });
     }
 

@@ -29,7 +29,7 @@ jobs:
       - run: dotnet format ExeGroup.sln --verify-no-changes --no-restore
       - name: Every model change has a migration
         run: |
-          for service in IdentityService/ExeGroup.Identity GroupService/ExeGroup.Group JoinRequestService/ExeGroup.JoinRequest; do
+          for service in IdentityService/ExeGroup.Identity GroupService/ExeGroup.Group RealtimeService/ExeGroup.Realtime; do
             dotnet ef migrations has-pending-model-changes --no-build --configuration Release \
               --project "src/$service.Repositories" --startup-project "src/$service.API"
           done

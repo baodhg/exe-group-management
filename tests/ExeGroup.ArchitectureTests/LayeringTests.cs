@@ -9,7 +9,7 @@ public sealed class LayeringTests
     private const string EntityFramework = "Microsoft.EntityFrameworkCore";
     private const string SharedWeb = "ExeGroup.BuildingBlocks.Web";
 
-    public static TheoryData<string> Services => new() { "Identity", "Group", "JoinRequest" };
+    public static TheoryData<string> Services => new() { "Identity", "Group", "Recommendation", "Realtime" };
 
     [Theory]
     [MemberData(nameof(Services))]

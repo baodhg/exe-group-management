@@ -1,13 +1,12 @@
 {
   "profiles": {
-    "join-request-service": {
+    "realtime-service": {
       "commandName": "Project",
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5104",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "Redis__Connection": "localhost:16379",
-        "GrpcClients__GroupService": "http://localhost:5103"
+        "Redis__Connection": "localhost:16379"
       }
     }
   }

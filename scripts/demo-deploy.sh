@@ -8,7 +8,7 @@ env_file="$state_dir/demo.env"
 last_good_file="$state_dir/last-good"
 last_good_commit_file="$state_dir/last-good-commit"
 compose=(docker compose -f docker-compose.yml -f deploy/docker-compose.demo.yml --env-file "$env_file")
-database_services=(identity-service group-service join-request-service)
+database_services=(identity-service group-service realtime-service)
 
 if [[ ! -f "$env_file" ]]; then
   echo "Missing $env_file: create it with SA_PASSWORD and JWT_SIGNING_KEY first." >&2

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: scripts/ef.sh <Identity|Group|JoinRequest> <dotnet-ef arguments...>"
+  echo "Usage: scripts/ef.sh <Identity|Group|Realtime> <dotnet-ef arguments...>"
   echo "Example: scripts/ef.sh Group migrations add AddClasses"
   exit 1
 }
@@ -14,7 +14,7 @@ shift
 case "$service" in
   Identity) folder="IdentityService" ;;
   Group) folder="GroupService" ;;
-  JoinRequest) folder="JoinRequestService" ;;
+  Realtime) folder="RealtimeService" ;;
   *) usage ;;
 esac
 

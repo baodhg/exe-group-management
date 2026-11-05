@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+option csharp_namespace = "ExeGroup.Contracts.Recommendation";
+
+package exegroup.recommendation.v1;
+
+service Recommendation {
+  rpc SuggestRooms (SuggestRoomsRequest) returns (SuggestRoomsReply);
+  rpc SuggestPlacements (SuggestPlacementsRequest) returns (SuggestPlacementsReply);
+}
+
+message Student {
+  string student_id = 1;
+  string major_code = 2;
+  map<string, int32> skills = 3;
+}
+
+message Room {
+  string room_id = 1;
+  string name = 2;
+  int32 capacity = 3;
+  repeated Student members = 4;
+  map<string, int32> min_per_major = 5;
+  int32 min_distinct_majors = 6;
+  int32 min_group_size = 7;
+}
+
+message Reason {
+  string code = 1;
+  string detail = 2;
+}
+
+message SuggestRoomsRequest {
+  Student student = 1;
+  repeated Room rooms = 2;
+  int32 top = 3;
+}
+
+message RoomSuggestion {
+  string room_id = 1;
+  double score = 2;
+  repeated Reason reasons = 3;
+}
+
+message SuggestRoomsReply {
+  repeated RoomSuggestion suggestions = 1;
+}
+
+message SuggestPlacementsRequest {
+  repeated Student unassigned = 1;
+  repeated Room rooms = 2;
+}
+
+message Placement {
+  string student_id = 1;
+  string room_id = 2;
+  repeated Reason reasons = 3;
+}
+
+message SuggestPlacementsReply {
+  repeated Placement placements = 1;
+  repeated string unplaced_student_ids = 2;
+}

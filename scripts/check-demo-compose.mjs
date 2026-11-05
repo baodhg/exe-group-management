@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 
 const files = process.argv.slice(2);
 const composeFiles = files.length > 0 ? files : ["docker-compose.yml", "deploy/docker-compose.demo.yml"];
-const dotnetServices = ["identity-service", "group-service", "join-request-service", "gateway"];
-const databaseServices = ["identity-service", "group-service", "join-request-service"];
+const dotnetServices = ["identity-service", "group-service", "recommendation-service", "realtime-service", "gateway"];
+const databaseServices = ["identity-service", "group-service", "realtime-service"];
 const memoryLimitBytes = 4 * 1024 ** 3;
 
 const rendered = execFileSync(
