@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IRoomRepository, RoomRepository>();
+        services.AddScoped<IJoinRequestRepository, JoinRequestRepository>();
         return services;
     }
 }

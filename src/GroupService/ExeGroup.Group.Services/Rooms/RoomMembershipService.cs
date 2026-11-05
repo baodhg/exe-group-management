@@ -25,6 +25,7 @@ public interface IRoomMembershipService
 public sealed class RoomMembershipService(
     IRoomRepository rooms,
     IRoomService roomService,
+    RoomSeating seating,
     RequestCloser requests,
     IOutbox outbox,
     ITransactionRunner transactions,
@@ -39,14 +40,14 @@ public sealed class RoomMembershipService(
         await transactions.ExecuteWithConflictRetryAsync(
             async token =>
             {
-                var (room, course) = await LoadAsync(roomId, token);
-                await EnsureCanEnterAsync(room, course, studentId, token);
+                var (room, course) = await seating.LoadAsync(roomId, token);
+                await seating.EnsureCanEnterAsync(room, course, studentId, token);
                 if (room.Status == RoomStatuses.Locked)
                 {
-                    throw Conflict(GroupErrorCodes.RoomLocked, "The room is locked: apply to join it.");
+                    throw RoomSeating.Conflict(GroupErrorCodes.RoomLocked, "The room is locked: apply to join it.");
                 }
 
-                await AddMemberAsync(room, course, studentId, JoinMethods.Open, token);
+                await seating.AddMemberAsync(room, course, studentId, JoinMethods.Open, token);
                 await rooms.SaveChangesAsync(token);
                 return true;
             },
@@ -60,11 +61,11 @@ public sealed class RoomMembershipService(
         await transactions.ExecuteWithConflictRetryAsync(
             async token =>
             {
-                var (room, course) = await LoadAsync(roomId, token);
-                EnsurePublished(course);
+                var (room, course) = await seating.LoadAsync(roomId, token);
+                RoomSeating.EnsurePublished(course);
                 var members = await rooms.ListActiveMembersAsync(roomId, token);
                 var membership = members.SingleOrDefault(member => member.StudentId == studentId)
-                    ?? throw Conflict(GroupErrorCodes.NotRoomMember, "You are not a member of this room.");
+                    ?? throw RoomSeating.Conflict(GroupErrorCodes.NotRoomMember, "You are not a member of this room.");
                 await EndMembershipAsync(room, members, membership, MembershipEndReasons.Left, null, null, token);
                 await rooms.SaveChangesAsync(token);
                 return true;
@@ -83,7 +84,7 @@ public sealed class RoomMembershipService(
                 {
                     room.Status = RoomStatuses.Locked;
                     room.LockedAt = clock.UtcNow;
-                    StatusChanged(room);
+                    seating.StatusChanged(room);
                 }
 
                 return Task.CompletedTask;
@@ -125,7 +126,7 @@ public sealed class RoomMembershipService(
                 }
 
                 var membership = members.SingleOrDefault(member => member.StudentId == studentId)
-                    ?? throw Conflict(GroupErrorCodes.NotRoomMember, "The student is not a member of this room.");
+                    ?? throw RoomSeating.Conflict(GroupErrorCodes.NotRoomMember, "The student is not a member of this room.");
                 await EndMembershipAsync(room, members, membership, MembershipEndReasons.Removed, note, leaderId, token);
             },
             cancellationToken);
@@ -145,89 +146,16 @@ public sealed class RoomMembershipService(
 
                 if (members.All(member => member.StudentId != studentId))
                 {
-                    throw Conflict(GroupErrorCodes.NotRoomMember, "The new leader must be a member of the room.");
+                    throw RoomSeating.Conflict(GroupErrorCodes.NotRoomMember, "The new leader must be a member of the room.");
                 }
 
                 room.LeaderId = studentId;
-                LeaderChanged(room);
+                seating.LeaderChanged(room);
                 return Task.CompletedTask;
             },
             cancellationToken);
         return await roomService.GetAsync(roomId, cancellationToken);
     }
-
-    internal async Task AddMemberAsync(Room room, Course course, Guid studentId, string joinedVia, CancellationToken cancellationToken)
-    {
-        var majorId = await rooms.FindMajorAsync(course.SemesterId, studentId, cancellationToken)
-            ?? throw Conflict(GroupErrorCodes.NotEnrolled, "The student is not on the course roster.");
-        if (room.MemberCount >= room.Capacity)
-        {
-            throw Conflict(GroupErrorCodes.RoomFull, "The room has no free seat.");
-        }
-
-        var rules = await rooms.GetRulesAsync(room.GroupTypeId, cancellationToken);
-        var majors = await rooms.ListMemberMajorsAsync(room, cancellationToken);
-        if (!RoomComposition.CanAdd(room.Capacity, majors, majorId, rules))
-        {
-            throw Conflict(GroupErrorCodes.CompositionRule, "Joining would leave too few seats for the majors this group type still needs.");
-        }
-
-        rooms.Add(new RoomMember
-        {
-            MembershipId = Guid.NewGuid(),
-            RoomId = room.RoomId,
-            CourseId = room.CourseId,
-            StudentId = studentId,
-            JoinedVia = joinedVia,
-            JoinedAt = clock.UtcNow,
-        });
-        room.MemberCount++;
-        var becameLeader = room.LeaderId is null;
-        room.LeaderId ??= studentId;
-        outbox.Enqueue(
-            GroupEventTypes.RoomMemberJoined,
-            room.RoomId,
-            new RoomMemberJoinedEvent(room.CourseId, room.RoomId, room.Name, studentId, joinedVia, room.LeaderId));
-        if (becameLeader)
-        {
-            LeaderChanged(room);
-        }
-
-        await requests.CloseAsync(await rooms.ListPendingForStudentAsync(room.CourseId, studentId, cancellationToken), JoinRequestReasons.JoinedAnotherRoom, null, cancellationToken);
-        if (room.MemberCount >= room.Capacity)
-        {
-            await requests.CloseAsync(await rooms.ListPendingForRoomAsync(room.RoomId, cancellationToken), JoinRequestReasons.RoomFull, null, cancellationToken);
-        }
-    }
-
-    internal async Task EnsureCanEnterAsync(Room room, Course course, Guid studentId, CancellationToken cancellationToken)
-    {
-        EnsurePublished(course);
-        if (!await rooms.IsEnrolledAsync(course.CourseId, studentId, cancellationToken))
-        {
-            throw Conflict(GroupErrorCodes.NotEnrolled, "You are not on the course roster.");
-        }
-
-        if (await rooms.FindActiveMembershipAsync(course.CourseId, studentId, cancellationToken) is not null)
-        {
-            throw Conflict(GroupErrorCodes.AlreadyInRoom, "You are already in a room of this course.");
-        }
-
-        if (await rooms.WasRemovedFromRoomAsync(room.RoomId, studentId, cancellationToken))
-        {
-            throw Conflict(GroupErrorCodes.RemovedFromRoom, "The leader removed you from this room; you cannot join it again.");
-        }
-    }
-
-    internal static void EnsurePublished(Course course)
-    {
-        if (course.Phase != CoursePhases.Published)
-        {
-            throw Conflict(GroupErrorCodes.CourseNotPublished, "Students join, leave and apply only while the course is published.");
-        }
-    }
-
-    internal static ConflictException Conflict(string code, string message) => new(code, message);
 
     private async Task RunAsLeaderAsync(Guid roomId, Func<Room, List<RoomMember>, Guid, CancellationToken, Task> action, CancellationToken cancellationToken)
     {
@@ -235,25 +163,18 @@ public sealed class RoomMembershipService(
         await transactions.ExecuteWithConflictRetryAsync(
             async token =>
             {
-                var (room, course) = await LoadAsync(roomId, token);
+                var (room, course) = await seating.LoadAsync(roomId, token);
                 if (room.LeaderId != leaderId)
                 {
                     throw RoomService.NotLeader();
                 }
 
-                EnsurePublished(course);
+                RoomSeating.EnsurePublished(course);
                 await action(room, await rooms.ListActiveMembersAsync(roomId, token), leaderId, token);
                 await rooms.SaveChangesAsync(token);
                 return true;
             },
             cancellationToken);
-    }
-
-    private async Task<(Room Room, Course Course)> LoadAsync(Guid roomId, CancellationToken cancellationToken)
-    {
-        var room = await rooms.FindAsync(roomId, cancellationToken) ?? throw new NotFoundException("Room", roomId);
-        var course = await rooms.FindCourseAsync(room.CourseId, cancellationToken) ?? throw new NotFoundException("Course", room.CourseId);
-        return (room, course);
     }
 
     private async Task EndMembershipAsync(
@@ -277,7 +198,7 @@ public sealed class RoomMembershipService(
         if (room.LeaderId == membership.StudentId)
         {
             room.LeaderId = members.Where(member => member.StudentId != membership.StudentId).OrderBy(member => member.JoinedAt).FirstOrDefault()?.StudentId;
-            LeaderChanged(room);
+            seating.LeaderChanged(room);
         }
 
         if (room.MemberCount == 0 && room.Status == RoomStatuses.Locked)
@@ -290,13 +211,7 @@ public sealed class RoomMembershipService(
     {
         room.Status = RoomStatuses.Open;
         room.LockedAt = null;
-        StatusChanged(room);
+        seating.StatusChanged(room);
         await requests.CloseAsync(await rooms.ListPendingForRoomAsync(room.RoomId, cancellationToken), JoinRequestReasons.RoomReopened, null, cancellationToken);
     }
-
-    private void LeaderChanged(Room room) =>
-        outbox.Enqueue(GroupEventTypes.RoomLeaderChanged, room.RoomId, new RoomLeaderChangedEvent(room.CourseId, room.RoomId, room.Name, room.LeaderId));
-
-    private void StatusChanged(Room room) =>
-        outbox.Enqueue(GroupEventTypes.RoomStatusChanged, room.RoomId, new RoomStatusChangedEvent(room.CourseId, room.RoomId, room.Name, room.Status));
 }

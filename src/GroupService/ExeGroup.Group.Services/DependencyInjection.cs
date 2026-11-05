@@ -2,6 +2,7 @@ using ExeGroup.Group.Repositories;
 using ExeGroup.Group.Services.Courses;
 using ExeGroup.Group.Services.Events;
 using ExeGroup.Group.Services.GroupTypes;
+using ExeGroup.Group.Services.JoinRequests;
 using ExeGroup.Group.Services.Majors;
 using ExeGroup.Group.Services.Rooms;
 using ExeGroup.Group.Services.Rosters;
@@ -29,8 +30,10 @@ public static class DependencyInjection
         services.AddScoped<IRosterService, RosterService>();
         services.AddScoped<IStudentProfileService, StudentProfileService>();
         services.AddScoped<RequestCloser>();
+        services.AddScoped<RoomSeating>();
         services.AddScoped<IRoomService, RoomService>();
         services.AddScoped<IRoomMembershipService, RoomMembershipService>();
+        services.AddScoped<IJoinRequestService, JoinRequestService>();
         return services;
     }
 }

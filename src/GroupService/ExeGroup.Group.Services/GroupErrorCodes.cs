@@ -32,4 +32,6 @@ public static class GroupErrorCodes
     public const string NotRoomLeader = "NOT_ROOM_LEADER";
     public const string NotRoomMember = "NOT_ROOM_MEMBER";
     public const string RoomNameTaken = "ROOM_NAME_TAKEN";
+    public const string ApplicationPending = "APPLICATION_PENDING";
+    public const string RequestNotPending = "REQUEST_NOT_PENDING";
 }
