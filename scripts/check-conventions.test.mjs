@@ -27,14 +27,34 @@ test("keeps machine directives, urls and strings that only look like comments", 
   assert.equal(hasComment("README.md", "# Title"), false);
 });
 
+test("finds comments in the shapes that slip past a simple scan", () => {
+  assert.equal(hasComment("src/web/src/a.tsx", "<div>{/* note */}</div>"), true);
+  assert.equal(hasComment("src/A.cs", "var a = 1;// note"), true);
+  assert.equal(hasComment("docker-compose.yml", "  image: redis # note"), true);
+  assert.equal(hasComment("scripts/a.sh", 'echo "${#items}"'), false);
+});
+
+test("finds hash comments without a space and keeps regex literals", () => {
+  assert.equal(hasComment("docker-compose.yml", "#note"), true);
+  assert.equal(hasComment("scripts/a.sh", "## Section"), true);
+  assert.equal(hasComment("src/web/src/a.ts", "const parts = path.split(/\\//);"), false);
+});
+
+test("does not mistake arithmetic or result assignments for violations", () => {
+  assert.equal(hasComment("src/A.cs", "    * quantity;"), false);
+  assert.deepEqual(rulesFor([fileWith("src/GroupService/A.cs", "context.Result = new OkResult();")]), []);
+});
+
 test("rejects package versions outside the central file", () => {
   assert.deepEqual(rulesFor([fileWith("src/A/A.csproj", '<PackageReference Include="Foo" Version="1.0.0" />')]), ["code"]);
   assert.deepEqual(rulesFor([fileWith("src/A/A.csproj", '<PackageReference Include="Foo" />')]), []);
+  assert.deepEqual(rulesFor([fileWith("src/A/A.csproj", '<PackageReference Include="Foo" VersionOverride="2.0.0" />')]), ["code"]);
 });
 
 test("rejects silent failures and blocking calls in services", () => {
   assert.deepEqual(rulesFor([fileWith("src/GroupService/A.cs", "catch { }")]), ["code"]);
   assert.deepEqual(rulesFor([fileWith("src/GroupService/A.cs", "catch (Exception) {}")]), ["code"]);
+  assert.deepEqual(rulesFor([fileWith("src/GroupService/A.cs", "catch (Exception)", "{", "}")]), ["code"]);
   assert.deepEqual(rulesFor([fileWith("src/GroupService/A.cs", "Console.WriteLine(value);")]), ["code"]);
   assert.deepEqual(rulesFor([fileWith("src/GroupService/A.cs", "var value = task.Result;")]), ["code"]);
   assert.deepEqual(rulesFor([fileWith("src/GroupService/A.cs", "var value = await task;")]), []);
@@ -43,6 +63,7 @@ test("rejects silent failures and blocking calls in services", () => {
 test("rejects controllers that bypass the response envelope", () => {
   assert.deepEqual(rulesFor([fileWith("src/GroupService/G.API/Controllers/A.cs", "return Ok(model);")]), ["code"]);
   assert.deepEqual(rulesFor([fileWith("src/GroupService/G.API/Controllers/A.cs", "return BadRequest(error);")]), ["code"]);
+  assert.deepEqual(rulesFor([fileWith("src/GroupService/G.API/Controllers/A.cs", "public IActionResult Get() => Ok(model);")]), ["code"]);
   assert.deepEqual(rulesFor([fileWith("src/GroupService/G.API/Controllers/A.cs", 'return Success(model, "Loaded");')]), []);
 });
 
@@ -63,6 +84,18 @@ test("protects existing proto field numbers", () => {
   const changed = { path: "a.proto", removed: ["  string id = 1;"], added: [{ line: 1, text: "  string id = 2;" }] };
   const reserved = { path: "a.proto", removed: ["  string id = 1;"], added: [{ line: 1, text: "  reserved 1;" }] };
   const added = { path: "a.proto", removed: [], added: [{ line: 1, text: "  string extra = 9;" }] };
+  const retyped = { path: "a.proto", removed: ["  string id = 1;"], added: [{ line: 1, text: "  int32 id = 1;" }] };
+  const deleted = { path: "a.proto", removed: ["  string id = 1;"], added: [] };
+  const enumValue = { path: "a.proto", removed: ["  GROUP_FULL = 3;"], added: [{ line: 1, text: "  GROUP_FULL = 4;" }] };
+  const sameEnum = { path: "a.proto", removed: ["  GROUP_FULL = 3;"], added: [{ line: 1, text: "    GROUP_FULL = 3;" }] };
+  const removedMap = { path: "a.proto", removed: ["  map<string, string> labels = 5;"], added: [] };
+  const repeatedKept = { path: "a.proto", removed: ["  repeated string ids = 6;"], added: [{ line: 2, text: "  repeated string ids = 6;" }] };
+  assert.deepEqual(rulesFor([enumValue]), ["proto"]);
+  assert.deepEqual(rulesFor([sameEnum]), []);
+  assert.deepEqual(rulesFor([removedMap]), ["proto"]);
+  assert.deepEqual(rulesFor([repeatedKept]), []);
+  assert.deepEqual(rulesFor([retyped]), ["proto"]);
+  assert.deepEqual(rulesFor([deleted]), ["proto"]);
   assert.deepEqual(rulesFor([changed]), ["proto"]);
   assert.deepEqual(rulesFor([reserved]), []);
   assert.deepEqual(rulesFor([added]), []);
@@ -93,6 +126,29 @@ test("feature work links an issue and carries tests", () => {
 
 test("dependency bots are only held to the code rules", () => {
   assert.deepEqual(checkPullRequest({ title: "Bump a long dependency title.", body: "", author: "dependabot[bot]", paths: [] }), []);
+});
+
+test("removed sql notes are not mistaken for file headers", () => {
+  const diff = [
+    "diff --git a/database/schema.sql b/database/schema.sql",
+    "--- a/database/schema.sql",
+    "+++ b/database/schema.sql",
+    "@@ -1,2 +1 @@",
+    "--- old note",
+    "-old line",
+    "+new line",
+  ].join("\n");
+  const files = parseDiff(diff);
+  assert.deepEqual(files.map((file) => file.path), ["database/schema.sql"]);
+  assert.deepEqual(files[0].added, [{ line: 1, text: "new line" }]);
+});
+
+test("a deleted file keeps its removed lines and paths with spaces stay whole", () => {
+  const deleted = parseDiff(["diff --git a/a.proto b/a.proto", "--- a/a.proto", "+++ /dev/null", "@@ -1 +0,0 @@", "-  string id = 1;"].join("\n"));
+  assert.equal(deleted[0].path, "a.proto");
+  assert.deepEqual(deleted[0].removed, ["  string id = 1;"]);
+  const spaced = parseDiff(["diff --git a/src/my file.cs b/src/my file.cs", "--- a/src/my file.cs\t", "+++ b/src/my file.cs\t", "@@ -0,0 +1 @@", "+// note"].join("\n"));
+  assert.equal(spaced[0].path, "src/my file.cs");
 });
 
 test("reads added and removed lines from a real diff", () => {
