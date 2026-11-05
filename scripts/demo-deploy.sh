@@ -15,7 +15,12 @@ if [[ ! -f "$env_file" ]]; then
   exit 1
 fi
 
-sample_key="$(grep '^JWT_SIGNING_KEY=' .env.example)"
+sample_key="$(grep -m1 '^JWT_SIGNING_KEY=' .env.example)"
+if [[ -z "$sample_key" ]]; then
+  echo "Missing check: .env.example has no JWT_SIGNING_KEY to compare with." >&2
+  exit 1
+fi
+
 if grep -qxF "$sample_key" "$env_file"; then
   echo "Missing a real JWT_SIGNING_KEY in $env_file: it still holds the sample from .env.example." >&2
   exit 1
@@ -70,6 +75,12 @@ remove_old_images() {
   done
 }
 
+current_commit="$(git rev-parse HEAD)"
+if [[ -z "$current_commit" ]]; then
+  echo "Missing commit: could not read the commit being deployed. The running version was not touched." >&2
+  exit 1
+fi
+
 previous_tag=""
 if [[ -f "$last_good_file" ]]; then
   previous_tag="$(cat "$last_good_file")"
@@ -89,7 +100,7 @@ fi
 
 if deploy "$IMAGE_TAG" && smoke "$IMAGE_TAG"; then
   echo "$IMAGE_TAG" > "$last_good_file"
-  git rev-parse HEAD > "$last_good_commit_file"
+  echo "$current_commit" > "$last_good_commit_file"
   remove_old_images "$IMAGE_TAG" "$previous_tag"
   echo "Deployed $IMAGE_TAG"
   exit 0
@@ -111,8 +122,13 @@ if [[ "$previous_tag" == "$IMAGE_TAG" ]]; then
 fi
 
 echo "Rolling back to $previous_tag" >&2
-if [[ -n "$previous_commit" ]] && ! git checkout --quiet --detach "$previous_commit"; then
-  echo "Rollback failed: commit $previous_commit could not be checked out" >&2
+if [[ -z "$previous_commit" ]]; then
+  echo "Rollback to $previous_tag failed: its commit is unknown." >&2
+  exit 1
+fi
+
+if ! git checkout --quiet --detach "$previous_commit"; then
+  echo "Rollback to $previous_tag failed: commit $previous_commit could not be checked out." >&2
   exit 1
 fi
 

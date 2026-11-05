@@ -28,7 +28,10 @@ exit 0
 
 const fakeGit = `#!/usr/bin/env bash
 echo "git $*" >> "$FAKE_LOG"
-if [[ "$1" == "rev-parse" ]]; then echo "commit-of-$IMAGE_TAG"; fi
+if [[ "$1" == "rev-parse" ]]; then
+  if [[ -n "$FAKE_BROKEN_REV_PARSE" ]]; then exit 128; fi
+  echo "commit-of-$IMAGE_TAG"
+fi
 exit 0
 `;
 
@@ -71,6 +74,7 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
         FAKE_BROKEN_UP: fake.brokenUp ?? "",
         FAKE_BROKEN_WEB: fake.brokenWeb ?? "",
         FAKE_BROKEN_READY: fake.brokenReady ?? "",
+        FAKE_BROKEN_REV_PARSE: fake.brokenRevParse ?? "",
       },
     });
     const read = (name) => (existsSync(join(state, name)) ? readFileSync(join(state, name), "utf8").trim() : null);
@@ -112,6 +116,20 @@ test("a failed rollback says so instead of claiming success", () => {
   assert.doesNotMatch(result.output, /Rolled back to old/);
 });
 
+test("a rollback without a recorded commit reports failure instead of running mismatched files", () => {
+  const result = deployment({ lastGood: "old", brokenWeb: "new" });
+  assert.equal(result.status, 1, result.output);
+  assert.match(result.output, /Rollback to old failed: its commit is unknown/);
+  assert.doesNotMatch(result.output, /Rolled back to old/);
+});
+
+test("an unreadable commit stops before anything changes", () => {
+  const result = deployment({ lastGood: "old", lastGoodCommit: "abc", brokenRevParse: "yes" });
+  assert.equal(result.status, 1, result.output);
+  assert.doesNotMatch(result.calls, / up -d /);
+  assert.equal(result.lastGoodCommit, "abc");
+});
+
 test("redeploying the good version that fails leaves it running instead of stopping the demo", () => {
   const result = deployment({ tag: "same", lastGood: "same", brokenWeb: "same" });
   assert.equal(result.status, 1, result.output);
@@ -124,6 +142,23 @@ test("the first deploy that fails stops the crashing stack", () => {
   assert.equal(result.status, 1, result.output);
   assert.match(result.output, /No earlier good version/);
   assert.match(result.calls, / stop/);
+});
+
+test("an example file without a sample key stops the deploy instead of skipping the check", () => {
+  const root = mkdtempSync(join(tmpdir(), "demo-deploy-"));
+  try {
+    writeFileSync(join(root, ".env.example"), "OTHER=1\n");
+    writeFileSync(join(root, "demo.env"), "JWT_SIGNING_KEY=real\n");
+    const result = spawnSync("bash", [join(import.meta.dirname, "demo-deploy.sh")], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, IMAGE_TAG: "new", DEMO_STATE_DIR: root },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /has no JWT_SIGNING_KEY/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("the sample signing key is refused before anything runs", () => {

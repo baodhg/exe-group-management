@@ -53,7 +53,7 @@ export function parseDiff(diff) {
 
 function withoutStrings(text) {
   return text
-    .replace(/\\./g, "")
+    .replace(/\\./g, "_")
     .replace(/"[^"]*"/g, '""')
     .replace(/'[^']*'/g, "''")
     .replace(/`[^`]*`/g, "``");
@@ -70,7 +70,7 @@ export function hasComment(path, text) {
   }
 
   if (hashCommentFiles.test(path)) {
-    return !/^#!|^# syntax=|^# shellcheck/.test(trimmed) && /(^|\s)#(\s|$)/.test(withoutStrings(text));
+    return !/^#!|^# syntax=|^# shellcheck/.test(trimmed) && /(^|\s)#/.test(withoutStrings(text));
   }
 
   if (path.endsWith(".sql")) {
@@ -114,17 +114,25 @@ function lineRules(path) {
   return rules;
 }
 
+function declaration(text) {
+  const match = /^\s*(.*?)\b(\w+)\s*=\s*(\d+)\s*(\[[^\]]*\]\s*)?;/.exec(text);
+  return match && { type: match[1].trim().replace(/\s+/g, " "), name: match[2], number: match[3] };
+}
+
 function protoProblems(file) {
   const added = file.added.map((entry) => entry.text);
   const problems = [];
   for (const removed of file.removed) {
-    const field = /([\w.]+)\s+(\w+)\s*=\s*(\d+)\s*;/.exec(removed);
+    const field = declaration(removed);
     if (!field) {
       continue;
     }
 
-    const [, type, name, number] = field;
-    const kept = added.some((text) => new RegExp(`(^|\\s)${type.replace(/\./g, "\\.")}\\s+${name}\\s*=\\s*${number}\\s*;`).test(text));
+    const { name, number } = field;
+    const kept = added.some((text) => {
+      const candidate = declaration(text);
+      return candidate?.type === field.type && candidate.name === name && candidate.number === number;
+    });
     const reserved = added.some((text) => new RegExp(`\\breserved\\b.*\\b${number}\\b`).test(text));
     if (!kept && !reserved) {
       problems.push({ path: file.path, rule: "proto", message: `Field ${name} = ${number} changed: proto fields may only be added, or removed with reserved.` });
@@ -203,8 +211,8 @@ export function checkPullRequest({ title, body, author, paths }) {
 }
 
 function annotate({ path, line, rule, message }) {
-  const location = path ? ` file=${path}${line ? `,line=${line}` : ""}` : "";
-  console.log(`::error${location},title=${rule}::${message}`.replace("::error ,", "::error "));
+  const location = path ? `file=${path},${line ? `line=${line},` : ""}` : "";
+  console.log(`::error ${location}title=${rule}::${message}`);
 }
 
 function main() {

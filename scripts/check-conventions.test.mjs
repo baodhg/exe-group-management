@@ -34,6 +34,12 @@ test("finds comments in the shapes that slip past a simple scan", () => {
   assert.equal(hasComment("scripts/a.sh", 'echo "${#items}"'), false);
 });
 
+test("finds hash comments without a space and keeps regex literals", () => {
+  assert.equal(hasComment("docker-compose.yml", "#note"), true);
+  assert.equal(hasComment("scripts/a.sh", "## Section"), true);
+  assert.equal(hasComment("src/web/src/a.ts", "const parts = path.split(/\\//);"), false);
+});
+
 test("does not mistake arithmetic or result assignments for violations", () => {
   assert.equal(hasComment("src/A.cs", "    * quantity;"), false);
   assert.deepEqual(rulesFor([fileWith("src/GroupService/A.cs", "context.Result = new OkResult();")]), []);
@@ -80,6 +86,14 @@ test("protects existing proto field numbers", () => {
   const added = { path: "a.proto", removed: [], added: [{ line: 1, text: "  string extra = 9;" }] };
   const retyped = { path: "a.proto", removed: ["  string id = 1;"], added: [{ line: 1, text: "  int32 id = 1;" }] };
   const deleted = { path: "a.proto", removed: ["  string id = 1;"], added: [] };
+  const enumValue = { path: "a.proto", removed: ["  GROUP_FULL = 3;"], added: [{ line: 1, text: "  GROUP_FULL = 4;" }] };
+  const sameEnum = { path: "a.proto", removed: ["  GROUP_FULL = 3;"], added: [{ line: 1, text: "    GROUP_FULL = 3;" }] };
+  const removedMap = { path: "a.proto", removed: ["  map<string, string> labels = 5;"], added: [] };
+  const repeatedKept = { path: "a.proto", removed: ["  repeated string ids = 6;"], added: [{ line: 2, text: "  repeated string ids = 6;" }] };
+  assert.deepEqual(rulesFor([enumValue]), ["proto"]);
+  assert.deepEqual(rulesFor([sameEnum]), []);
+  assert.deepEqual(rulesFor([removedMap]), ["proto"]);
+  assert.deepEqual(rulesFor([repeatedKept]), []);
   assert.deepEqual(rulesFor([retyped]), ["proto"]);
   assert.deepEqual(rulesFor([deleted]), ["proto"]);
   assert.deepEqual(rulesFor([changed]), ["proto"]);
