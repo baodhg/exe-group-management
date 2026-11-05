@@ -1,4 +1,5 @@
 using ExeGroup.BuildingBlocks.Data;
+using ExeGroup.BuildingBlocks.Errors;
 using ExeGroup.BuildingBlocks.Web.Responses;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -46,6 +47,7 @@ public static class HealthEndpoints
             Success = healthy,
             Message = healthy ? "Service is healthy" : "Service is not ready",
             Data = data,
+            Errors = healthy ? null : [new ApiError(ErrorCodes.UpstreamUnavailable, null, "A dependency of this service is not ready.")],
             TraceId = TraceIds.For(context),
         };
         return context.Response.WriteAsJsonAsync(body, context.RequestAborted);

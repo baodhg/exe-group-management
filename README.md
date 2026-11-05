@@ -122,7 +122,7 @@ scripts/                 ef.sh / ef.ps1 (migrations), dev-token.mjs (test tokens
 
    ```env
    SA_PASSWORD=<strong SQL Server password>
-   JWT_SIGNING_KEY=<at least 32 random characters>
+   JWT_SIGNING_KEY=<output of: openssl rand -base64 48>
    JWT_ISSUER=exe-group-system
    JWT_AUDIENCE=exe-group-clients
    SEED_ADMIN_EMAIL=<e-mail of the first Administrator>

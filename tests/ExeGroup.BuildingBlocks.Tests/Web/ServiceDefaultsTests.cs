@@ -150,6 +150,7 @@ public sealed class ServiceDefaultsTests
         var (status, body) = await GetAsync(broken.GetTestClient(), "/health/ready");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, status);
         Assert.Equal("Unhealthy", body.GetProperty("data").GetProperty("status").GetString());
+        Assert.Equal("UPSTREAM_UNAVAILABLE", body.GetProperty("errors")[0].GetProperty("code").GetString());
     }
 
     [Fact]
