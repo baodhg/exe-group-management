@@ -13,6 +13,9 @@ const commentFreeExemptions = /(^|\/)(Migrations|node_modules|dist|bin|obj)\/|\.
 const testFile = /(^|\/)tests?\/|\.test\.(ts|tsx|mjs)$/;
 const featureCode = /^src\/(Identity|Group|Recommendation|Realtime)Service\/[^/]+\.(API|Services)\/.+\.cs$/;
 const migrationFile = /\/Migrations\/\d+_[^/]+\.cs$/;
+const migrationOperation = /\bmigrationBuilder\s*\./;
+const schemaObjectName = /\[((?:PK|FK|CK|DF|UX|IX|AK|UQ)_\w+)\]/g;
+const verifiableOperations = new Set(["CreateTable", "CreateIndex", "AddColumn", "AddForeignKey", "AddCheckConstraint", "AddPrimaryKey", "AddUniqueConstraint", "InsertData"]);
 
 export function parseDiff(diff) {
   const files = new Map();
@@ -155,10 +158,61 @@ function protoProblems(file) {
 function isEmptyMigration(file) {
   const current = file.content?.split("\n") ?? file.added.map((entry) => entry.text);
   const lines = [...current, ...file.removed];
-  return lines.some((text) => /\bvoid Up\(/.test(text)) && !lines.some((text) => /\bmigrationBuilder\s*\./.test(text));
+  return lines.some((text) => /\bvoid Up\(/.test(text)) && !lines.some((text) => migrationOperation.test(text));
 }
 
-export function checkFiles(files) {
+export function declaredSchema(sql) {
+  const tables = new Map();
+  for (const [, table, body] of sql.matchAll(/CREATE TABLE dbo\.\[(\w+)\] \(([\s\S]*?)\r?\n\);/g)) {
+    tables.set(table, new Set([...body.matchAll(/^\s*\[(\w+)\]/gm)].map(([, column]) => column)));
+  }
+
+  return { tables, names: new Set([...sql.matchAll(schemaObjectName)].map(([, name]) => name)) };
+}
+
+export function undeclaredByMigration(content, schema) {
+  const up = /\bvoid Up\(([\s\S]*?)(\bvoid Down\(|$)/.exec(content)?.[1];
+  if (up === undefined) {
+    return null;
+  }
+
+  const undeclared = new Set();
+  for (const operation of up.split(migrationOperation).slice(1)) {
+    const name = /^(\w+)/.exec(operation)?.[1];
+    if (!verifiableOperations.has(name)) {
+      return null;
+    }
+
+    const created = name === "CreateTable" ? /name:\s*"(\w+)"/.exec(operation)?.[1] : undefined;
+    const columns = created ? [...operation.matchAll(/(\w+)\s*=\s*table\.Column</g)].map(([, column]) => [created, column]) : [];
+    const added = /^AddColumn<[^>]+>\(\s*name:\s*"(\w+)",\s*table:\s*"(\w+)"/.exec(operation);
+    for (const [table, column] of added ? [...columns, [added[2], added[1]]] : columns) {
+      if (!schema.tables.get(table)?.has(column)) {
+        undeclared.add(`column ${table}.${column}`);
+      }
+    }
+
+    for (const [, table] of operation.matchAll(/\b(?:table|principalTable):\s*"(\w+)"/g)) {
+      if (!schema.tables.has(table)) {
+        undeclared.add(`table ${table}`);
+      }
+    }
+
+    if (created && !schema.tables.has(created)) {
+      undeclared.add(`table ${created}`);
+    }
+
+    for (const [, objectName] of operation.matchAll(/"((?:PK|FK|CK|DF|UX|IX|AK|UQ)_\w+)"/g)) {
+      if (!schema.names.has(objectName)) {
+        undeclared.add(objectName);
+      }
+    }
+  }
+
+  return [...undeclared].sort();
+}
+
+export function checkFiles(files, { schema } = {}) {
   const problems = [];
   for (const file of files) {
     if (/(^|\/)\.env(\.(?!(local\.)?example$)[^/]+)?$/i.test(file.path)) {
@@ -192,9 +246,21 @@ export function checkFiles(files) {
 
   const paths = files.map((file) => file.path);
   const changesContent = (file) => file.added.length > 0 || file.removed.length > 0;
-  const changesMigration = files.some((file) => migrationFile.test(file.path) && !file.path.endsWith(".Designer.cs") && changesContent(file) && !isEmptyMigration(file));
-  if (changesMigration && !paths.includes("database/schema.sql")) {
-    problems.push({ path: "database/schema.sql", rule: "schema", message: "A migration must update database/schema.sql in the same pull request." });
+  const migrations = files.filter((file) => migrationFile.test(file.path) && !file.path.endsWith(".Designer.cs") && changesContent(file) && !isEmptyMigration(file));
+  const declared = schema === undefined ? null : declaredSchema(schema);
+  let needsSchemaChange = false;
+  for (const migration of migrations) {
+    const verifiable = declared && migration.content !== undefined && !migration.removed.some((text) => migrationOperation.test(text));
+    const undeclared = verifiable ? undeclaredByMigration(migration.content, declared) : null;
+    if (undeclared === null) {
+      needsSchemaChange = true;
+    } else if (undeclared.length > 0) {
+      problems.push({ path: migration.path, rule: "schema", message: `This migration creates ${undeclared.join(", ")}, which database/schema.sql does not declare.` });
+    }
+  }
+
+  if (needsSchemaChange && !paths.includes("database/schema.sql")) {
+    problems.push({ path: "database/schema.sql", rule: "schema", message: "A migration that changes or drops structure must update database/schema.sql in the same pull request." });
   }
 
   return problems;
@@ -245,7 +311,8 @@ function main() {
   const files = parseDiff(diff).map((file) =>
     migrationFile.test(file.path) && existsSync(file.path) ? { ...file, content: readFileSync(file.path, "utf8") } : file,
   );
-  const problems = [...checkFiles(files), ...checkPullRequest({ title, body, author, paths: files.filter((file) => file.added.length > 0).map((file) => file.path) })];
+  const schema = existsSync("database/schema.sql") ? readFileSync("database/schema.sql", "utf8") : undefined;
+  const problems = [...checkFiles(files, { schema }), ...checkPullRequest({ title, body, author, paths: files.filter((file) => file.added.length > 0).map((file) => file.path) })];
   problems.forEach(annotate);
   if (problems.length > 0) {
     console.error(`${problems.length} convention problem(s). See CONTRIBUTING.md.`);

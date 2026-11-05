@@ -80,6 +80,55 @@ test("requires schema.sql to move with a migration", () => {
   assert.deepEqual(rulesFor([migration, fileWith("database/schema.sql", "CREATE TABLE Courses (Id int);")]), []);
 });
 
+const declaredCourses = [
+  "CREATE TABLE dbo.[Courses] (",
+  "    [CourseId] uniqueidentifier NOT NULL,",
+  "    [Name] nvarchar(50) NOT NULL,",
+  "    CONSTRAINT [PK_Courses] PRIMARY KEY CLUSTERED ([CourseId])",
+  ");",
+  "CREATE UNIQUE INDEX [UX_Courses_Name] ON dbo.[Courses] ([Name]);",
+].join("\n");
+
+const coursesMigration = (columns) =>
+  [
+    "protected override void Up(MigrationBuilder migrationBuilder)",
+    "{",
+    '    migrationBuilder.CreateTable(name: "Courses", columns: table => new',
+    "    {",
+    ...columns.map((column) => `        ${column} = table.Column<string>(nullable: false),`),
+    '    }, constraints: table => { table.PrimaryKey("PK_Courses", x => x.CourseId); });',
+    '    migrationBuilder.CreateIndex(name: "UX_Courses_Name", table: "Courses", column: "Name", unique: true);',
+    "}",
+    "protected override void Down(MigrationBuilder migrationBuilder)",
+    "{",
+    '    migrationBuilder.DropTable(name: "Courses");',
+    "}",
+  ].join("\n");
+
+const migrationWith = (content) => ({ ...fileWith("src/GroupService/G.Repositories/Data/Migrations/20261105_AddCourses.cs", "x"), content });
+const schemaRulesFor = (files) => checkFiles(files, { schema: declaredCourses }).map((problem) => problem.rule);
+
+test("a migration that creates only what schema.sql declares needs no schema.sql change", () => {
+  assert.deepEqual(schemaRulesFor([migrationWith(coursesMigration(["CourseId", "Name"]))]), []);
+});
+
+test("a migration that creates what schema.sql does not declare is reported, even with schema.sql in the change", () => {
+  const extraColumn = migrationWith(coursesMigration(["CourseId", "Name", "Title"]));
+  const problems = checkFiles([extraColumn, fileWith("database/schema.sql", "-x")], { schema: declaredCourses });
+  assert.deepEqual(problems.map((problem) => problem.rule), ["schema"]);
+  assert.match(problems[0].message, /column Courses\.Title/);
+  const otherIndex = migrationWith(coursesMigration(["CourseId", "Name"]).replace("UX_Courses_Name", "IX_Courses_Name"));
+  assert.deepEqual(schemaRulesFor([otherIndex]), ["schema"]);
+});
+
+test("operations the check cannot verify still need schema.sql", () => {
+  const rawSql = migrationWith(coursesMigration(["CourseId", "Name"]).replace("migrationBuilder.CreateIndex", 'migrationBuilder.Sql("ALTER TABLE Courses ADD Code int");\n    migrationBuilder.CreateIndex'));
+  assert.deepEqual(schemaRulesFor([rawSql]), ["schema"]);
+  assert.deepEqual(schemaRulesFor([rawSql, fileWith("database/schema.sql", "x")]), []);
+  const dropped = { ...migrationWith(coursesMigration(["CourseId", "Name"])), removed: ['    migrationBuilder.AddColumn<string>(name: "Code", table: "Courses");'] };
+  assert.deepEqual(schemaRulesFor([dropped]), ["schema"]);
+});
+
 test("lets a migration without operations skip schema.sql", () => {
   const up = "protected override void Up(MigrationBuilder migrationBuilder)";
   const added = fileWith("src/RealtimeService/R.Repositories/Data/Migrations/20261105_Baseline.cs", up, "{", "}");
