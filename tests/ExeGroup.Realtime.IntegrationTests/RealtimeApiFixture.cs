@@ -59,5 +59,9 @@ public class RealtimeApiFixture : IAsyncLifetime
     }
 
     protected virtual Task<Dictionary<string, string?>> SettingsAsync() =>
-        Task.FromResult(new Dictionary<string, string?> { ["Jobs:GroupEventsConsumer:Enabled"] = "false" });
+        Task.FromResult(new Dictionary<string, string?>
+        {
+            ["Jobs:GroupEventsConsumer:Enabled"] = "false",
+            ["Jobs:ProcessedEventsCleanup:Enabled"] = "false",
+        });
 }
