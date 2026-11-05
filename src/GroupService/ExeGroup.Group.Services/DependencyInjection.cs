@@ -1,5 +1,6 @@
 using ExeGroup.Group.Repositories;
 using ExeGroup.Group.Services.Courses;
+using ExeGroup.Group.Services.Events;
 using ExeGroup.Group.Services.GroupTypes;
 using ExeGroup.Group.Services.Majors;
 using ExeGroup.Group.Services.Rosters;
@@ -16,6 +17,8 @@ public static class DependencyInjection
     public static IServiceCollection AddGroupServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddGroupRepositories(configuration);
+        services.AddScoped<IOutbox, Outbox>();
+        services.AddScoped<IOutboxDispatcher, OutboxDispatcher>();
         services.AddScoped<ISemesterService, SemesterService>();
         services.AddScoped<ISubjectService, SubjectService>();
         services.AddScoped<IMajorService, MajorService>();
