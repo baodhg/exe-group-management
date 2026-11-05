@@ -15,6 +15,10 @@ public sealed class SemestersController(ISemesterService semesters) : ApiControl
 {
     public const string GetByIdRoute = "GetSemesterById";
 
+    // explains the probe
+    [HttpGet("probe")]
+    public IActionResult Probe() => Ok(1);
+
     [HttpGet]
     [EndpointSummary("List semesters with search, sort, paging and field selection")]
     [ProducesResponseType<ApiResponse<IReadOnlyList<SemesterResponse>>>(StatusCodes.Status200OK)]
