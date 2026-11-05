@@ -191,6 +191,112 @@ describe("apiClient", () => {
     expect(store.current).toBeNull();
   });
 
+  describe("when the session changes while a refresh is in flight", () => {
+    const expired = () => envelope(401, { success: false, message: "Authentication required", data: null, errors: [{ code: "UNAUTHORIZED", field: null, message: "expired" }], traceId: "t" });
+    const refreshed = () => envelope(200, { success: true, message: "Token refreshed", data: { accessToken: "new-access", refreshToken: "refresh-2" }, errors: null, traceId: "t" });
+
+    function pausedRefresh() {
+      const calls: { path: string; refreshToken?: string; bearer: string | null }[] = [];
+      let answer!: (response: Response) => void;
+      const refreshAnswer = new Promise<Response>((resolve) => {
+        answer = resolve;
+      });
+      let reachedRefresh!: () => void;
+      const refreshStarted = new Promise<void>((resolve) => {
+        reachedRefresh = resolve;
+      });
+      const fetcher = vi.fn(async (path: string, init: RequestInit) => {
+        const body = init.body ? (JSON.parse(init.body as string) as { refreshToken?: string }) : {};
+        calls.push({ path, refreshToken: body.refreshToken, bearer: new Headers(init.headers).get("Authorization") });
+        if (path === "/api/v1/auth/refresh-token") {
+          reachedRefresh();
+          return refreshAnswer;
+        }
+
+        return path === "/api/v1/auth/logout" ? new Response(null, { status: 204 }) : expired();
+      });
+      return { calls, answer, refreshStarted, fetcher: fetcher as unknown as typeof fetch };
+    }
+
+    it("does not restore the session after sign-out, and revokes the token that arrived too late", async () => {
+      const { calls, answer, refreshStarted, fetcher } = pausedRefresh();
+      const store = memoryStore(session);
+      const client = createApiClient({ fetcher, store });
+
+      const pending = client.get("/api/v1/semesters");
+      await refreshStarted;
+      await client.signOut();
+      answer(refreshed());
+
+      await expect(pending).rejects.toMatchObject({ status: 401 });
+      expect(store.current).toBeNull();
+      const revoked = calls.filter((call) => call.path === "/api/v1/auth/logout").map((call) => call.refreshToken);
+      expect(revoked).toEqual(["refresh-1", "refresh-2"]);
+      expect(calls.filter((call) => call.bearer === "Bearer new-access")).toEqual([]);
+    });
+
+    it("leaves the next user alone when the previous user's refresh is rejected", async () => {
+      const { answer, refreshStarted, fetcher } = pausedRefresh();
+      const store = memoryStore(session);
+      const onSignedOut = vi.fn();
+      const client = createApiClient({ fetcher, store, onSignedOut });
+      const nextUser: StoredSession = { accessToken: "b-access", refreshToken: "b-refresh" };
+
+      const pending = client.get("/api/v1/semesters");
+      await refreshStarted;
+      store.write(nextUser);
+      answer(expired());
+
+      await expect(pending).rejects.toMatchObject({ status: 401 });
+      expect(store.current).toEqual(nextUser);
+      expect(onSignedOut).not.toHaveBeenCalled();
+    });
+
+    it("does not overwrite the next user with the previous user's new tokens", async () => {
+      const { calls, answer, refreshStarted, fetcher } = pausedRefresh();
+      const store = memoryStore(session);
+      const client = createApiClient({ fetcher, store });
+      const nextUser: StoredSession = { accessToken: "b-access", refreshToken: "b-refresh" };
+
+      const pending = client.get("/api/v1/semesters");
+      await refreshStarted;
+      store.write(nextUser);
+      answer(refreshed());
+
+      await expect(pending).rejects.toMatchObject({ status: 401 });
+      expect(store.current).toEqual(nextUser);
+      expect(calls.filter((call) => call.path === "/api/v1/auth/logout").map((call) => call.refreshToken)).toEqual(["refresh-2"]);
+    });
+  });
+
+  it("spends a refresh token once when two tabs share a session", async () => {
+    const spentTokens: string[] = [];
+    const fetcher = vi.fn(async (path: string, init: RequestInit) => {
+      if (path === "/api/v1/auth/refresh-token") {
+        spentTokens.push((JSON.parse(init.body as string) as { refreshToken: string }).refreshToken);
+        return envelope(200, { success: true, message: "Token refreshed", data: { accessToken: "new-access", refreshToken: "refresh-2" }, errors: null, traceId: "t" });
+      }
+
+      return new Headers(init.headers).get("Authorization") === "Bearer old-access"
+        ? envelope(401, { success: false, message: "Authentication required", data: null, errors: [{ code: "UNAUTHORIZED", field: null, message: "expired" }], traceId: "t" })
+        : envelope(200, { success: true, message: "ok", data: path, errors: null, traceId: "t" });
+    }) as unknown as typeof fetch;
+    let queue: Promise<unknown> = Promise.resolve();
+    const refreshLock = <T,>(work: () => Promise<T>): Promise<T> => {
+      const turn = queue.then(work);
+      queue = turn.catch(() => undefined);
+      return turn;
+    };
+    const store = memoryStore(session);
+    const firstTab = createApiClient({ fetcher, store, refreshLock });
+    const secondTab = createApiClient({ fetcher, store, refreshLock });
+
+    const results = await Promise.all([firstTab.get<string>("/first"), secondTab.get<string>("/second")]);
+
+    expect(results.map((result) => result.data)).toEqual(["/first", "/second"]);
+    expect(spentTokens).toEqual(["refresh-1"]);
+  });
+
   it("sends a partial update with PATCH", async () => {
     const fetcher = vi.fn().mockResolvedValue(envelope(200, { success: true, message: "ok", data: { status: "Locked" }, errors: null, traceId: "t" }));
     const client = createApiClient({ fetcher, store: memoryStore(session) });

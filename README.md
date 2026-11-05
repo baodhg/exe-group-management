@@ -173,7 +173,7 @@ Notes:
 
 - `docker-compose.override.yml` is loaded automatically in development and is the only file that publishes the SQL
   Server and Redis ports. For a submission or demo build without it: `docker compose -f docker-compose.yml up -d --build`.
-- The gateway checks the JWT for every route except `/api/v1/auth/login`, `/api/v1/auth/refresh-token`, `/swagger/**`
+- The gateway checks the JWT for every route except `/api/v1/auth/login`, `/api/v1/auth/refresh-token`, `/api/v1/auth/logout`, `/swagger/**`
   and `/health/**`; each service checks it again and applies the business permissions.
 - Configuration comes from `appsettings.json`, overridden by environment variables such as
   `ConnectionStrings__GroupDb`, `Jwt__SigningKey`, `Redis__Connection`, `GrpcClients__GroupService`.

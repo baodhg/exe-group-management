@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 
 export function createPollClock(now: () => number = Date.now) {
@@ -9,6 +9,9 @@ export function createPollClock(now: () => number = Date.now) {
       if (started?.path !== path) {
         started = { path, at: now() };
       }
+    },
+    reset() {
+      started = null;
     },
     elapsedMs: () => (started ? now() - started.at : 0),
   };
@@ -21,6 +24,12 @@ export function usePollUntil<T>(
 ) {
   const { api } = useAuth();
   const [clock] = useState(() => createPollClock());
+
+  useEffect(() => {
+    if (path === null) {
+      clock.reset();
+    }
+  }, [clock, path]);
 
   return useQuery({
     queryKey: ["poll", path],

@@ -16,6 +16,18 @@ describe("createPollClock", () => {
     expect(clock.elapsedMs()).toBe(1_500);
   });
 
+  it("starts over when the same path is polled again after a reset", () => {
+    let now = 0;
+    const clock = createPollClock(() => now);
+
+    clock.mark("/api/v1/join-requests/1");
+    now += 40_000;
+    clock.reset();
+    clock.mark("/api/v1/join-requests/1");
+
+    expect(clock.elapsedMs()).toBe(0);
+  });
+
   it("restarts when polling moves to another path", () => {
     let now = 0;
     const clock = createPollClock(() => now);
