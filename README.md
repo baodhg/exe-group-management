@@ -196,6 +196,7 @@ version if anything fails. Follow it in the **Actions** tab; a failed deployment
   GitHub environment, which only `main` can use, so pull requests cannot read it.
 - Secrets stay in `demo.env` on the server (`SA_PASSWORD`, `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`,
   `ASPNETCORE_ENVIRONMENT=Production`), never in the repository. Do not store real student data on this demo.
+- Each successful deployment keeps the running and the last good images, and removes build cache unused for 7 days.
 - The server hosts other projects: never run `docker system prune` or `docker compose down -v` there.
 
 ### Merging into main
