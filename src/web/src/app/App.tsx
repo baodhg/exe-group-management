@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { LoginPage } from "../features/auth/LoginPage";
 import { AdminHomePage } from "../features/home/AdminHomePage";
 import { MyCoursesPage } from "../features/home/MyCoursesPage";
+import { LecturerCoursePage } from "../features/lecturer/LecturerCoursePage";
 import { RoomPage } from "../features/rooms/RoomPage";
 import { SemestersPage } from "../features/semesters/SemestersPage";
 import { SkillsPage } from "../features/student/SkillsPage";
@@ -28,6 +29,7 @@ export function App() {
               <Route path="/student/semesters/:semesterId/skills" element={<RequireRole roles={["Student"]}><SkillsPage /></RequireRole>} />
               <Route path="/rooms/:roomId" element={<RequireRole roles={["Student", "Lecturer", "Administrator"]}><RoomPage /></RequireRole>} />
               <Route path="/lecturer" element={<RequireRole roles={["Lecturer"]}><MyCoursesPage area="lecturer" /></RequireRole>} />
+              <Route path="/lecturer/courses/:courseId" element={<RequireRole roles={["Lecturer"]}><LecturerCoursePage /></RequireRole>} />
               <Route path="/admin" element={<RequireRole roles={["Administrator"]}><AdminHomePage /></RequireRole>} />
               <Route path="/admin/semesters" element={<RequireRole roles={["Administrator"]}><SemestersPage /></RequireRole>} />
             </Route>

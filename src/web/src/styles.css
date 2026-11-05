@@ -206,3 +206,33 @@ h2 {
 h3 {
   font-size: 1em;
 }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: grid;
+}
+
+.stat-value {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.stat-label {
+  color: #6b7280;
+}
+
+.stat-warn {
+  border-color: #f59e0b;
+}
+
+.stat-good {
+  border-color: #22c55e;
+}
