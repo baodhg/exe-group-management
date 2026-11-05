@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { createApiClient } from "../api/apiClient";
+import { createApiClient, loginPath } from "../api/apiClient";
 import { AuthContext, type AuthState } from "./authContext";
 import { browserSessionStore, decodeUser, type SessionUser, type StoredSession } from "./sessionStore";
 
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      const result = await api.post<StoredSession>("/api/v1/auth/login", { email, password });
+      const result = await api.post<StoredSession>(loginPath, { email, password });
       browserSessionStore.write(result.data);
       const signedIn = decodeUser(result.data.accessToken);
       if (!signedIn) {

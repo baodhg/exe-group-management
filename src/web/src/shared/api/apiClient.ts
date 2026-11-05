@@ -1,8 +1,11 @@
-import type { SessionStore, StoredSession } from "../auth/sessionStore";
+import { decodeUser, type SessionStore, type StoredSession } from "../auth/sessionStore";
 import type { ApiEnvelope, ApiErrorItem, ApiResult, ListParams } from "./types";
 
+export const loginPath = "/api/v1/auth/login";
 export const refreshPath = "/api/v1/auth/refresh-token";
 export const logoutPath = "/api/v1/auth/logout";
+const sessionlessPaths: ReadonlySet<string> = new Set([loginPath, refreshPath, logoutPath]);
+const sessionlessTimeoutMs = 15_000;
 const correlationHeader = "X-Correlation-ID";
 const refreshLockName = "exe-group-token-refresh";
 
@@ -51,7 +54,8 @@ export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSig
   let refreshing: Promise<StoredSession | null> | null = null;
 
   async function send<T>(method: string, path: string, body: unknown, allowRefresh: boolean): Promise<ApiResult<T>> {
-    const session = store.read();
+    const sessionless = sessionlessPaths.has(path);
+    const session = sessionless ? null : store.read();
     const headers = new Headers({ Accept: "application/json" });
     if (body !== undefined) {
       headers.set("Content-Type", "application/json");
@@ -65,11 +69,13 @@ export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSig
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: sessionless ? AbortSignal.timeout(sessionlessTimeoutMs) : undefined,
     });
 
-    if (response.status === 401 && allowRefresh && session && path !== refreshPath) {
-      const renewed = await refreshOnce(session);
-      if (renewed) {
+    if (response.status === 401 && allowRefresh && !sessionless) {
+      if (!store.read()) {
+        onSignedOut?.();
+      } else if (session && (await refreshOnce(session))) {
         return send<T>(method, path, body, false);
       }
     }
@@ -86,14 +92,18 @@ export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSig
 
   async function renew(rejected: StoredSession): Promise<StoredSession | null> {
     const current = store.read();
-    if (!current || current.accessToken !== rejected.accessToken) {
-      return current;
+    if (!current) {
+      return null;
+    }
+
+    if (current.accessToken !== rejected.accessToken) {
+      return sameUser(current, rejected) ? current : null;
     }
 
     try {
       const { data: tokens } = await send<StoredSession>("POST", refreshPath, { refreshToken: current.refreshToken }, false);
       if (store.read()?.refreshToken !== current.refreshToken) {
-        await revoke(tokens.refreshToken);
+        void revoke(tokens.refreshToken);
         return null;
       }
 
@@ -130,6 +140,11 @@ export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSig
       }
     },
   };
+}
+
+function sameUser(first: StoredSession, second: StoredSession): boolean {
+  const firstUser = decodeUser(first.accessToken)?.userId;
+  return firstUser !== undefined && firstUser === decodeUser(second.accessToken)?.userId;
 }
 
 async function read<T>(response: Response): Promise<ApiResult<T>> {
