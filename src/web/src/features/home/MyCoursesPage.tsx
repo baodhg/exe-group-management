@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { useAuth } from "../../shared/auth/useAuth";
 import { formatDateTime, phaseLabels } from "../common/messages";
 import type { Course } from "../common/types";
@@ -33,7 +34,9 @@ export function MyCoursesPage({ area }: { area: "student" | "lecturer" }) {
             {courses.data.data.map((course) => (
               <tr key={course.id}>
                 <td>
-                  {course.subjectCode} – {course.subjectName}
+                  <Link to={`/${area}/courses/${course.id}`}>
+                    {course.subjectCode} – {course.subjectName}
+                  </Link>
                 </td>
                 <td>{course.classCode}</td>
                 <td>{course.semesterCode}</td>
