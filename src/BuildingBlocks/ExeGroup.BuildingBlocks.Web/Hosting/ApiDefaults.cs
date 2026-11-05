@@ -34,6 +34,7 @@ public static class ApiDefaults
                 options.AllowInputFormatterExceptionMessages = false;
                 options.JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow;
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                options.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter());
             })
             .ConfigureApiBehaviorOptions(options =>
             {
