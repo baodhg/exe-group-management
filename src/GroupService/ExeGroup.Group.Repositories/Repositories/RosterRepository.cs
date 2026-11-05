@@ -137,6 +137,25 @@ public sealed class RosterRepository(GroupDbContext context) : IRosterRepository
         context.CourseEnrollments.Remove(enrollment);
     }
 
+    public Task<SemesterStudent?> FindWithSkillsAsync(Guid semesterId, Guid studentId, CancellationToken cancellationToken) =>
+        context.SemesterStudents.Include(student => student.Skills)
+            .SingleOrDefaultAsync(student => student.SemesterId == semesterId && student.StudentId == studentId, cancellationToken);
+
+    public Task<Dictionary<Guid, Skill>> FindSkillsAsync(IReadOnlyCollection<Guid> skillIds, CancellationToken cancellationToken) =>
+        context.Skills.AsNoTracking().Where(skill => skillIds.Contains(skill.SkillId)).ToDictionaryAsync(skill => skill.SkillId, cancellationToken);
+
+    public Task<Major?> FindMajorAsync(Guid majorId, CancellationToken cancellationToken) =>
+        context.Majors.AsNoTracking().SingleOrDefaultAsync(major => major.MajorId == majorId, cancellationToken);
+
+    public Task<bool> HasClosedCourseAsync(Guid semesterId, Guid studentId, CancellationToken cancellationToken) =>
+        context.CourseEnrollments.AnyAsync(
+            enrollment => enrollment.SemesterId == semesterId && enrollment.StudentId == studentId
+                && context.Courses.Any(course => course.CourseId == enrollment.CourseId
+                    && (course.Phase == CoursePhases.Expired || course.Phase == CoursePhases.Finalized)),
+            cancellationToken);
+
+    public void RemoveSkill(StudentSkill skill) => context.StudentSkills.Remove(skill);
+
     public void Add(SemesterStudent student) => context.SemesterStudents.Add(student);
 
     public void Add(CourseEnrollment enrollment) => context.CourseEnrollments.Add(enrollment);

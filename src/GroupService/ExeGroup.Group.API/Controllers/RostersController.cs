@@ -11,8 +11,27 @@ namespace ExeGroup.Group.API.Controllers;
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/semesters/{semesterId:guid}/students")]
 [Tags("Students")]
-public sealed class SemesterStudentsController(IRosterService rosters) : ApiControllerBase
+public sealed class SemesterStudentsController(IRosterService rosters, IStudentProfileService profiles) : ApiControllerBase
 {
+    [HttpGet("me")]
+    [Authorize(Roles = Roles.Student)]
+    [EndpointSummary("My major and skill ratings in this semester")]
+    [ProducesResponseType<ApiResponse<StudentProfileResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Me([FromRoute] Guid semesterId, CancellationToken cancellationToken) =>
+        Success((await profiles.GetMineAsync(semesterId, cancellationToken)).ToResponse(), "Profile loaded");
+
+    [HttpPut("me/skills")]
+    [Authorize(Roles = Roles.Student)]
+    [EndpointSummary("Rate my skills 1 to 5; the list replaces my current ratings")]
+    [ProducesResponseType<ApiResponse<StudentProfileResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RateSkills([FromRoute] Guid semesterId, [FromBody] List<SkillRatingRequest> request, CancellationToken cancellationToken) =>
+        Success(
+            (await profiles.RateMySkillsAsync(semesterId, request.Select(item => new SkillLevelInput(item.SkillId!.Value, item.Level!.Value)).ToList(), cancellationToken)).ToResponse(),
+            "Skills saved");
+
     [HttpGet]
     [Authorize(Roles = Roles.Administrator)]
     [EndpointSummary("List the students of a semester with their major; filter majorId")]
