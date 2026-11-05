@@ -94,6 +94,8 @@ export interface JoinRequest {
   studentId: string;
   studentCode: string | null;
   studentName: string | null;
+  majorCode: string | null;
+  skills: RoomSkill[];
   message: string | null;
   status: "Pending" | "Approved" | "Rejected" | "Cancelled";
   reasonCode: string | null;
