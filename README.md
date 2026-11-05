@@ -35,7 +35,7 @@ Microservices documented with the C4 model. Level 1 and Level 2 below are genera
 |---|---|
 | ![System Context](docs/diagrams/fig1_c4_l1_context.png) | ![Container](docs/diagrams/fig2_c4_l2_container.png) |
 
-Render the DSL views (components marked [Planned] are designed but not implemented yet):
+Render the DSL views (on Git Bash for Windows, prefix the command with `MSYS_NO_PATHCONV=1`):
 `docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr export -workspace /usr/local/structurizr/workspace.dsl -format plantuml/c4plantuml -output /usr/local/structurizr/diagrams`, then render with `plantuml/plantuml -tpng`.
 
 | Container | Technology | Responsibility |
@@ -77,13 +77,13 @@ How the services talk to each other:
 | Sync communication | gRPC (Grpc.AspNetCore / Grpc.Net.ClientFactory 2.85, Protobuf over HTTP/2): Group → Recommendation |
 | Messaging | Redis 7 Streams (StackExchange.Redis 3.x), transactional outbox, idempotent consumer |
 | Real time | ASP.NET Core SignalR: chat, notifications, live room board |
-| Background jobs | `BackgroundService` + `PeriodicTimer` through a shared `PeriodicBackgroundService` base |
-| Security | JWT Bearer HS256 (key ≥ 32 bytes, validated at start-up), refresh tokens, ASP.NET Core `PasswordHasher` |
+| Background jobs | `BackgroundService` + `PeriodicTimer` through a shared `PeriodicBackgroundService` base: OutboxPublisher (2 s), PhaseScheduler (1 min), OutboxCleanup and ProcessedEventsCleanup (daily), GroupEventsConsumer (continuous) |
+| Security | JWT Bearer HS256 (key ≥ 32 bytes, validated at start-up), rotating refresh tokens (reuse revokes the family), PBKDF2-SHA256 password hashes, sign-in rate limit at the gateway |
 | API surface | URL versioning (Asp.Versioning 10), JSON and XML (406 for anything else), DataAnnotations + FluentValidation |
 | API docs | Swashbuckle 10 (OpenAPI), one document per service, merged Swagger UI with Authorize button at the gateway |
 | Logging | Serilog with correlation id; custom request-logging and exception middleware |
-| Frontend | React 19, TypeScript 7, Vite 8, React Router 7, TanStack Query 5, Vitest, oxlint, nginx |
-| Tests | xUnit v3 on Microsoft.Testing.Platform, Testcontainers (real SQL Server), NetArchTest |
+| Frontend | React 19, TypeScript 7, Vite 8, React Router 7, TanStack Query 5, `@microsoft/signalr`, Vitest, oxlint, nginx |
+| Tests | xUnit v3 on Microsoft.Testing.Platform, Testcontainers (real SQL Server and Redis), NetArchTest; `scripts/smoke-e2e.mjs` for the whole stack |
 | Deployment | Docker, Docker Compose (8 containers), GitHub Actions CI |
 
 ## 4. Installation guide
@@ -110,7 +110,8 @@ tests/                   architecture, building-block, gateway and integration t
 docker/                  shared Dockerfile for the .NET services
 database/schema.sql      reference DDL (EF Core migrations are the runtime source of truth)
 docs/                    brief, labs, design document, diagrams, C4 workspace
-scripts/                 ef.sh / ef.ps1 (migrations), dev-token.mjs (test tokens)
+scripts/                 ef.sh / ef.ps1 (migrations), dev-token.mjs (test tokens), seed-demo.mjs (demo data),
+                         smoke-e2e.mjs (end-to-end check of a running stack)
 ```
 
 ### Steps
@@ -125,6 +126,7 @@ scripts/                 ef.sh / ef.ps1 (migrations), dev-token.mjs (test tokens
    JWT_AUDIENCE=exe-group-clients
    SEED_ADMIN_EMAIL=<e-mail of the first Administrator>
    SEED_ADMIN_PASSWORD=<initial password>
+   SEED_DEMO_PASSWORD=<password of the demo lecturer and students>
    SQL_HOST_PORT=14330
    REDIS_HOST_PORT=16379
    GATEWAY_HOST_PORT=8080
@@ -144,16 +146,28 @@ scripts/                 ef.sh / ef.ps1 (migrations), dev-token.mjs (test tokens
 5. Open the apps:
    - Web app: <http://localhost:3000>
    - Swagger UI (Identity, Group and Realtime; Recommendation speaks gRPC only): <http://localhost:8080/swagger>
-6. For a test token while sign-in is being built: `node scripts/dev-token.mjs Administrator` and paste it into the
-   Swagger **Authorize** dialog.
+6. Sign in to the web app with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`. In Swagger, sign in with
+   `POST /api/v1/auth/login` and paste the `accessToken` into the **Authorize** dialog (or use
+   `node scripts/dev-token.mjs Administrator` for a test token).
+7. Load the demo data (Node.js 22): `node scripts/seed-demo.mjs`. It creates semester FA26, subjects EXE101 and
+   EXE201, majors SE, GD, MKT and IB, four skills, the EXE group type, `lecturer@fpt.edu.vn`, students
+   `sv01`…`sv30@fpt.edu.vn` (password `SEED_DEMO_PASSWORD`) and course EXE101 – SE1919 in Setup. It looks everything up
+   first, so it can run again. It takes about 3 minutes because the 30 students sign in to rate their skills and the
+   gateway allows 10 sign-ins a minute; add `--no-skills` to skip that step.
 
-Run the tests (Docker must be running for the SQL Server containers):
+Run the tests (Docker must be running for the SQL Server and Redis containers):
 
 ```bash
 dotnet tool restore
 dotnet test --solution ExeGroup.sln
 cd src/web && npm ci && npm run lint && npm run typecheck && npm test && npm run build
 ```
+
+Check a running stack end to end: `cd src/web && npm ci && cd ../.. && node scripts/smoke-e2e.mjs`. It signs in as the
+administrator and plays the whole demo story on a throwaway course of its own through the gateway (catalog, import,
+rooms, publish, join, lock, apply and approve, gRPC suggestions, SignalR chat through the gateway, notifications,
+overview, expiry, placements, finalize) and prints one PASS or FAIL line per check. Use it on a local stack, not on the
+shared demo server, because it adds data.
 
 ## 5. Deployment instructions
 
@@ -188,6 +202,10 @@ Notes:
   `docker run --rm --network exe-group_default fullstorydev/grpcurl -plaintext recommendation-service:8081 list`.
 - Stream inspection: `docker compose exec redis redis-cli XRANGE group-events - +` and
   `docker compose exec redis redis-cli XINFO GROUPS group-events`.
+- Background jobs can be switched off with `Jobs__<Name>__Enabled=false` (`OutboxPublisher`, `PhaseScheduler`,
+  `OutboxCleanup`, `GroupEventsConsumer`, `ProcessedEventsCleanup`). The clean-ups keep 7 days
+  (`Jobs__OutboxCleanup__RetentionDays`, `Jobs__ProcessedEventsCleanup__RetentionDays`). The Group Service finds the
+  Recommendation Service at `Recommendation__Address` (`http://recommendation-service:8081` in Docker).
 
 ### Demo on the shared server
 
@@ -215,17 +233,27 @@ areas listed in `.github/member-paths.txt`. See `CONTRIBUTING.md` for what each 
 
 ## 6. Demo script (end-to-end)
 
-| Step | Action | What it demonstrates |
-|---|---|---|
-| 1 | `docker compose ps` – all containers healthy; show the C4 diagrams and the merged Swagger UI | Docker deployment, system architecture, API documentation |
-| 2 | Admin signs in, creates semester FA26, subject EXE101, majors, skills and a group type (at least 1 SE, 1 MKT and 2 majors), then course EXE101 – SE1919 with its lecturer, and imports the students | REST API, JWT, CRUD, validation, versioning |
-| 3 | Admin generates the rooms (`ceil(n / 6 × 1.2)`) and publishes the course | Business rules, outbox events |
-| 4 | Students rate their skills; student A joins Room 01, becomes its leader, sets the topic and locks the room | REST, notifications over SignalR |
-| 5 | Student B lists the rooms (`search`, `sort`, `page`) and opens the suggested rooms, ranked with reasons | REST → gRPC (Recommendation Service) |
-| 6 | B applies to Room 01 and A approves in one transaction; B's other applications are cancelled; both get a notification. Show `XRANGE group-events - +` and the logs with one correlation id | Message publishing and consuming, tracing |
-| 7 | The members chat in the room | SignalR, Realtime Service |
-| 8 | Set `ExpireAt` one or two minutes ahead and wait: PhaseScheduler expires the course and rejects the pending applications (`GROUPING_EXPIRED`) | Background job, events |
-| 9 | Admin opens the course overview, places the remaining students with the placement suggestions and finalizes; the lecturer sees the official groups | gRPC, business rules, authorization |
+About 15 minutes. Before the demo: `docker compose up -d --build`, wait for `docker compose ps` to show every
+container healthy, then `node scripts/seed-demo.mjs` (step 7 of the installation guide). Use three browser windows
+that do not share sign-ins (for example one normal window, one private window and a second browser): **Admin**,
+**A** = `sv01@fpt.edu.vn` (SE) and **B** = `sv19@fpt.edu.vn` (MKT). Students and `lecturer@fpt.edu.vn` use
+`SEED_DEMO_PASSWORD`.
+
+| Step | Who | Action | What it demonstrates |
+|---|---|---|---|
+| 1 | – | `docker compose ps` (8 healthy containers); show the C4 diagrams above and the merged Swagger UI at <http://localhost:8080/swagger> (Identity, Group, Realtime; every endpoint has a summary) | Docker deployment, architecture, API documentation |
+| 2 | Admin | Sign in; open **Quản trị** → Học kỳ, Ngành, Skill and Loại nhóm (EXE: at least 1 SE, 1 MKT and 2 majors, allowed in FA26); in Swagger show `GET /api/v1/subjects?search=EXE&sort=-code&page=1&pageSize=5`, a 400 with field errors and a 406 for `Accept: text/plain` | REST, JWT, CRUD, search, sort, paging, validation, versioning, content negotiation |
+| 3 | Admin | Course → EXE101 – SE1919: lecturer, sizes 4–6, k = 1.2, 30 students (CSV import is in the "Sinh viên" block). **Sinh phòng** with EXE (⌈30 × 1.2 / 6⌉ = 6 rooms), then **Publish ngay** | Business rules (BR-03), outbox events |
+| 4 | A | Skill của tôi (ratings from the seed); open EXE101 → **Room 01** → **Vào phòng** (A becomes the leader) → set the topic → **Khóa phòng** | REST, SignalR room board |
+| 5 | B | Open EXE101: the room board (search, "Còn chỗ", sort, pages) and **Phòng gợi ý**, ranked with reasons in Vietnamese | REST → gRPC (Recommendation Service) |
+| 6 | B, A | B opens Room 01 → **Gửi đơn xin vào** with a message; A's bell lights up; A sees B's major, skills and message and clicks **Duyệt**: the answer comes back at once. Then `docker compose exec redis redis-cli XRANGE group-events - +` and `docker compose logs \| grep <traceId>` (the `traceId` of the approve response, also in the `X-Correlation-ID` header) | Transactional outbox → Redis Streams → consumer, notifications, tracing across gateway, Group, gRPC and Realtime |
+| 7 | A, B | A and B chat in Room 01: each message appears in the other window at once; a student outside the room cannot open the chat | SignalR, Realtime Service |
+| 8 | Admin, B | Admin sets **Hạn tìm nhóm (ExpireAt)** two minutes ahead and saves; B applies to another locked room meanwhile. Within about a minute after the deadline the PhaseScheduler expires the course: B's application turns into "Đã hết hạn tìm nhóm" and joining is refused | Background job, events |
+| 9 | Admin, lecturer | Admin opens the course: **Tiến độ chia nhóm**, **Xếp người sau hạn** (placement suggestions over gRPC → Áp dụng), **Chốt nhóm** (accept the exceptions shown). `lecturer@fpt.edu.vn` opens the course and sees the progress and the numbered official groups, read-only | gRPC, business rules (BR-12–BR-14), authorization |
+
+Rehearsal without a browser: `node scripts/smoke-e2e.mjs` runs the same story on a throwaway course and prints one
+line per check. To start the demo again from scratch on a local machine: `docker compose down -v`, `docker compose up -d
+--build`, `node scripts/seed-demo.mjs`.
 
 ## 7. Team members & responsibilities
 

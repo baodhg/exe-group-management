@@ -13,36 +13,38 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
             gateway = container "API Gateway" "Single public entry point: JWT check at the edge, path routing, WebSocket pass-through, merged Swagger UI, sign-in rate limit." "ASP.NET Core 10, YARP 2.3"
 
             identity = container "Identity Service" "Sign-in, JWT access and refresh tokens, users and roles." "ASP.NET Core 10 Web API" {
-                authController = component "AuthController" "[Planned] POST /api/v1/auth/login, /refresh-token, /logout; GET/PUT /api/v1/auth/me." "ASP.NET Core MVC" "Planned"
-                usersController = component "UsersController" "[Planned] Administrator: users, roles and student import." "ASP.NET Core MVC" "Planned"
+                authController = component "AuthController" "POST /api/v1/auth/login, /refresh-token, /logout; GET/PUT /api/v1/auth/me." "ASP.NET Core MVC"
+                usersController = component "UsersController" "Administrator: users, roles and student import." "ASP.NET Core MVC"
                 tokenFactory = component "AccessTokenFactory" "Issues HS256 JWTs shared with every service (BuildingBlocks)." "Microsoft.IdentityModel.JsonWebTokens"
                 identityDbContext = component "IdentityDbContext" "Users, Roles, UserRoles, RefreshTokens." "EF Core 10"
             }
 
             group = container "Group Service" "Semesters, subjects, majors, skills, group types, courses, rosters, rooms, memberships, applications and finalize; outbox." "ASP.NET Core 10 Web API" {
                 semestersController = component "SemestersController" "Reference CRUD endpoint /api/v1/semesters (golden path)." "ASP.NET Core MVC"
-                catalogControllers = component "Master data controllers" "[Planned] /api/v1/subjects, /majors, /skills, /group-types." "ASP.NET Core MVC" "Planned"
-                coursesController = component "Courses and rooms controllers" "[Planned] /api/v1/courses and /rooms: rosters, generate, publish, expire, placements, finalize, join, leave, lock." "ASP.NET Core MVC" "Planned"
-                joinRequestsController = component "JoinRequestsController" "[Planned] /api/v1/join-requests: apply, approve, reject, withdraw." "ASP.NET Core MVC" "Planned"
+                catalogControllers = component "Master data controllers" "/api/v1/subjects, /majors, /skills, /group-types." "ASP.NET Core MVC"
+                coursesController = component "Courses and rooms controllers" "/api/v1/courses and /rooms: rosters, generate, publish, expire, placements, finalize, join, leave, lock." "ASP.NET Core MVC"
+                joinRequestsController = component "JoinRequestsController" "/api/v1/join-requests: apply, approve, reject, withdraw." "ASP.NET Core MVC"
                 semesterService = component "SemesterService" "Business rules for semesters." "C# service layer"
-                roomServices = component "Room services" "[Planned] Rules BR-03 to BR-14: seats, majors, leadership, deadline, finalize." "C# service layer" "Planned"
-                recommendationClient = component "RecommendationClient" "[Planned] Typed gRPC client with correlation and a 2 s deadline; falls back to unranked lists." "Grpc.Net.ClientFactory" "Planned"
+                roomServices = component "Room services" "Rules BR-03 to BR-14: seats, majors, leadership, deadline, finalize." "C# service layer"
+                recommendationClient = component "RecommendationClient" "Typed gRPC client with correlation and a 2 s deadline; falls back to unranked lists." "Grpc.Net.ClientFactory"
                 semesterRepository = component "SemesterRepository" "Search, sort and paging over Semesters." "EF Core 10"
                 groupDbContext = component "GroupDbContext" "Semesters (+ subjects, courses, rooms, memberships, applications, outbox)." "EF Core 10"
-                outboxPublisher = component "OutboxPublisher" "[Planned] Every 2 s: XADD unpublished OutboxEvents to group-events." "BackgroundService" "Planned"
-                phaseScheduler = component "PhaseScheduler" "[Planned] Every 1 min: publishes courses at PublishAt and expires them at ExpireAt." "BackgroundService" "Planned"
+                outboxPublisher = component "OutboxPublisher" "Every 2 s: XADD unpublished OutboxEvents to group-events." "BackgroundService"
+                phaseScheduler = component "PhaseScheduler" "Every 1 min: publishes courses at PublishAt and expires them at ExpireAt." "BackgroundService"
+                outboxCleanup = component "OutboxCleanup" "Daily: deletes OutboxEvents published more than 7 days ago." "BackgroundService"
             }
 
             recommendation = container "Recommendation Service" "Ranks rooms for a student and placements for students without a room from majors and skills; stateless, gRPC only." "ASP.NET Core 10 gRPC" {
-                recommendationGrpc = component "RecommendationGrpcService" "[Planned] SuggestRooms and SuggestPlacements on :8081 (HTTP/2)." "Grpc.AspNetCore" "Planned"
-                scoring = component "Scoring" "[Planned] Needed majors, skill gaps, rooms below the minimum; greedy placements." "C# service layer" "Planned"
+                recommendationGrpc = component "RecommendationGrpcService" "SuggestRooms and SuggestPlacements on :8081 (HTTP/2)." "Grpc.AspNetCore"
+                scoring = component "Scoring" "Needed majors, skill gaps, rooms below the minimum; greedy placements." "C# service layer"
             }
 
             realtime = container "Realtime Service" "Group chat and notifications; consumes the group events." "ASP.NET Core 10 Web API + SignalR" {
-                chatControllers = component "Chat and notification controllers" "[Planned] /api/v1/conversations, /messages, /notifications." "ASP.NET Core MVC" "Planned"
-                hub = component "RealtimeHub" "[Planned] /hubs/realtime: chat messages, notifications and room changes." "ASP.NET Core SignalR" "Planned"
-                eventsConsumer = component "GroupEventsConsumer" "[Planned] XREADGROUP (group realtime), idempotent apply, XACK after commit, XAUTOCLAIM." "BackgroundService" "Planned"
-                chatDbContext = component "ChatDbContext" "[Planned] Conversations, members, messages, notifications, processed events." "EF Core 10" "Planned"
+                chatControllers = component "Chat and notification controllers" "/api/v1/conversations, /messages, /notifications." "ASP.NET Core MVC"
+                hub = component "RealtimeHub" "/hubs/realtime: chat messages, notifications and room changes." "ASP.NET Core SignalR"
+                eventsConsumer = component "GroupEventsConsumer" "XREADGROUP (group realtime), idempotent apply, XACK after commit, XAUTOCLAIM." "BackgroundService"
+                chatDbContext = component "ChatDbContext" "Conversations, members, messages, notifications, processed events." "EF Core 10"
+                processedEventsCleanup = component "ProcessedEventsCleanup" "Daily: deletes ProcessedEvents older than 7 days." "BackgroundService"
             }
 
             identityDb = container "IdentityDb" "Users, roles and refresh tokens." "SQL Server 2022" "Database"
@@ -82,6 +84,7 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
         exe.group.outboxPublisher -> exe.group.groupDbContext "Reads unpublished events"
         exe.group.outboxPublisher -> exe.events "Publishes" "XADD"
         exe.group.phaseScheduler -> exe.group.groupDbContext "Publishes and expires courses, writes CoursePhaseChanged"
+        exe.group.outboxCleanup -> exe.group.groupDbContext "Deletes published events after 7 days"
         exe.group.groupDbContext -> exe.groupDb "Reads and writes" "SQL"
 
         exe.recommendation.recommendationGrpc -> exe.recommendation.scoring "Scores rooms and placements with"
@@ -89,6 +92,7 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
         exe.realtime.eventsConsumer -> exe.events "Consumes" "XREADGROUP / XACK"
         exe.realtime.eventsConsumer -> exe.realtime.chatDbContext "Stores notifications, syncs chat members"
         exe.realtime.eventsConsumer -> exe.realtime.hub "Pushes notifications and room changes through"
+        exe.realtime.processedEventsCleanup -> exe.realtime.chatDbContext "Deletes processed event ids after 7 days"
         exe.realtime.chatControllers -> exe.realtime.chatDbContext "Reads and writes messages and notifications"
         exe.realtime.hub -> exe.realtime.chatDbContext "Stores chat messages"
         exe.realtime.chatDbContext -> exe.chatDb "Reads and writes" "SQL"
@@ -252,10 +256,6 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
             }
             element "Web Browser" {
                 shape WebBrowser
-            }
-            element "Planned" {
-                border dashed
-                opacity 70
             }
         }
     }
