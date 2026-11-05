@@ -1,6 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { LoginPage } from "../features/auth/LoginPage";
+import { AdminCoursePage } from "../features/admin/AdminCoursePage";
+import { CatalogPage } from "../features/admin/CatalogPage";
+import { catalogs } from "../features/admin/catalogs";
+import { CoursesPage } from "../features/admin/CoursesPage";
+import { GroupTypesPage } from "../features/admin/GroupTypesPage";
+import { UsersPage } from "../features/admin/UsersPage";
 import { AdminHomePage } from "../features/home/AdminHomePage";
 import { MyCoursesPage } from "../features/home/MyCoursesPage";
 import { LecturerCoursePage } from "../features/lecturer/LecturerCoursePage";
@@ -32,6 +38,13 @@ export function App() {
               <Route path="/lecturer/courses/:courseId" element={<RequireRole roles={["Lecturer"]}><LecturerCoursePage /></RequireRole>} />
               <Route path="/admin" element={<RequireRole roles={["Administrator"]}><AdminHomePage /></RequireRole>} />
               <Route path="/admin/semesters" element={<RequireRole roles={["Administrator"]}><SemestersPage /></RequireRole>} />
+              <Route path="/admin/subjects" element={<RequireRole roles={["Administrator"]}><CatalogPage key="subjects" config={catalogs.subjects} /></RequireRole>} />
+              <Route path="/admin/majors" element={<RequireRole roles={["Administrator"]}><CatalogPage key="majors" config={catalogs.majors} /></RequireRole>} />
+              <Route path="/admin/skills" element={<RequireRole roles={["Administrator"]}><CatalogPage key="skills" config={catalogs.skills} /></RequireRole>} />
+              <Route path="/admin/group-types" element={<RequireRole roles={["Administrator"]}><GroupTypesPage /></RequireRole>} />
+              <Route path="/admin/users" element={<RequireRole roles={["Administrator"]}><UsersPage /></RequireRole>} />
+              <Route path="/admin/courses" element={<RequireRole roles={["Administrator"]}><CoursesPage /></RequireRole>} />
+              <Route path="/admin/courses/:courseId" element={<RequireRole roles={["Administrator"]}><AdminCoursePage /></RequireRole>} />
             </Route>
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
