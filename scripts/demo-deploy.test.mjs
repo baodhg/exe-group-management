@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { test } from "node:test";
@@ -32,6 +32,9 @@ if [[ "$1" == "rev-parse" ]]; then
   if [[ -n "$FAKE_BROKEN_REV_PARSE" ]]; then exit 128; fi
   echo "commit-of-$IMAGE_TAG"
 fi
+if [[ "$1" == "checkout" && -n "$FAKE_OLD_SCRIPT" ]]; then
+  { printf '#!/usr/bin/env bash\n'; for i in $(seq 1 400); do echo "echo OLD_SCRIPT_RAN_$i"; done; } > scripts/demo-deploy.sh
+fi
 exit 0
 `;
 
@@ -49,6 +52,7 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
     writeFileSync(join(bin, "git"), fakeGit);
     chmodSync(join(bin, "docker"), 0o755);
     chmodSync(join(bin, "git"), 0o755);
+    copyFileSync(join(import.meta.dirname, "demo-deploy.sh"), join(work, "scripts", "demo-deploy.sh"));
     writeFileSync(join(work, ".env.example"), "JWT_SIGNING_KEY=sample\n");
     writeFileSync(join(state, "demo.env"), "JWT_SIGNING_KEY=real\n");
     if (lastGood) {
@@ -61,7 +65,7 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
 
     const log = join(root, "calls.log");
     writeFileSync(log, "");
-    const result = spawnSync("bash", [join(import.meta.dirname, "demo-deploy.sh")], {
+    const result = spawnSync("bash", ["scripts/demo-deploy.sh"], {
       cwd: work,
       encoding: "utf8",
       env: {
@@ -75,6 +79,7 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
         FAKE_BROKEN_WEB: fake.brokenWeb ?? "",
         FAKE_BROKEN_READY: fake.brokenReady ?? "",
         FAKE_BROKEN_REV_PARSE: fake.brokenRevParse ?? "",
+        FAKE_OLD_SCRIPT: fake.oldScript ?? "",
       },
     });
     const read = (name) => (existsSync(join(state, name)) ? readFileSync(join(state, name), "utf8").trim() : null);
@@ -114,6 +119,14 @@ test("a failed rollback says so instead of claiming success", () => {
   assert.equal(result.status, 1, result.output);
   assert.match(result.output, /Rollback to old failed/);
   assert.doesNotMatch(result.output, /Rolled back to old/);
+});
+
+test("a rollback survives the checkout replacing the running script with an older one", () => {
+  const result = deployment({ lastGood: "old", lastGoodCommit: "abc", brokenWeb: "new", oldScript: "yes" });
+  assert.equal(result.status, 1, result.output);
+  assert.doesNotMatch(result.output, /OLD_SCRIPT_RAN/);
+  assert.match(result.output, /Rolled back to old/);
+  assert.equal(result.lastGood, "old");
 });
 
 test("a rollback without a recorded commit reports failure instead of running mismatched files", () => {

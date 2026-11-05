@@ -75,67 +75,72 @@ remove_old_images() {
   done
 }
 
-current_commit="$(git rev-parse HEAD)"
-if [[ -z "$current_commit" ]]; then
-  echo "Missing commit: could not read the commit being deployed. The running version was not touched." >&2
-  exit 1
-fi
-
-previous_tag=""
-if [[ -f "$last_good_file" ]]; then
-  previous_tag="$(cat "$last_good_file")"
-fi
-
-previous_commit=""
-if [[ -f "$last_good_commit_file" ]]; then
-  previous_commit="$(cat "$last_good_commit_file")"
-fi
-
-if [[ -z "${DEMO_SKIP_BUILD:-}" ]]; then
-  if ! IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" build; then
-    echo "Deploy of $IMAGE_TAG failed: the images did not build. The running version was not touched." >&2
+main() {
+  local current_commit previous_tag previous_commit
+  current_commit="$(git rev-parse HEAD)"
+  if [[ -z "$current_commit" ]]; then
+    echo "Missing commit: could not read the commit being deployed. The running version was not touched." >&2
     exit 1
   fi
-fi
 
-if deploy "$IMAGE_TAG" && smoke "$IMAGE_TAG"; then
-  echo "$IMAGE_TAG" > "$last_good_file"
-  echo "$current_commit" > "$last_good_commit_file"
-  remove_old_images "$IMAGE_TAG" "$previous_tag"
-  echo "Deployed $IMAGE_TAG"
-  exit 0
-fi
+  previous_tag=""
+  if [[ -f "$last_good_file" ]]; then
+    previous_tag="$(cat "$last_good_file")"
+  fi
 
-echo "Deploy of $IMAGE_TAG failed" >&2
-IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" ps -a >&2 || true
-IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" logs --tail 40 >&2 || true
+  previous_commit=""
+  if [[ -f "$last_good_commit_file" ]]; then
+    previous_commit="$(cat "$last_good_commit_file")"
+  fi
 
-if [[ -z "$previous_tag" ]]; then
-  echo "No earlier good version to roll back to" >&2
-  IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" stop || true
+  if [[ -z "${DEMO_SKIP_BUILD:-}" ]]; then
+    if ! IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" build; then
+      echo "Deploy of $IMAGE_TAG failed: the images did not build. The running version was not touched." >&2
+      exit 1
+    fi
+  fi
+
+  if deploy "$IMAGE_TAG" && smoke "$IMAGE_TAG"; then
+    echo "$IMAGE_TAG" > "$last_good_file"
+    echo "$current_commit" > "$last_good_commit_file"
+    remove_old_images "$IMAGE_TAG" "$previous_tag"
+    echo "Deployed $IMAGE_TAG"
+    exit 0
+  fi
+
+  echo "Deploy of $IMAGE_TAG failed" >&2
+  IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" ps -a >&2 || true
+  IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" logs --tail 40 >&2 || true
+
+  if [[ -z "$previous_tag" ]]; then
+    echo "No earlier good version to roll back to" >&2
+    IMAGE_TAG="$IMAGE_TAG" "${compose[@]}" stop || true
+    exit 1
+  fi
+
+  if [[ "$previous_tag" == "$IMAGE_TAG" ]]; then
+    echo "This version was the last good one, so there is nothing older to return to; left as it is." >&2
+    exit 1
+  fi
+
+  echo "Rolling back to $previous_tag" >&2
+  if [[ -z "$previous_commit" ]]; then
+    echo "Rollback to $previous_tag failed: its commit is unknown." >&2
+    exit 1
+  fi
+
+  if ! git checkout --quiet --detach "$previous_commit"; then
+    echo "Rollback to $previous_tag failed: commit $previous_commit could not be checked out." >&2
+    exit 1
+  fi
+
+  if deploy "$previous_tag" && smoke "$previous_tag"; then
+    echo "Rolled back to $previous_tag" >&2
+  else
+    echo "Rollback to $previous_tag failed" >&2
+  fi
+
   exit 1
-fi
+}
 
-if [[ "$previous_tag" == "$IMAGE_TAG" ]]; then
-  echo "This version was the last good one, so there is nothing older to return to; left as it is." >&2
-  exit 1
-fi
-
-echo "Rolling back to $previous_tag" >&2
-if [[ -z "$previous_commit" ]]; then
-  echo "Rollback to $previous_tag failed: its commit is unknown." >&2
-  exit 1
-fi
-
-if ! git checkout --quiet --detach "$previous_commit"; then
-  echo "Rollback to $previous_tag failed: commit $previous_commit could not be checked out." >&2
-  exit 1
-fi
-
-if deploy "$previous_tag" && smoke "$previous_tag"; then
-  echo "Rolled back to $previous_tag" >&2
-else
-  echo "Rollback to $previous_tag failed" >&2
-fi
-
-exit 1
+main; exit $?
