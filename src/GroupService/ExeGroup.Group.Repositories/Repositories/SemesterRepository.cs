@@ -36,6 +36,11 @@ public sealed class SemesterRepository(GroupDbContext context) : ISemesterReposi
             semester => semester.Code == code && semester.SemesterId != exceptSemesterId,
             cancellationToken);
 
+    public async Task<bool> IsInUseAsync(Guid semesterId, CancellationToken cancellationToken) =>
+        await context.Courses.AnyAsync(course => course.SemesterId == semesterId, cancellationToken)
+        || await context.SemesterStudents.AnyAsync(student => student.SemesterId == semesterId, cancellationToken)
+        || await context.SemesterGroupTypes.AnyAsync(allowed => allowed.SemesterId == semesterId, cancellationToken);
+
     public void Add(Semester semester) => context.Semesters.Add(semester);
 
     public void Remove(Semester semester) => context.Semesters.Remove(semester);

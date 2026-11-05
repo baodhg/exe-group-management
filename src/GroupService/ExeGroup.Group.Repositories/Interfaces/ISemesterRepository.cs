@@ -11,6 +11,8 @@ public interface ISemesterRepository
 
     Task<bool> CodeExistsAsync(string code, Guid? exceptSemesterId, CancellationToken cancellationToken);
 
+    Task<bool> IsInUseAsync(Guid semesterId, CancellationToken cancellationToken);
+
     void Add(Semester semester);
 
     void Remove(Semester semester);
