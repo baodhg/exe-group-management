@@ -52,6 +52,11 @@ public sealed class SemesterService(ISemesterRepository semesters) : ISemesterSe
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         var semester = await RequireAsync(id, cancellationToken);
+        if (await semesters.IsInUseAsync(id, cancellationToken))
+        {
+            throw new ConflictException(GroupErrorCodes.SemesterInUse, $"Semester '{semester.Code}' has courses, students or group types and cannot be deleted.");
+        }
+
         semesters.Remove(semester);
         await semesters.SaveChangesAsync(cancellationToken);
     }

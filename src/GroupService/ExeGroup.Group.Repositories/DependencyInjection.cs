@@ -15,6 +15,9 @@ public static class DependencyInjection
     {
         services.AddSqlServerDatabase<GroupDbContext>(configuration, ConnectionName);
         services.AddScoped<ISemesterRepository, SemesterRepository>();
+        services.AddScoped<ISubjectRepository, SubjectRepository>();
+        services.AddScoped<IMajorRepository, MajorRepository>();
+        services.AddScoped<ISkillRepository, SkillRepository>();
         return services;
     }
 }
