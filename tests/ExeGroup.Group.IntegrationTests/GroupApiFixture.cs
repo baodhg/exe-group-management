@@ -13,6 +13,7 @@ public class GroupApiFixture : IAsyncLifetime
     {
         ["Jobs:OutboxPublisher:Enabled"] = "false",
         ["Jobs:PhaseScheduler:Enabled"] = "false",
+        ["Jobs:OutboxCleanup:Enabled"] = "false",
     };
 
     public ServiceApiFactory<Program> Api { get; private set; } = null!;

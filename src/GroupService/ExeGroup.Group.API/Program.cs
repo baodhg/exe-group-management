@@ -20,6 +20,11 @@ if (builder.Configuration.GetValue(PhaseScheduler.EnabledKey, true))
     builder.Services.AddHostedService<PhaseScheduler>();
 }
 
+if (builder.Configuration.GetValue(OutboxCleanup.EnabledKey, true))
+{
+    builder.Services.AddHostedService<OutboxCleanup>();
+}
+
 var app = builder.Build();
 app.UseServiceDefaults();
 app.MapControllers();
