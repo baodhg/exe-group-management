@@ -2,6 +2,7 @@ using ExeGroup.BuildingBlocks.Context;
 using ExeGroup.BuildingBlocks.Errors;
 using ExeGroup.Realtime.Repositories.Entities;
 using ExeGroup.Realtime.Repositories.Interfaces;
+using ExeGroup.Realtime.Services.Push;
 
 namespace ExeGroup.Realtime.Services.Conversations;
 
@@ -11,13 +12,17 @@ public sealed record ConversationModel(Guid Id, Guid CourseId, string Title, Dat
 
 public sealed record MessagePage(IReadOnlyList<MessageModel> Items, Guid? NextBefore);
 
+public sealed record Sender(Guid UserId, string Name);
+
 public interface IConversationService
 {
     Task<IReadOnlyList<ConversationModel>> ListMineAsync(CancellationToken cancellationToken);
 
     Task<MessagePage> ListMessagesAsync(Guid conversationId, Guid? before, int? pageSize, CancellationToken cancellationToken);
 
-    Task<MessageModel> SendAsync(Guid conversationId, string senderName, string content, CancellationToken cancellationToken);
+    Task<MessageModel> SendAsync(Guid conversationId, Sender sender, string content, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Guid>> ListCurrentConversationIdsAsync(Guid userId, CancellationToken cancellationToken);
 
     Task DeleteMessageAsync(Guid messageId, CancellationToken cancellationToken);
 }
@@ -25,6 +30,7 @@ public interface IConversationService
 public sealed class ConversationService(
     IConversationRepository conversations,
     IMessageRepository messages,
+    IRealtimePush push,
     ICurrentUser currentUser,
     IClock clock) : IConversationService
 {
@@ -49,7 +55,7 @@ public sealed class ConversationService(
 
     public async Task<MessagePage> ListMessagesAsync(Guid conversationId, Guid? before, int? pageSize, CancellationToken cancellationToken)
     {
-        var membership = await RequireMembershipAsync(conversationId, cancellationToken);
+        var membership = await RequireMembershipAsync(conversationId, currentUser.RequireUserId(), cancellationToken);
         Message? cursor = null;
         if (before is { } beforeId)
         {
@@ -71,9 +77,9 @@ public sealed class ConversationService(
         return new MessagePage(items, page.Count > size ? items[^1].Id : null);
     }
 
-    public async Task<MessageModel> SendAsync(Guid conversationId, string senderName, string content, CancellationToken cancellationToken)
+    public async Task<MessageModel> SendAsync(Guid conversationId, Sender sender, string content, CancellationToken cancellationToken)
     {
-        var membership = await RequireMembershipAsync(conversationId, cancellationToken);
+        var membership = await RequireMembershipAsync(conversationId, sender.UserId, cancellationToken);
         if (membership.LeftAt is not null)
         {
             throw new ForbiddenException("Only current members of the room can send messages.");
@@ -85,7 +91,7 @@ public sealed class ConversationService(
             throw new ValidationFailedException("content", $"A message must have 1 to {MaxContentLength} characters.");
         }
 
-        var name = senderName.Trim();
+        var name = sender.Name.Trim();
         var message = new Message
         {
             MessageId = Guid.NewGuid(),
@@ -97,8 +103,16 @@ public sealed class ConversationService(
         };
         messages.Add(message);
         await messages.SaveChangesAsync(cancellationToken);
-        return ToModel(message);
+        var model = ToModel(message);
+        await push.MessageAsync(model, cancellationToken);
+        return model;
     }
+
+    public async Task<IReadOnlyList<Guid>> ListCurrentConversationIdsAsync(Guid userId, CancellationToken cancellationToken) =>
+        (await conversations.ListForMemberAsync(userId, cancellationToken))
+            .Where(item => item.Membership.LeftAt is null)
+            .Select(item => item.Conversation.ConversationId)
+            .ToList();
 
     public async Task DeleteMessageAsync(Guid messageId, CancellationToken cancellationToken)
     {
@@ -115,9 +129,9 @@ public sealed class ConversationService(
         }
     }
 
-    private async Task<ConversationMember> RequireMembershipAsync(Guid conversationId, CancellationToken cancellationToken)
+    private async Task<ConversationMember> RequireMembershipAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken)
     {
-        var membership = await conversations.FindMembershipAsync(conversationId, currentUser.RequireUserId(), cancellationToken);
+        var membership = await conversations.FindMembershipAsync(conversationId, userId, cancellationToken);
         if (membership is not null)
         {
             return membership;

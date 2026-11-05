@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults("realtime-service", typeof(Program).Assembly);
 builder.Services.AddRealtimeServices(builder.Configuration);
 builder.Services.AddRedis(builder.Configuration);
-builder.Services.AddSignalR();
+builder.Services.AddRealtimeHub();
 
 var app = builder.Build();
 app.UseServiceDefaults();

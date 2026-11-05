@@ -1,10 +1,9 @@
-using System.Security.Claims;
 using Asp.Versioning;
 using ExeGroup.BuildingBlocks.Web.Responses;
+using ExeGroup.Realtime.API.Hubs;
 using ExeGroup.Realtime.API.Models.Conversations;
 using ExeGroup.Realtime.Services.Conversations;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace ExeGroup.Realtime.API.Controllers;
 
@@ -38,13 +37,7 @@ public sealed class ConversationsController(IConversationService conversations) 
     [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Send([FromRoute] Guid id, [FromBody] SendMessageRequest request, CancellationToken cancellationToken)
     {
-        var message = await conversations.SendAsync(id, SenderName(), request.Content!, cancellationToken);
+        var message = await conversations.SendAsync(id, RealtimeUser.SenderOf(User), request.Content!, cancellationToken);
         return Created($"/api/v1/conversations/{id}/messages", message.ToResponse(), "Message sent");
     }
-
-    private string SenderName() =>
-        User.FindFirstValue(JwtRegisteredClaimNames.Name)
-        ?? User.FindFirstValue(JwtRegisteredClaimNames.Email)
-        ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
-        ?? string.Empty;
 }
