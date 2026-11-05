@@ -1,4 +1,5 @@
 using ExeGroup.Group.Repositories;
+using ExeGroup.Group.Services.Courses;
 using ExeGroup.Group.Services.GroupTypes;
 using ExeGroup.Group.Services.Majors;
 using ExeGroup.Group.Services.Semesters;
@@ -19,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<IMajorService, MajorService>();
         services.AddScoped<ISkillService, SkillService>();
         services.AddScoped<IGroupTypeService, GroupTypeService>();
+        services.AddScoped<ICourseService, CourseService>();
         return services;
     }
 }
