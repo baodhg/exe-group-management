@@ -9,9 +9,12 @@
     <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.Repositories\ExeGroup.Group.Repositories.csproj" />
     <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.Services\ExeGroup.Group.Services.csproj" />
     <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.API\ExeGroup.Group.API.csproj" />
-    <ProjectReference Include="..\..\src\JoinRequestService\ExeGroup.JoinRequest.Repositories\ExeGroup.JoinRequest.Repositories.csproj" />
-    <ProjectReference Include="..\..\src\JoinRequestService\ExeGroup.JoinRequest.Services\ExeGroup.JoinRequest.Services.csproj" />
-    <ProjectReference Include="..\..\src\JoinRequestService\ExeGroup.JoinRequest.API\ExeGroup.JoinRequest.API.csproj" />
+    <ProjectReference Include="..\..\src\RecommendationService\ExeGroup.Recommendation.Repositories\ExeGroup.Recommendation.Repositories.csproj" />
+    <ProjectReference Include="..\..\src\RecommendationService\ExeGroup.Recommendation.Services\ExeGroup.Recommendation.Services.csproj" />
+    <ProjectReference Include="..\..\src\RecommendationService\ExeGroup.Recommendation.API\ExeGroup.Recommendation.API.csproj" />
+    <ProjectReference Include="..\..\src\RealtimeService\ExeGroup.Realtime.Repositories\ExeGroup.Realtime.Repositories.csproj" />
+    <ProjectReference Include="..\..\src\RealtimeService\ExeGroup.Realtime.Services\ExeGroup.Realtime.Services.csproj" />
+    <ProjectReference Include="..\..\src\RealtimeService\ExeGroup.Realtime.API\ExeGroup.Realtime.API.csproj" />
     <ProjectReference Include="..\..\src\ApiGateway\ExeGroup.ApiGateway\ExeGroup.ApiGateway.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\ExeGroup.BuildingBlocks\ExeGroup.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\ExeGroup.BuildingBlocks.Web\ExeGroup.BuildingBlocks.Web.csproj" />

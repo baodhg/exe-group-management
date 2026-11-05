@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ExeGroup.Recommendation.Services\ExeGroup.Recommendation.Services.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\ExeGroup.BuildingBlocks.Web\ExeGroup.BuildingBlocks.Web.csproj" />
+    <ProjectReference Include="..\..\Contracts\ExeGroup.Contracts\ExeGroup.Contracts.csproj" />
+  </ItemGroup>
+</Project>

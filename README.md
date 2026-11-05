@@ -99,11 +99,12 @@ How the services talk to each other:
 ```text
 src/
   BuildingBlocks/        shared envelope, errors, paging, JWT, Swagger, health, jobs (ExeGroup.BuildingBlocks[.Web])
-  Contracts/             group_membership.proto (gRPC client + server code)
-  ApiGateway/            YARP gateway
-  IdentityService/       ExeGroup.Identity.API / .Services / .Repositories   (IdentityDb)
-  GroupService/          ExeGroup.Group.API / .Services / .Repositories      (GroupDb, gRPC :8081)
-  JoinRequestService/    ExeGroup.JoinRequest.API / .Services / .Repositories (RequestDb)
+  Contracts/             recommendation.proto (gRPC Group → Recommendation, client + server code)
+  ApiGateway/            YARP gateway (REST routes and the SignalR hub)
+  IdentityService/       ExeGroup.Identity.API / .Services / .Repositories         (IdentityDb)
+  GroupService/          ExeGroup.Group.API / .Services / .Repositories            (GroupDb, outbox → Redis)
+  RecommendationService/ ExeGroup.Recommendation.API / .Services / .Repositories   (gRPC :8081, no database)
+  RealtimeService/       ExeGroup.Realtime.API / .Services / .Repositories         (ChatDb, SignalR /hubs/realtime)
   web/                   React single-page app + nginx.conf
 tests/                   architecture, building-block, gateway and integration tests
 docker/                  shared Dockerfile for the .NET services
@@ -138,11 +139,11 @@ scripts/                 ef.sh / ef.ps1 (migrations), dev-token.mjs (test tokens
    ```
 
 4. Wait until the containers are healthy (`docker compose ps`). Each service applies its EF Core migrations at
-   start-up in Development; `/health/ready` stays `503` until that has finished, and the gateway starts only after all
-   three services are ready.
+   start-up in Development; `/health/ready` stays `503` until that has finished, and the gateway starts only after the
+   Identity, Group and Realtime services are ready.
 5. Open the apps:
    - Web app: <http://localhost:3000>
-   - Swagger UI (all three services): <http://localhost:8080/swagger>
+   - Swagger UI (Identity, Group and Realtime; Recommendation speaks gRPC only): <http://localhost:8080/swagger>
 6. For a test token while sign-in is being built: `node scripts/dev-token.mjs Administrator` and paste it into the
    Swagger **Authorize** dialog.
 
@@ -159,10 +160,11 @@ cd src/web && npm ci && npm run lint && npm run typecheck && npm test && npm run
 | Service | Image / build | Ports | Depends on (healthy) |
 |---|---|---|---|
 | web | `src/web/Dockerfile` (node:22 build → nginx:1.27-alpine) | `${WEB_HOST_PORT:-3000}` → 80 | gateway |
-| gateway | `docker/dotnet-service.Dockerfile` (`ExeGroup.ApiGateway`) | `${GATEWAY_HOST_PORT:-8080}` → 8080 | identity, group, join-request |
+| gateway | `docker/dotnet-service.Dockerfile` (`ExeGroup.ApiGateway`) | `${GATEWAY_HOST_PORT:-8080}` → 8080 | identity, group, realtime |
 | identity-service | `docker/dotnet-service.Dockerfile` | internal 8080 | sqlserver |
-| group-service | `docker/dotnet-service.Dockerfile` | internal 8080 (REST), 8081 (gRPC, HTTP/2 only) | sqlserver, redis |
-| join-request-service | `docker/dotnet-service.Dockerfile` | internal 8080 | sqlserver, redis, group-service |
+| group-service | `docker/dotnet-service.Dockerfile` | internal 8080 | sqlserver, redis |
+| recommendation-service | `docker/dotnet-service.Dockerfile` | internal 8080 (health), 8081 (gRPC, HTTP/2 only) | – |
+| realtime-service | `docker/dotnet-service.Dockerfile` | internal 8080 (REST and SignalR) | sqlserver, redis |
 | sqlserver | `mcr.microsoft.com/mssql/server:2022-latest` | internal 1433 (host `${SQL_HOST_PORT:-14330}` in development) | – |
 | redis | `redis:7-alpine` (`appendonly yes`) | internal 6379 (host `${REDIS_HOST_PORT:-16379}` in development) | – |
 
@@ -170,15 +172,18 @@ Notes:
 
 - `docker-compose.yml` is the only file a developer needs. SQL Server and Redis publish their ports on `127.0.0.1` so `dotnet run`
   and database tools can reach them.
-- The gateway checks the JWT for every route except `/api/v1/auth/login`, `/api/v1/auth/refresh-token`, `/api/v1/auth/logout`, `/swagger/**`
-  and `/health/**`; each service checks it again and applies the business permissions.
+- The gateway checks the JWT for every route except `/api/v1/auth/login`, `/api/v1/auth/refresh-token`, `/api/v1/auth/logout`, `/swagger/**`,
+  `/health/**` and `/hubs/**`; each service checks it again and applies the business permissions. The hub is passed through
+  because a browser cannot add the header to a WebSocket: the Realtime Service authenticates the connection itself.
+- Only the Group Service calls the Recommendation Service (gRPC on 8081, inside the network); the gateway never routes to it.
 - Configuration comes from `appsettings.json`, overridden by environment variables such as
-  `ConnectionStrings__GroupDb`, `Jwt__SigningKey`, `Redis__Connection`, `GrpcClients__GroupService`.
+  `ConnectionStrings__GroupDb`, `ConnectionStrings__ChatDb`, `Jwt__SigningKey`, `Redis__Connection`, `Ports__Grpc`.
 - Health checks: `/health/live` and `/health/ready` on every service (ready = own database, Redis where used, and
-  migrations applied).
-- Logs: `docker compose logs -f group-service join-request-service`; follow one request with its correlation id:
+  migrations applied; the Recommendation Service has no database and is ready once started).
+- Logs: `docker compose logs -f group-service realtime-service`; follow one request with its correlation id:
   `docker compose logs | grep <traceId>`.
-- gRPC from inside the network: `docker run --rm --network exe-group_default fullstorydev/grpcurl -plaintext group-service:8081 list`.
+- gRPC from inside the network (reflection is on in Development):
+  `docker run --rm --network exe-group_default fullstorydev/grpcurl -plaintext recommendation-service:8081 list`.
 - Stream inspection: `docker compose exec redis redis-cli XRANGE group-events - +` and
   `docker compose exec redis redis-cli XINFO GROUPS group-events`.
 

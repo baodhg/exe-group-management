@@ -3,7 +3,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ExeGroup.JoinRequest.Services\ExeGroup.JoinRequest.Services.csproj" />
+    <ProjectReference Include="..\ExeGroup.Realtime.Services\ExeGroup.Realtime.Services.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\ExeGroup.BuildingBlocks.Web\ExeGroup.BuildingBlocks.Web.csproj" />
   </ItemGroup>
 </Project>

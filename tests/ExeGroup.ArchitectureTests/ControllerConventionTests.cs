@@ -10,7 +10,8 @@ public sealed class ControllerConventionTests
     {
         "ExeGroup.Identity.API",
         "ExeGroup.Group.API",
-        "ExeGroup.JoinRequest.API",
+        "ExeGroup.Recommendation.API",
+        "ExeGroup.Realtime.API",
     };
 
     [Theory]

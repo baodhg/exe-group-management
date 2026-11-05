@@ -73,35 +73,41 @@ services:
       <<: *dotnet-env
       ConnectionStrings__GroupDb: Server=sqlserver,1433;Database=GroupDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
       Redis__Connection: redis:6379
-      Ports__Rest: "8080"
-      Ports__Grpc: "8081"
-    expose:
-      - "8081"
-    depends_on: 
+    depends_on:
       sqlserver:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck: *ready-check
 
-  join-request-service:
+  recommendation-service:
     build:
       <<: *dotnet-build
       args:
-        SERVICE_DIR: src/JoinRequestService
-        PROJECT: ExeGroup.JoinRequest.API
+        SERVICE_DIR: src/RecommendationService
+        PROJECT: ExeGroup.Recommendation.API
     environment:
       <<: *dotnet-env
-      ConnectionStrings__RequestDb: Server=sqlserver,1433;Database=RequestDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      Ports__Rest: "8080"
+      Ports__Grpc: "8081"
+    expose:
+      - "8081"
+    healthcheck: *ready-check
+
+  realtime-service:
+    build:
+      <<: *dotnet-build
+      args:
+        SERVICE_DIR: src/RealtimeService
+        PROJECT: ExeGroup.Realtime.API
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__ChatDb: Server=sqlserver,1433;Database=ChatDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
       Redis__Connection: redis:6379
-      GrpcClients__GroupService: http://group-service:8081
-      GrpcClients__DeadlineSeconds: "5"
     depends_on:
       sqlserver:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      group-service:
         condition: service_healthy
     healthcheck: *ready-check
 
@@ -121,7 +127,7 @@ services:
         condition: service_healthy
       group-service:
         condition: service_healthy
-      join-request-service:
+      realtime-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health/live > /dev/null || exit 1"]

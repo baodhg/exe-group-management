@@ -12,7 +12,7 @@ public sealed class GatewayRoutingTests(GatewayFixture gateway) : IClassFixture<
 
     [Theory]
     [InlineData("/api/v1/semesters")]
-    [InlineData("/api/v1/groups/42")]
+    [InlineData("/api/v1/rooms/42")]
     [InlineData("/api/v1/join-requests")]
     [InlineData("/api/v1/users")]
     [InlineData("/api/v1/auth/me")]
@@ -38,7 +38,7 @@ public sealed class GatewayRoutingTests(GatewayFixture gateway) : IClassFixture<
 
     [Theory]
     [InlineData("/api/v1/semesters?page=2")]
-    [InlineData("/api/v1/classes/7/overview")]
+    [InlineData("/api/v1/courses/7/overview")]
     [InlineData("/api/v1/users/3")]
     public async Task Authorized_calls_are_forwarded_with_token_and_correlation_id(string path)
     {
@@ -85,7 +85,7 @@ public sealed class GatewayRoutingTests(GatewayFixture gateway) : IClassFixture<
         Assert.Contains("swagger-ui", html);
         Assert.Contains("/swagger/identity/v1/swagger.json", config);
         Assert.Contains("/swagger/group/v1/swagger.json", config);
-        Assert.Contains("/swagger/join-request/v1/swagger.json", config);
+        Assert.Contains("/swagger/realtime/v1/swagger.json", config);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class GatewayRoutingTests(GatewayFixture gateway) : IClassFixture<
     {
         var token = TestTokens.For(Guid.NewGuid(), Roles.Student);
 
-        var (status, body) = await SendAsync(HttpMethod.Get, "/api/v1/join-requests", token);
+        var (status, body) = await SendAsync(HttpMethod.Get, "/api/v1/notifications", token);
 
         Assert.Equal(HttpStatusCode.BadGateway, status);
         Assert.Equal("UPSTREAM_UNAVAILABLE", body.GetProperty("errors")[0].GetProperty("code").GetString());

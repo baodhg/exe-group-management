@@ -70,9 +70,15 @@ services:
     image: exe-group-demo/group-service:${IMAGE_TAG:?Set IMAGE_TAG}
     environment: *demo-database-env
 
-  join-request-service:
+  recommendation-service:
     <<: *demo-limits
-    image: exe-group-demo/join-request-service:${IMAGE_TAG:?Set IMAGE_TAG}
+    image: exe-group-demo/recommendation-service:${IMAGE_TAG:?Set IMAGE_TAG}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+
+  realtime-service:
+    <<: *demo-limits
+    image: exe-group-demo/realtime-service:${IMAGE_TAG:?Set IMAGE_TAG}
     environment: *demo-database-env
 
   gateway:

@@ -9,6 +9,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": { target: gateway, changeOrigin: true },
+      "/hubs": { target: gateway, changeOrigin: true, ws: true },
       "/swagger": { target: gateway, changeOrigin: true },
     },
   },

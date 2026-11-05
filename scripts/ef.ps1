@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Identity', 'Group', 'JoinRequest')]
+    [ValidateSet('Identity', 'Group', 'Realtime')]
     [string] $Service,
 
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -8,7 +8,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$folders = @{ Identity = 'IdentityService'; Group = 'GroupService'; JoinRequest = 'JoinRequestService' }
+$folders = @{ Identity = 'IdentityService'; Group = 'GroupService'; Realtime = 'RealtimeService' }
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
