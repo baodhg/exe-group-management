@@ -31,6 +31,7 @@ public static class ServiceDefaults
         string serviceName,
         params Assembly[] apiAssemblies)
     {
+        builder.AddLocalEnvironmentFile();
         builder.AddServiceLogging(serviceName);
         builder.Services.AddCorrelation();
         builder.Services.TryAddSingleton<IClock, SystemClock>();

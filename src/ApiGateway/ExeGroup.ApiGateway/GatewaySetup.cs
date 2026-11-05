@@ -19,6 +19,7 @@ public static class GatewaySetup
 
     public static WebApplicationBuilder AddGateway(this WebApplicationBuilder builder)
     {
+        builder.AddLocalEnvironmentFile();
         builder.AddServiceLogging("api-gateway");
         builder.Services.AddCorrelation();
         builder.Services.AddJwtAuthentication(builder.Configuration);
