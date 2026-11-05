@@ -13,7 +13,8 @@ public static class LocalEnvironmentFile
     private const string CommentPrefix = "#";
     private const string EnvironmentKeySeparator = "__";
 
-    private static readonly EnumerationOptions SkipInaccessible = new() { IgnoreInaccessible = true };
+    private static readonly string[] SolutionExtensions = [".sln", ".slnx"];
+    private static readonly EnumerationOptions EveryReadableFile = new() { IgnoreInaccessible = true, AttributesToSkip = 0 };
 
     public static WebApplicationBuilder AddLocalEnvironmentFile(this WebApplicationBuilder builder)
     {
@@ -43,7 +44,8 @@ public static class LocalEnvironmentFile
                 found = candidate;
             }
 
-            if (directory.EnumerateFiles(SolutionPattern, SkipInaccessible).Any())
+            if (directory.EnumerateFiles(SolutionPattern, EveryReadableFile)
+                .Any(file => SolutionExtensions.Contains(file.Extension, StringComparer.OrdinalIgnoreCase)))
             {
                 return found;
             }

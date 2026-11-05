@@ -24,6 +24,19 @@ public sealed class LocalEnvironmentFileTests : IDisposable
         return Directory.CreateDirectory(Path.Combine(_root.FullName, "src", "Probe.API")).FullName;
     }
 
+    private bool AnAncestorOfTheTempFolderHoldsASolution()
+    {
+        for (var directory = _root.Parent; directory is not null; directory = directory.Parent)
+        {
+            if (directory.EnumerateFiles("*.sln*", new EnumerationOptions { AttributesToSkip = 0 }).Any())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void WriteFile(string directory, params string[] lines) =>
         File.WriteAllLines(Path.Combine(directory, LocalEnvironmentFile.FileName), lines);
 
@@ -156,6 +169,7 @@ public sealed class LocalEnvironmentFileTests : IDisposable
     [Fact]
     public void A_file_outside_any_solution_is_ignored()
     {
+        Assert.SkipWhen(AnAncestorOfTheTempFolderHoldsASolution(), "A solution above the temp folder makes this case impossible to set up.");
         var project = Directory.CreateDirectory(Path.Combine(_root.FullName, "no-solution", "Probe.API"));
         WriteFile(project.FullName, "LocalEnvProbe__Nested=from-file");
         var builder = BuilderAt(project.FullName);
@@ -163,6 +177,36 @@ public sealed class LocalEnvironmentFileTests : IDisposable
         builder.AddLocalEnvironmentFile();
 
         Assert.Null(builder.Configuration["LocalEnvProbe:Nested"]);
+    }
+
+    [Theory]
+    [InlineData("Probe.slnf")]
+    [InlineData("Probe.slnLaunch")]
+    [InlineData("Probe.sln.DotSettings")]
+    [InlineData("Probe.slnbak")]
+    public void Files_that_only_resemble_a_solution_do_not_stop_the_search(string lookalike)
+    {
+        var project = ProjectInsideSolution();
+        File.WriteAllText(Path.Combine(_root.FullName, "src", lookalike), string.Empty);
+        WriteFile(_root.FullName, "LocalEnvProbe__Nested=from-file");
+        var builder = BuilderAt(project);
+
+        builder.AddLocalEnvironmentFile();
+
+        Assert.Equal("from-file", builder.Configuration["LocalEnvProbe:Nested"]);
+    }
+
+    [Fact]
+    public void A_hidden_solution_file_still_marks_the_root()
+    {
+        var project = ProjectInsideSolution();
+        File.SetAttributes(Path.Combine(_root.FullName, "Probe.sln"), FileAttributes.Hidden);
+        WriteFile(_root.FullName, "LocalEnvProbe__Nested=from-file");
+        var builder = BuilderAt(project);
+
+        builder.AddLocalEnvironmentFile();
+
+        Assert.Equal("from-file", builder.Configuration["LocalEnvProbe:Nested"]);
     }
 
     [Fact]

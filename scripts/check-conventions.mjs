@@ -32,6 +32,8 @@ export function parseDiff(diff) {
       current = null;
     } else if (inHeader && /^(rename|copy) to /.test(text)) {
       current = fileAt(text.replace(/^(rename|copy) to /, ""));
+    } else if (inHeader && /^Binary files .* and b\/.* differ$/.test(text)) {
+      current = fileAt(/ and b\/(.*) differ$/.exec(text)[1]);
     } else if (inHeader && text.startsWith("--- ")) {
       const path = clean(text);
       current = path === "/dev/null" ? null : fileAt(path.replace(/^a\//, ""));
@@ -189,7 +191,8 @@ export function checkFiles(files) {
   }
 
   const paths = files.map((file) => file.path);
-  const changesMigration = files.some((file) => migrationFile.test(file.path) && !file.path.endsWith(".Designer.cs") && !isEmptyMigration(file));
+  const changesContent = (file) => file.added.length > 0 || file.removed.length > 0;
+  const changesMigration = files.some((file) => migrationFile.test(file.path) && !file.path.endsWith(".Designer.cs") && changesContent(file) && !isEmptyMigration(file));
   if (changesMigration && !paths.includes("database/schema.sql")) {
     problems.push({ path: "database/schema.sql", rule: "schema", message: "A migration must update database/schema.sql in the same pull request." });
   }
