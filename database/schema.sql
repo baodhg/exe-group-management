@@ -1,11 +1,3 @@
-/*
-  EXE Group Management System - reference DDL (SQL Server 2019+/2022)
-  Generated from the design specification v2.0 (November 1, 2026).
-  The EF Core Code-First migrations of each service are the source of truth at runtime;
-  this script mirrors the same physical model for review and manual setup.
-  Run with sqlcmd (e.g. sqlcmd -S localhost -E -I -i schema.sql) or in SSMS.
-*/
-
 -- ==========================================================================
 -- IdentityDb (owned by Identity Service)
 -- ==========================================================================
@@ -52,9 +44,23 @@ CREATE TABLE dbo.[UserRoles] (
 CREATE INDEX [IX_UserRoles_RoleId] ON dbo.[UserRoles] ([RoleId]);
 GO
 
--- Foreign keys (NO ACTION except UserRoles -> Users, to avoid multiple cascade paths)
+CREATE TABLE dbo.[RefreshTokens] (
+    [RefreshTokenId] uniqueidentifier NOT NULL,
+    [UserId] uniqueidentifier NOT NULL,
+    [TokenHash] char(64) NOT NULL,
+    [ExpiresAt] datetime2 NOT NULL,
+    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_RefreshTokens_CreatedAt] DEFAULT (SYSUTCDATETIME()),
+    [RevokedAt] datetime2 NULL,
+    [ReplacedByTokenId] uniqueidentifier NULL,
+    CONSTRAINT [PK_RefreshTokens] PRIMARY KEY CLUSTERED ([RefreshTokenId])
+);
+CREATE UNIQUE INDEX [UX_RefreshTokens_TokenHash] ON dbo.[RefreshTokens] ([TokenHash]);
+CREATE INDEX [IX_RefreshTokens_UserId] ON dbo.[RefreshTokens] ([UserId]);
+GO
+
 ALTER TABLE dbo.[UserRoles] ADD CONSTRAINT [FK_UserRoles_Users] FOREIGN KEY ([UserId]) REFERENCES dbo.[Users] ([UserId]) ON DELETE CASCADE;
 ALTER TABLE dbo.[UserRoles] ADD CONSTRAINT [FK_UserRoles_Roles] FOREIGN KEY ([RoleId]) REFERENCES dbo.[Roles] ([RoleId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[RefreshTokens] ADD CONSTRAINT [FK_RefreshTokens_Users] FOREIGN KEY ([UserId]) REFERENCES dbo.[Users] ([UserId]) ON DELETE CASCADE;
 GO
 
 -- Seed data: global roles

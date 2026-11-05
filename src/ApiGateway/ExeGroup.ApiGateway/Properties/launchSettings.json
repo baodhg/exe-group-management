@@ -1,0 +1,15 @@
+{
+  "profiles": {
+    "api-gateway": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5100",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ReverseProxy__Clusters__identity__Destinations__primary__Address": "http://localhost:5101",
+        "ReverseProxy__Clusters__group__Destinations__primary__Address": "http://localhost:5102",
+        "ReverseProxy__Clusters__join-request__Destinations__primary__Address": "http://localhost:5104"
+      }
+    }
+  }
+}

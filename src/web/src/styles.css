@@ -1,0 +1,94 @@
+:root {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #1f2937;
+  background: #f4f6fb;
+}
+
+body {
+  margin: 0;
+}
+
+.shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 24px;
+  background: #0b4a8b;
+  color: #fff;
+  flex-wrap: wrap;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.topbar a {
+  color: #dbe8ff;
+  text-decoration: none;
+}
+
+.topbar a.active {
+  color: #fff;
+  font-weight: 600;
+}
+
+.content {
+  padding: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+
+.login {
+  max-width: 360px;
+  margin: 10vh auto;
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+}
+
+input,
+button {
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.pager {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+}

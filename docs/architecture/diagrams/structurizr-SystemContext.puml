@@ -1,0 +1,28 @@
+@startuml
+title <size:24>System Context View: EXE Group Management System</size>\n<size:24>Level 1: who uses the system.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+Person(StudentTeamLeader, "Student / Team Leader", $descr="EXE student; may lead a group in a class.", $tags="", $link="")
+Person(Lecturer, "Lecturer", $descr="Teaches EXE classes and monitors grouping.", $tags="", $link="")
+Person(Administrator, "Administrator", $descr="Manages users, semesters, courses, classes and rosters.", $tags="", $link="")
+System(EXEGroupManagementSystem, "EXE Group Management System", $descr="Centralises group formation, join requests and class monitoring.", $tags="", $link="")
+
+Rel(StudentTeamLeader, EXEGroupManagementSystem, "Forms and joins groups, reviews join requests", $techn="HTTPS", $tags="", $link="")
+Rel(Lecturer, EXEGroupManagementSystem, "Monitors grouping progress", $techn="HTTPS", $tags="", $link="")
+Rel(Administrator, EXEGroupManagementSystem, "Manages users, classes and deadlines", $techn="HTTPS", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

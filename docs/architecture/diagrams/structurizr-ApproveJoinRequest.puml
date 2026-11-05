@@ -1,0 +1,40 @@
+@startuml
+title <size:24>Dynamic View: EXE Group Management System</size>\n<size:24>Approving a join request (design section 6.4).</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+
+System_Boundary("EXEGroupManagementSystem_boundary", "EXE Group Management System", $tags="") {
+  Container(EXEGroupManagementSystem.GroupService, "Group Service", $techn="ASP.NET Core 10 Web API + gRPC server", $descr="Semesters, courses, classes, rosters, groups; gRPC GroupMembership; outbox.", $tags="", $link="")
+  Container(EXEGroupManagementSystem.JoinRequestService, "Join Request Service", $techn="ASP.NET Core 10 Web API + gRPC client", $descr="Join-request lifecycle T1-T11; event consumer and reconciler.", $tags="", $link="")
+  ContainerDb(EXEGroupManagementSystem.GroupDb, "GroupDb", $techn="SQL Server 2022", $descr="Semesters, courses, classes, rosters, groups, memberships, outbox.", $tags="", $link="")
+  ContainerDb(EXEGroupManagementSystem.RequestDb, "RequestDb", $techn="SQL Server 2022", $descr="Join requests and processed event ids.", $tags="", $link="")
+  ContainerQueue(EXEGroupManagementSystem.GroupEvents, "Group Events", $techn="Redis 7 Stream", $descr="Stream group-events: GroupMemberAdded, GroupClosed.", $tags="", $link="")
+  Container(EXEGroupManagementSystem.SinglePageApp, "Single-Page App", $techn="React 19, TypeScript, Vite, nginx", $descr="UI for all roles; nginx also proxies /api and /swagger to the gateway.", $tags="", $link="")
+  Container(EXEGroupManagementSystem.APIGateway, "API Gateway", $techn="ASP.NET Core 10, YARP 2.3", $descr="Single public entry point: JWT check at the edge, path routing, merged Swagger UI, sign-in rate limit.", $tags="", $link="")
+}
+
+Rel(EXEGroupManagementSystem.SinglePageApp, EXEGroupManagementSystem.APIGateway, "1: 1. POST /api/v1/join-requests/{id}/approve", $techn="JSON envelope over HTTPS, /api/v1", $tags="", $link="")
+Rel(EXEGroupManagementSystem.APIGateway, EXEGroupManagementSystem.JoinRequestService, "2: 2. Forward with JWT and X-Correlation-ID", $techn="HTTP", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService, EXEGroupManagementSystem.GroupService, "3: 3. GetGroupContext: is the caller the leader?", $techn="gRPC, HTTP/2 :8081", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService, EXEGroupManagementSystem.RequestDb, "4: 4. Pending -> Processing (conditional update)", $techn="SQL", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService, EXEGroupManagementSystem.GroupService, "5: 5. AddMemberIfEligible(requestId) with 5 s deadline", $techn="gRPC, HTTP/2 :8081", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService, EXEGroupManagementSystem.GroupDb, "6: 6. Insert member + AddMemberRequests + OutboxEvents in one transaction", $techn="SQL", $tags="", $link="")
+Rel(EXEGroupManagementSystem.GroupService, EXEGroupManagementSystem.GroupEvents, "7: 7. OutboxPublisher XADD GroupMemberAdded", $techn="XADD", $tags="", $link="")
+Rel(EXEGroupManagementSystem.JoinRequestService, EXEGroupManagementSystem.GroupEvents, "8: 8. Consumer reads, marks Approved, cancels other requests, XACK", $techn="XREADGROUP / XACK", $tags="", $link="")
+Rel(EXEGroupManagementSystem.SinglePageApp, EXEGroupManagementSystem.APIGateway, "9: 9. Polls GET /api/v1/join-requests/{id} until Approved", $techn="JSON envelope over HTTPS, /api/v1", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

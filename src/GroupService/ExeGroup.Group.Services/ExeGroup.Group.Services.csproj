@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ExeGroup.Group.Repositories\ExeGroup.Group.Repositories.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\ExeGroup.BuildingBlocks\ExeGroup.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>
