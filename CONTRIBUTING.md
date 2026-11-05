@@ -38,9 +38,10 @@ docker compose up -d sqlserver redis
 3. Chọn profile **All services** trên thanh công cụ rồi bấm F5.
 4. Mở gateway ở `http://localhost:5100/swagger`.
 
-- Đã đổi `SA_PASSWORD` hoặc `SQL_HOST_PORT` trong `.env` thì đổi giống vậy trong `.env.local`, nếu không service sẽ không vào được SQL Server.
-- Đã đổi `JWT_SIGNING_KEY` trong `.env` thì đổi `Jwt__SigningKey` giống vậy, nếu không token từ `dev-token.mjs` sẽ bị từ chối.
+- Đã đổi `SA_PASSWORD`, `SQL_HOST_PORT` hoặc `REDIS_HOST_PORT` trong `.env` thì đổi giống vậy trong `.env.local`, nếu không service sẽ không vào được SQL Server hoặc Redis.
+- Đã đổi `JWT_SIGNING_KEY`, `JWT_ISSUER` hoặc `JWT_AUDIENCE` trong `.env` thì đặt `Jwt__SigningKey`, `Jwt__Issuer`, `Jwt__Audience` giống vậy, nếu không token từ `dev-token.mjs` sẽ bị từ chối.
 - Trong `.env.local`, luôn trỏ SQL Server tới `127.0.0.1`. Với `localhost`, service trên Windows có thể hết thời gian chờ khi kết nối rồi dừng hẳn.
+- Mỗi dòng trong `.env.local` có dạng `KHOÁ=GIÁ_TRỊ`, không bọc dấu nháy. Dòng bắt đầu bằng `#` được bỏ qua. Thứ tự ưu tiên: dòng lệnh, biến môi trường thật, `.env.local`, rồi `appsettings`.
 
 Không dùng Visual Studio: `dotnet run --project src/GroupService/ExeGroup.Group.API --launch-profile group-service`, các service khác tương tự.
 

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
+using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.Hosting;
 
 namespace ExeGroup.BuildingBlocks.Web.Hosting;
@@ -7,9 +9,11 @@ namespace ExeGroup.BuildingBlocks.Web.Hosting;
 public static class LocalEnvironmentFile
 {
     public const string FileName = ".env.local";
-    private const string SolutionPattern = "*.sln";
+    private const string SolutionPattern = "*.sln*";
     private const string CommentPrefix = "#";
     private const string EnvironmentKeySeparator = "__";
+
+    private static readonly EnumerationOptions SkipInaccessible = new() { IgnoreInaccessible = true };
 
     public static WebApplicationBuilder AddLocalEnvironmentFile(this WebApplicationBuilder builder)
     {
@@ -24,45 +28,56 @@ public static class LocalEnvironmentFile
             return builder;
         }
 
-        var values = File.ReadAllLines(path)
-            .Select(ParseLine)
-            .OfType<KeyValuePair<string, string>>()
-            .Where(entry => Environment.GetEnvironmentVariable(entry.Key) is null)
-            .Select(entry => new KeyValuePair<string, string?>(
-                entry.Key.Replace(EnvironmentKeySeparator, ConfigurationPath.KeyDelimiter),
-                entry.Value));
-        builder.Configuration.AddInMemoryCollection(values);
+        InsertBelowEnvironmentVariables(builder.Configuration, ReadValues(path));
         return builder;
     }
 
     private static string? FindInsideSolution(string contentRoot)
     {
+        string? found = null;
         for (var directory = new DirectoryInfo(contentRoot); directory is not null; directory = directory.Parent)
         {
             var candidate = Path.Combine(directory.FullName, FileName);
-            if (File.Exists(candidate))
+            if (found is null && File.Exists(candidate))
             {
-                return candidate;
+                found = candidate;
             }
 
-            if (directory.EnumerateFiles(SolutionPattern).Any())
+            if (directory.EnumerateFiles(SolutionPattern, SkipInaccessible).Any())
             {
-                return null;
+                return found;
             }
         }
 
         return null;
     }
 
-    private static KeyValuePair<string, string>? ParseLine(string line)
+    private static Dictionary<string, string?> ReadValues(string path)
     {
-        var text = line.Trim();
-        var separator = text.IndexOf('=');
-        if (separator <= 0 || text.StartsWith(CommentPrefix, StringComparison.Ordinal))
+        var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in File.ReadAllLines(path))
         {
-            return null;
+            var text = line.Trim();
+            var separator = text.IndexOf('=');
+            if (separator > 0 && !text.StartsWith(CommentPrefix, StringComparison.Ordinal))
+            {
+                var key = text[..separator].Trim().Replace(EnvironmentKeySeparator, ConfigurationPath.KeyDelimiter);
+                values[key] = text[(separator + 1)..].Trim();
+            }
         }
 
-        return new KeyValuePair<string, string>(text[..separator].Trim(), text[(separator + 1)..].Trim());
+        return values;
+    }
+
+    private static void InsertBelowEnvironmentVariables(ConfigurationManager configuration, Dictionary<string, string?> values)
+    {
+        var sources = configuration.Sources;
+        var index = sources
+            .Select((source, position) => (source, position))
+            .Where(entry => entry.source is EnvironmentVariablesConfigurationSource { Prefix: null or "" })
+            .Select(entry => entry.position)
+            .DefaultIfEmpty(sources.Count)
+            .Last();
+        sources.Insert(index, new MemoryConfigurationSource { InitialData = values });
     }
 }

@@ -131,8 +131,23 @@ test("rejects a committed env file but not the example", () => {
   assert.deepEqual(rulesFor([fileWith(".env", "A=1")]), ["secrets"]);
   assert.deepEqual(rulesFor([fileWith(".env.local", "A=1")]), ["secrets"]);
   assert.deepEqual(rulesFor([fileWith("src/GroupService/.env.local", "A=1")]), ["secrets"]);
+  for (const name of [".env.local.txt", ".env.local.bak", ".env.development.local", ".ENV.LOCAL", ".env.Local", "deploy/.env.production"]) {
+    assert.deepEqual(rulesFor([fileWith(name, "A=1")]), ["secrets"], name);
+  }
   assert.deepEqual(rulesFor([fileWith(".env.example", "A=1")]), []);
   assert.deepEqual(rulesFor([fileWith(".env.local.example", "A=1")]), []);
+  assert.deepEqual(rulesFor([fileWith("src/web/environment.ts", "export const a = 1;")]), []);
+});
+
+test("an env file renamed from the template without any change is still found", () => {
+  const diff = ["diff --git a/.env.local.example b/.env.local", "similarity index 100%", "rename from .env.local.example", "rename to .env.local"].join("\n");
+  const files = parseDiff(diff);
+  assert.deepEqual(files.map((file) => file.path), [".env.local"]);
+  assert.deepEqual(rulesFor(files), ["secrets"]);
+});
+
+test("the local settings template follows the no comment rule", () => {
+  assert.equal(hasComment(".env.local.example", "# note"), true);
 });
 
 test("checks the title that becomes the commit on main", () => {

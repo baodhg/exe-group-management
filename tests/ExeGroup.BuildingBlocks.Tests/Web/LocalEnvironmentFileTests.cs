@@ -10,11 +10,12 @@ public sealed class LocalEnvironmentFileTests : IDisposable
 
     public void Dispose() => _root.Delete(recursive: true);
 
-    private WebApplicationBuilder BuilderAt(string contentRoot, string environment = "Development") =>
+    private WebApplicationBuilder BuilderAt(string contentRoot, string environment = "Development", string[]? args = null) =>
         WebApplication.CreateBuilder(new WebApplicationOptions
         {
             EnvironmentName = environment,
             ContentRootPath = contentRoot,
+            Args = args,
         });
 
     private string ProjectInsideSolution()
@@ -74,6 +75,111 @@ public sealed class LocalEnvironmentFileTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("LocalEnvProbe:ColonVariable", "LocalEnvProbe__ColonVariable", "LocalEnvProbe:ColonVariable")]
+    [InlineData("LocalEnvProbe__ReverseVariable", "LocalEnvProbe:ReverseVariable", "LocalEnvProbe:ReverseVariable")]
+    public void A_real_environment_variable_beats_the_file_whichever_separator_each_side_uses(
+        string variable,
+        string fileKey,
+        string configurationKey)
+    {
+        var project = ProjectInsideSolution();
+        WriteFile(_root.FullName, $"{fileKey}=from-file");
+        Environment.SetEnvironmentVariable(variable, "from-environment");
+        try
+        {
+            var builder = BuilderAt(project);
+
+            builder.AddLocalEnvironmentFile();
+
+            Assert.Equal("from-environment", builder.Configuration[configurationKey]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+        }
+    }
+
+    [Fact]
+    public void A_command_line_argument_beats_the_file()
+    {
+        var project = ProjectInsideSolution();
+        WriteFile(_root.FullName, "LocalEnvProbe__Argument=from-file");
+        var builder = BuilderAt(project, args: ["--LocalEnvProbe:Argument=from-argument"]);
+
+        builder.AddLocalEnvironmentFile();
+
+        Assert.Equal("from-argument", builder.Configuration["LocalEnvProbe:Argument"]);
+    }
+
+    [Fact]
+    public void The_file_beats_an_empty_value_in_appsettings()
+    {
+        var project = ProjectInsideSolution();
+        File.WriteAllText(Path.Combine(project, "appsettings.json"), """{ "LocalEnvProbe": { "Empty": "" } }""");
+        WriteFile(_root.FullName, "LocalEnvProbe__Empty=from-file");
+        var builder = BuilderAt(project);
+
+        builder.AddLocalEnvironmentFile();
+
+        Assert.Equal("from-file", builder.Configuration["LocalEnvProbe:Empty"]);
+    }
+
+    [Fact]
+    public void A_repeated_key_keeps_the_last_value_even_when_only_the_case_differs()
+    {
+        var project = ProjectInsideSolution();
+        WriteFile(_root.FullName, "LocalEnvProbe__Repeated=first", "localenvprobe__repeated=second");
+        var builder = BuilderAt(project);
+
+        builder.AddLocalEnvironmentFile();
+
+        Assert.Equal("second", builder.Configuration["LocalEnvProbe:Repeated"]);
+    }
+
+    [Fact]
+    public void A_file_saved_by_notepad_with_a_byte_order_mark_and_crlf_reads_cleanly()
+    {
+        var project = ProjectInsideSolution();
+        File.WriteAllText(
+            Path.Combine(_root.FullName, LocalEnvironmentFile.FileName),
+            "LocalEnvProbe__First=one\r\nLocalEnvProbe__Second=two\r\n",
+            new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        var builder = BuilderAt(project);
+
+        builder.AddLocalEnvironmentFile();
+
+        Assert.Equal("one", builder.Configuration["LocalEnvProbe:First"]);
+        Assert.Equal("two", builder.Configuration["LocalEnvProbe:Second"]);
+    }
+
+    [Fact]
+    public void A_file_outside_any_solution_is_ignored()
+    {
+        var project = Directory.CreateDirectory(Path.Combine(_root.FullName, "no-solution", "Probe.API"));
+        WriteFile(project.FullName, "LocalEnvProbe__Nested=from-file");
+        var builder = BuilderAt(project.FullName);
+
+        builder.AddLocalEnvironmentFile();
+
+        Assert.Null(builder.Configuration["LocalEnvProbe:Nested"]);
+    }
+
+    [Fact]
+    public void An_slnx_solution_also_marks_the_root()
+    {
+        var outer = Directory.CreateDirectory(Path.Combine(_root.FullName, "outer"));
+        var solution = Directory.CreateDirectory(Path.Combine(outer.FullName, "repo"));
+        File.WriteAllText(Path.Combine(solution.FullName, "Probe.slnx"), string.Empty);
+        File.WriteAllText(Path.Combine(outer.FullName, "Outer.sln"), string.Empty);
+        WriteFile(outer.FullName, "LocalEnvProbe__Nested=from-another-project");
+        var builder = BuilderAt(solution.FullName);
+
+        builder.AddLocalEnvironmentFile();
+
+        Assert.Null(builder.Configuration["LocalEnvProbe:Nested"]);
+    }
+
     [Fact]
     public void A_missing_file_changes_nothing()
     {
@@ -120,7 +226,7 @@ public sealed class LocalEnvironmentFileTests : IDisposable
     }
 
     [Fact]
-    public void Service_defaults_load_the_file_before_reading_configuration()
+    public void Service_defaults_load_the_file()
     {
         var project = ProjectInsideSolution();
         WriteFile(_root.FullName, "LocalEnvProbe__Nested=from-file");
