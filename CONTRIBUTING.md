@@ -42,8 +42,6 @@ docker/ docker-compose.yml scripts/   hạ tầng (PM)
 docs/                    đề bài, Lab, thiết kế PRN232_v3 (v3.2), sơ đồ C4
 ```
 
-`group_membership.proto` là contract v2 đã bỏ: không còn biên dịch, chỉ giữ lại vì luật proto không cho xóa field.
-
 **Ai sở hữu gì:** vùng làm việc của thành viên ghi ở `.github/member-paths.txt`; mọi tệp ngoài danh sách này là tệp nền. PR chạm tệp nền (`BuildingBlocks`, gateway, Docker, CI, `Directory.*.props`, `global.json`, `scripts/`, `tests/ExeGroup.Testing`, `tests/ExeGroup.ArchitectureTests`) cần PM duyệt.
 
 ## 3. Luật kiến trúc (máy kiểm, không chỉ dặn)
@@ -112,7 +110,7 @@ Danh sách nhận sẵn: `search`, `sort=title,-createdAt` (nhiều trường, `
 | `web` | Lint, kiểm kiểu, test, build |
 | `docker` | Compose hợp lệ, build được mọi image |
 | `architecture` | Sơ đồ C4 hợp lệ |
-| `conventions` | Tiêu đề PR, có issue, có test, không thêm chú thích, controller dùng envelope, không chép version package, migration đi cùng `schema.sql`, không đổi số field proto, web không viết cứng địa chỉ server, quét secret |
+| `conventions` | Tiêu đề PR, có issue, có test, không thêm chú thích, controller dùng envelope, không chép version package, migration có thao tác đi cùng `schema.sql`, không đổi số field proto (bỏ cả file contract thì được), web không viết cứng địa chỉ server, quét secret |
 | `infra-guard` | PR của thành viên sửa tệp ngoài `.github/member-paths.txt`, hoặc bất kỳ tệp build nào (`*.csproj`, `Directory.*`, Dockerfile...), phải được PM duyệt đúng commit mới nhất, rồi bấm Re-run job này |
 - Mã: tên định danh, message lỗi, log bằng **tiếng Anh**; chuỗi hiển thị trên web bằng tiếng Việt có dấu.
 

@@ -87,7 +87,7 @@ for (const path of [
   "Directory.Packages.props",
   "src/BuildingBlocks/ExeGroup.BuildingBlocks/Paging/ListQuery.cs",
   "src/ApiGateway/ExeGroup.ApiGateway/appsettings.json",
-  "src/Contracts/ExeGroup.Contracts/group_membership.proto",
+  "src/Contracts/ExeGroup.Contracts/recommendation.proto",
   "src/GroupService/ExeGroup.Group.API/ExeGroup.Group.API.csproj",
   "src/GroupService/Directory.Build.props",
   "src/GroupService/Dockerfile",
