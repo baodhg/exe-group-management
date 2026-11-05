@@ -4,70 +4,65 @@ PRN232 – Building Cross-Platform Back-End Application with .NET · Final Assig
 
 ## 1. Project description
 
-Students in EXE (Experiential Entrepreneurship) courses must form project groups inside their class. Today this
-happens across chat groups and spreadsheets, so open slots, pending join requests and students without a group are
-hard to track.
+Students in EXE (Experiential Entrepreneurship) subjects such as EXE101 work in project groups of four to six members
+from at least two majors. Today the groups form across chat groups and spreadsheets, so the staff find students
+without a group, groups that miss a major and late changes only at the end.
 
-The EXE Group Management System centralizes group formation:
+The EXE Group Management System runs the process described in the lecturer's feedback (design v3.2):
 
-- Students search groups, create a group or send join requests in the classes they are enrolled in.
-- Team Leaders approve or reject the requests for their own group, remove members and transfer leadership.
-- Lecturers monitor grouping progress, under-filled groups and ungrouped students.
-- Administrators manage users, semesters, courses, classes (MinMembers, MaxMembers, Deadline) and class rosters.
+- The **Admin** (academic staff, role `Administrator`) prepares semesters, subjects, majors, skills and group types,
+  creates courses (subject + class + semester), imports the students with their major, generates the rooms of a
+  course (`ceil(students / MaxGroupSize × k)`, k = 1.2) and publishes them.
+- **Students** rate their strengths (1–5), browse rooms or ask for suggestions, join open rooms or apply to locked
+  ones. The first member leads the room: sets the topic, locks it, approves applications and may remove members.
+- At the **deadline** (`ExpireAt`, enforced by a background job) the rooms freeze; the Admin places the remaining
+  students with suggestions and **finalizes** numbered, read-only official groups.
+- **Lecturers** follow their own classes read-only; every room has its own **chat**, and everyone gets in-app
+  **notifications**.
 
-The backend enforces the class rules: enrollment required, one group per student per class, capacity and deadline.
-
-The full design is in [`docs/PRN232_v2.pdf`](docs/PRN232_v2.pdf) / [`docs/PRN232_v2.docx`](docs/PRN232_v2.docx);
-the assignment brief and the two labs the team builds on are in [`docs/`](docs/).
+The full design is in [`docs/PRN232_v3.pdf`](docs/PRN232_v3.pdf) / [`docs/PRN232_v3.docx`](docs/PRN232_v3.docx):
+business rules, REST API list, events, jobs, gRPC contract and physical databases. The DDL is
+[`database/schema.sql`](database/schema.sql). The assignment brief and the two labs the team builds on are in
+[`docs/`](docs/).
 
 ## 2. System architecture
 
-Microservices documented with the C4 model. Level 1 and Level 2 below; Level 3 (components), deployment and the
-approve-flow dynamic view are generated from [`docs/architecture/workspace.dsl`](docs/architecture/workspace.dsl).
+Microservices documented with the C4 model. Level 1 and Level 2 below are generated from
+[`docs/diagrams`](docs/diagrams); components, the deployment views and two dynamic views are modelled as code in
+[`docs/architecture/workspace.dsl`](docs/architecture/workspace.dsl).
 
 | Level 1 – System Context | Level 2 – Container |
 |---|---|
 | ![System Context](docs/diagrams/fig1_c4_l1_context.png) | ![Container](docs/diagrams/fig2_c4_l2_container.png) |
 
-Generated views (Structurizr DSL → C4-PlantUML; components marked [Planned] are designed but not implemented yet):
-
-| View | Diagram |
-|---|---|
-| Level 3 – Identity Service | [IdentityComponents](docs/architecture/diagrams/structurizr-IdentityComponents.png) |
-| Level 3 – Group Service | [GroupComponents](docs/architecture/diagrams/structurizr-GroupComponents.png) |
-| Level 3 – Join Request Service | [JoinRequestComponents](docs/architecture/diagrams/structurizr-JoinRequestComponents.png) |
-| Dynamic – approving a join request | [ApproveJoinRequest](docs/architecture/diagrams/structurizr-ApproveJoinRequest.png) |
-| Deployment – Docker Compose | [Deployment](docs/architecture/diagrams/structurizr-Deployment.png) |
-| Deployment – demo server | [DemoDeployment](docs/architecture/diagrams/structurizr-DemoDeployment.png) |
-
-Regenerate after a change: `docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr export -workspace /usr/local/structurizr/workspace.dsl -format plantuml/c4plantuml -output /usr/local/structurizr/diagrams`, then render with `plantuml/plantuml -tpng`.
+Render the DSL views (components marked [Planned] are designed but not implemented yet):
+`docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr export -workspace /usr/local/structurizr/workspace.dsl -format plantuml/c4plantuml -output /usr/local/structurizr/diagrams`, then render with `plantuml/plantuml -tpng`.
 
 | Container | Technology | Responsibility |
 |---|---|---|
-| Single-Page App | React 19, TypeScript, Vite, served by nginx | UI for all roles; nginx forwards `/api` and `/swagger` to the gateway (same origin, no CORS) |
-| API Gateway | ASP.NET Core 10 + YARP 2.3 | Single entry point, JWT check at the edge, path routing, merged Swagger UI, sign-in rate limit |
+| Single-Page App | React 19, TypeScript, Vite, served by nginx | UI for all roles; nginx forwards `/api`, `/hubs` and `/swagger` to the gateway (same origin, no CORS) |
+| API Gateway | ASP.NET Core 10 + YARP 2.3 | Single entry point, JWT check at the edge, path routing, WebSocket pass-through, merged Swagger UI, sign-in rate limit |
 | Identity Service | ASP.NET Core 10 Web API | Sign-in, JWT access and refresh tokens, users, roles |
-| Group Service | ASP.NET Core 10 Web API + gRPC server | Semesters, courses, classes, rosters, groups; outbox, deadline and cleanup jobs |
-| Join Request Service | ASP.NET Core 10 Web API + gRPC client | Join-request lifecycle; event consumer, reconciler and cleanup jobs |
-| IdentityDb / GroupDb / RequestDb | SQL Server 2022 (EF Core 10) | One database per service |
-| Group Events | Redis 7 Stream `group-events` | `GroupMemberAdded`, `GroupClosed` from Group Service to Join Request Service |
+| Group Service | ASP.NET Core 10 Web API | Semesters, subjects, majors, skills, group types, courses, rosters, rooms, memberships, applications, finalize; outbox, phase scheduler and cleanup jobs |
+| Recommendation Service | ASP.NET Core 10 gRPC (HTTP/2 only, 8081) | Ranks rooms for a student and placements for students without a room; stateless, no database |
+| Realtime Service | ASP.NET Core 10 Web API + SignalR | Group chat and notifications; consumes the group events |
+| IdentityDb / GroupDb / ChatDb | SQL Server 2022 (EF Core 10) | One database per service |
+| Group Events | Redis 7 Stream `group-events` | Course phases, room members, leaders and applications, from Group Service to Realtime Service |
 
 How the services talk to each other:
 
 - **REST:** browser → web (nginx) → gateway → services. Every route is versioned (`/api/v1/...`) and every response,
   including errors, uses one envelope:
   `{ "success", "message", "data", "errors": [{ "code", "field", "message" }], "traceId", "pagination" }`.
-- **gRPC:** Join Request Service → Group Service on an internal HTTP/2-only port (8081).
-  `GroupMembership.GetGroupContext` checks eligibility and leadership; `AddMemberIfEligible` adds the member in one
-  transaction and is idempotent by `request_id`. Contract:
-  [`src/Contracts/ExeGroup.Contracts/group_membership.proto`](src/Contracts/ExeGroup.Contracts/group_membership.proto).
-- **Redis Streams:** Group Service publishes through a Transactional Outbox (`OutboxEvents`). Join Request Service
-  reads with `XREADGROUP` (consumer group `join-request-service`), acknowledges with `XACK` after commit, re-claims
-  stuck messages with `XAUTOCLAIM`, and skips duplicates through the `ProcessedEvents` table.
-- **Approve flow:** `POST /api/v1/join-requests/{id}/approve` returns `202 Accepted` (status Processing); the request
-  becomes Approved when the `GroupMemberAdded` event is consumed, and the web app polls `GET /api/v1/join-requests/{id}`.
-  If that event is lost, ProcessingReconciler retries `AddMemberIfEligible` after 2 minutes; the `ALREADY_ADDED` reply
-  confirms the request as Approved directly (transition T11).
+- **gRPC:** Group Service → Recommendation Service: `SuggestRooms` and `SuggestPlacements`, 2 s deadline, unranked
+  fallback. Contract: `recommendation.proto` in `src/Contracts/ExeGroup.Contracts` (design section 6.7).
+- **Redis Streams:** Group Service publishes through a Transactional Outbox (`OutboxEvents`). Realtime Service reads
+  with `XREADGROUP` (consumer group `realtime`), acknowledges with `XACK` after commit, re-claims stuck messages with
+  `XAUTOCLAIM` and skips duplicates through `ProcessedEvents`.
+- **Applications:** join requests live in GroupDb next to the rooms, so `POST /api/v1/join-requests/{id}/approve`
+  checks the seat and the majors and adds the member in one transaction.
+- **Real time:** the browser keeps a SignalR connection to `/hubs/realtime` (through nginx and the gateway) for chat
+  messages, notifications and room changes.
 - **Tracing:** the gateway assigns an `X-Correlation-ID`; it travels through HTTP headers, gRPC metadata and the event
   envelope, appears in every log line and comes back as `traceId` in every response.
 
@@ -77,10 +72,11 @@ How the services talk to each other:
 |---|---|
 | Runtime | .NET 10 (SDK pinned in `global.json`), C# latest, nullable enabled, warnings as errors |
 | Backend | ASP.NET Core 10, three projects per service: API → Services → Repositories (enforced by architecture tests) |
-| Data | Entity Framework Core 10, SQL Server 2022, code-first migrations (`scripts/ef`) |
+| Data | Entity Framework Core 10, SQL Server 2022, code-first migrations (`scripts/ef`) matching `database/schema.sql` |
 | Gateway | YARP 2.3 |
-| Sync communication | gRPC (Grpc.AspNetCore / Grpc.Net.ClientFactory 2.85, Protobuf over HTTP/2) |
-| Messaging | Redis 7 Streams (StackExchange.Redis 3.x) |
+| Sync communication | gRPC (Grpc.AspNetCore / Grpc.Net.ClientFactory 2.85, Protobuf over HTTP/2): Group → Recommendation |
+| Messaging | Redis 7 Streams (StackExchange.Redis 3.x), transactional outbox, idempotent consumer |
+| Real time | ASP.NET Core SignalR: chat, notifications, live room board |
 | Background jobs | `BackgroundService` + `PeriodicTimer` through a shared `PeriodicBackgroundService` base |
 | Security | JWT Bearer HS256 (key ≥ 32 bytes, validated at start-up), refresh tokens, ASP.NET Core `PasswordHasher` |
 | API surface | URL versioning (Asp.Versioning 10), JSON and XML (406 for anything else), DataAnnotations + FluentValidation |
@@ -88,7 +84,7 @@ How the services talk to each other:
 | Logging | Serilog with correlation id; custom request-logging and exception middleware |
 | Frontend | React 19, TypeScript 7, Vite 8, React Router 7, TanStack Query 5, Vitest, oxlint, nginx |
 | Tests | xUnit v3 on Microsoft.Testing.Platform, Testcontainers (real SQL Server), NetArchTest |
-| Deployment | Docker, Docker Compose (7 containers), GitHub Actions CI |
+| Deployment | Docker, Docker Compose (8 containers), GitHub Actions CI |
 
 ## 4. Installation guide
 
@@ -213,23 +209,24 @@ areas listed in `.github/member-paths.txt`. See `CONTRIBUTING.md` for what each 
 
 | Step | Action | What it demonstrates |
 |---|---|---|
-| 1 | `docker compose ps` – all containers healthy; show the C4 diagrams | Docker deployment, system architecture |
-| 2 | Administrator signs in (Swagger), creates a semester, a course and a class (MinMembers, MaxMembers, Deadline), then enrolls students | REST API, JWT, CRUD, versioning, validation |
-| 3 | Student A creates a group and becomes Team Leader (`GroupMemberAdded` with an empty requestId) | REST, outbox |
-| 4 | Student B searches groups (`search`, `sort`, `page`, `fields`) and submits a join request – Pending | REST, gRPC `GetGroupContext` |
-| 5 | Team Leader approves – 202 Processing; OutboxPublisher publishes, GroupEventsConsumer marks the request Approved and cancels B's other Pending requests | gRPC `AddMemberIfEligible`, background jobs, message publishing and consuming |
-| 6 | Show `XRANGE group-events - +` and the logs of both services with the same correlation id | Message broker, tracing |
-| 7 | Lecturer opens the class overview: grouped / ungrouped students, under-filled groups | REST, authorization |
-| 8 | Set the class Deadline one or two minutes ahead and wait: DeadlineEnforcer locks the groups and the remaining Pending requests are rejected (GROUP_LOCKED) | Background job, events |
+| 1 | `docker compose ps` – all containers healthy; show the C4 diagrams and the merged Swagger UI | Docker deployment, system architecture, API documentation |
+| 2 | Admin signs in, creates semester FA26, subject EXE101, majors, skills and a group type (at least 1 SE, 1 MKT and 2 majors), then course EXE101 – SE1919 with its lecturer, and imports the students | REST API, JWT, CRUD, validation, versioning |
+| 3 | Admin generates the rooms (`ceil(n / 6 × 1.2)`) and publishes the course | Business rules, outbox events |
+| 4 | Students rate their skills; student A joins Room 01, becomes its leader, sets the topic and locks the room | REST, notifications over SignalR |
+| 5 | Student B lists the rooms (`search`, `sort`, `page`) and opens the suggested rooms, ranked with reasons | REST → gRPC (Recommendation Service) |
+| 6 | B applies to Room 01 and A approves in one transaction; B's other applications are cancelled; both get a notification. Show `XRANGE group-events - +` and the logs with one correlation id | Message publishing and consuming, tracing |
+| 7 | The members chat in the room | SignalR, Realtime Service |
+| 8 | Set `ExpireAt` one or two minutes ahead and wait: PhaseScheduler expires the course and rejects the pending applications (`GROUPING_EXPIRED`) | Background job, events |
+| 9 | Admin opens the course overview, places the remaining students with the placement suggestions and finalizes; the lecturer sees the official groups | gRPC, business rules, authorization |
 
 ## 7. Team members & responsibilities
 
 | No. | Full name | Student ID | Responsibilities |
 |---|---|---|---|
-| 1 | _Member 1 (PM)_ | _SExxxxxx_ | Project management and platform: architecture and standards, shared building blocks, API Gateway, Docker Compose, CI, web app shell, design documents, README, seed data and demo script |
-| 2 | _Member 2_ | _SExxxxxx_ | Identity Service (sign-in, JWT, refresh tokens, users, roles) and Join Request Service REST API |
-| 3 | _Member 3_ | _SExxxxxx_ | Group Service REST API: courses, classes, rosters, groups, lecturer dashboard |
-| 4 | _Member 4_ | _SExxxxxx_ | gRPC GroupMembership server and client, Transactional Outbox, Redis Streams consumer, background jobs |
+| 1 | _Member 1 (PM)_ | _SExxxxxx_ | Project management and platform: architecture and standards, building blocks, API Gateway, Docker Compose, CI, web app shell, Recommendation Service (gRPC), design documents, README, seed data and demo script |
+| 2 | _Member 2_ | _SExxxxxx_ | Identity Service (sign-in, JWT, refresh tokens, users, roles, student import) and the room actions of Group Service: join, leave, lock, applications, approve and reject, remove members, leadership |
+| 3 | _Member 3_ | _SExxxxxx_ | Group Service academic data and course life cycle: subjects, majors, skills, group types, courses and rosters, room generation, publish and expire, placements, finalize, lecturer view |
+| 4 | _Member 4_ | _SExxxxxx_ | Transactional Outbox and Redis Streams, Realtime Service (SignalR chat, notifications, event consumer), background jobs |
 | 5 | _Member 5_ | _SExxxxxx_ | React screens for all roles on the shared web app shell |
 
 How to contribute: [`CONTRIBUTING.md`](CONTRIBUTING.md) (Vietnamese) – structure, rules, the step-by-step guide to

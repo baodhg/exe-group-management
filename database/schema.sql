@@ -1,15 +1,11 @@
--- ==========================================================================
--- IdentityDb (owned by Identity Service)
--- ==========================================================================
 IF DB_ID(N'IdentityDb') IS NULL CREATE DATABASE [IdentityDb];
 GO
 USE [IdentityDb];
 GO
 SET ANSI_NULLS ON;
-SET QUOTED_IDENTIFIER ON;  -- required for filtered indexes
+SET QUOTED_IDENTIFIER ON;
 GO
 
--- Users: User accounts for all roles.
 CREATE TABLE dbo.[Users] (
     [UserId] uniqueidentifier NOT NULL,
     [Email] nvarchar(255) NOT NULL,
@@ -26,7 +22,6 @@ CREATE UNIQUE INDEX [UX_Users_Email] ON dbo.[Users] ([Email]);
 CREATE UNIQUE INDEX [UX_Users_UserCode] ON dbo.[Users] ([UserCode]) WHERE [UserCode] IS NOT NULL;
 GO
 
--- Roles: Global roles (seeded): Student, Lecturer, Administrator.
 CREATE TABLE dbo.[Roles] (
     [RoleId] uniqueidentifier NOT NULL,
     [Name] varchar(50) NOT NULL,
@@ -35,7 +30,6 @@ CREATE TABLE dbo.[Roles] (
 CREATE UNIQUE INDEX [UX_Roles_Name] ON dbo.[Roles] ([Name]);
 GO
 
--- UserRoles: Many-to-many assignment of roles to users.
 CREATE TABLE dbo.[UserRoles] (
     [UserId] uniqueidentifier NOT NULL,
     [RoleId] uniqueidentifier NOT NULL,
@@ -63,25 +57,20 @@ ALTER TABLE dbo.[UserRoles] ADD CONSTRAINT [FK_UserRoles_Roles] FOREIGN KEY ([Ro
 ALTER TABLE dbo.[RefreshTokens] ADD CONSTRAINT [FK_RefreshTokens_Users] FOREIGN KEY ([UserId]) REFERENCES dbo.[Users] ([UserId]) ON DELETE CASCADE;
 GO
 
--- Seed data: global roles
 INSERT INTO dbo.[Roles] ([RoleId], [Name]) VALUES
     ('6B1F2A40-0001-4C1A-9F00-000000000001', 'Student'),
     ('6B1F2A40-0002-4C1A-9F00-000000000002', 'Lecturer'),
     ('6B1F2A40-0003-4C1A-9F00-000000000003', 'Administrator');
 GO
 
--- ==========================================================================
--- GroupDb (owned by Group Service)
--- ==========================================================================
 IF DB_ID(N'GroupDb') IS NULL CREATE DATABASE [GroupDb];
 GO
 USE [GroupDb];
 GO
 SET ANSI_NULLS ON;
-SET QUOTED_IDENTIFIER ON;  -- required for filtered indexes
+SET QUOTED_IDENTIFIER ON;
 GO
 
--- Semesters: Academic semesters.
 CREATE TABLE dbo.[Semesters] (
     [SemesterId] uniqueidentifier NOT NULL,
     [Code] varchar(20) NOT NULL,
@@ -94,99 +83,192 @@ CREATE TABLE dbo.[Semesters] (
 CREATE UNIQUE INDEX [UX_Semesters_Code] ON dbo.[Semesters] ([Code]);
 GO
 
--- Courses: EXE courses.
-CREATE TABLE dbo.[Courses] (
-    [CourseId] uniqueidentifier NOT NULL,
+CREATE TABLE dbo.[Subjects] (
+    [SubjectId] uniqueidentifier NOT NULL,
     [Code] varchar(20) NOT NULL,
     [Name] nvarchar(150) NOT NULL,
-    CONSTRAINT [PK_Courses] PRIMARY KEY CLUSTERED ([CourseId])
+    CONSTRAINT [PK_Subjects] PRIMARY KEY CLUSTERED ([SubjectId])
 );
-CREATE UNIQUE INDEX [UX_Courses_Code] ON dbo.[Courses] ([Code]);
+CREATE UNIQUE INDEX [UX_Subjects_Code] ON dbo.[Subjects] ([Code]);
 GO
 
--- ExeClasses: Class sections of an EXE course in a semester, with grouping rules.
-CREATE TABLE dbo.[ExeClasses] (
-    [ClassId] uniqueidentifier NOT NULL,
+CREATE TABLE dbo.[Majors] (
+    [MajorId] uniqueidentifier NOT NULL,
+    [Code] varchar(10) NOT NULL,
+    [Name] nvarchar(100) NOT NULL,
+    CONSTRAINT [PK_Majors] PRIMARY KEY CLUSTERED ([MajorId])
+);
+CREATE UNIQUE INDEX [UX_Majors_Code] ON dbo.[Majors] ([Code]);
+GO
+
+CREATE TABLE dbo.[Skills] (
+    [SkillId] uniqueidentifier NOT NULL,
+    [Code] varchar(20) NOT NULL,
+    [Name] nvarchar(100) NOT NULL,
+    CONSTRAINT [PK_Skills] PRIMARY KEY CLUSTERED ([SkillId])
+);
+CREATE UNIQUE INDEX [UX_Skills_Code] ON dbo.[Skills] ([Code]);
+GO
+
+CREATE TABLE dbo.[SemesterStudents] (
     [SemesterId] uniqueidentifier NOT NULL,
-    [CourseId] uniqueidentifier NOT NULL,
-    [ClassCode] varchar(30) NOT NULL,
-    [LecturerId] uniqueidentifier NOT NULL,
-    [MinMembers] int NOT NULL,
-    [MaxMembers] int NOT NULL,
-    [Deadline] datetime2 NOT NULL,
-    [Status] varchar(20) NOT NULL CONSTRAINT [DF_ExeClasses_Status] DEFAULT ('Open'),
-    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_ExeClasses_CreatedAt] DEFAULT (SYSUTCDATETIME()),
-    CONSTRAINT [PK_ExeClasses] PRIMARY KEY CLUSTERED ([ClassId]),
-    CONSTRAINT [CK_ExeClasses_Members] CHECK ([MinMembers] >= 1 AND [MaxMembers] >= [MinMembers]),
-    CONSTRAINT [CK_ExeClasses_Status] CHECK ([Status] IN ('Open', 'Closed'))
-);
-CREATE UNIQUE INDEX [UX_ExeClasses_Semester_Course_Code] ON dbo.[ExeClasses] ([SemesterId], [CourseId], [ClassCode]);
-CREATE INDEX [IX_ExeClasses_CourseId] ON dbo.[ExeClasses] ([CourseId]);
-CREATE INDEX [IX_ExeClasses_LecturerId] ON dbo.[ExeClasses] ([LecturerId]);
-GO
-
--- ClassEnrollments: Class roster: which students belong to which class.
-CREATE TABLE dbo.[ClassEnrollments] (
-    [ClassId] uniqueidentifier NOT NULL,
     [StudentId] uniqueidentifier NOT NULL,
     [StudentCode] varchar(20) NOT NULL,
     [FullName] nvarchar(150) NOT NULL,
     [Email] nvarchar(255) NOT NULL,
-    [EnrolledAt] datetime2 NOT NULL CONSTRAINT [DF_ClassEnrollments_EnrolledAt] DEFAULT (SYSUTCDATETIME()),
-    CONSTRAINT [PK_ClassEnrollments] PRIMARY KEY CLUSTERED ([ClassId], [StudentId])
+    [MajorId] uniqueidentifier NOT NULL,
+    [AddedAt] datetime2 NOT NULL CONSTRAINT [DF_SemesterStudents_AddedAt] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_SemesterStudents] PRIMARY KEY CLUSTERED ([SemesterId], [StudentId])
 );
-CREATE INDEX [IX_ClassEnrollments_StudentId] ON dbo.[ClassEnrollments] ([StudentId]);
+CREATE INDEX [IX_SemesterStudents_MajorId] ON dbo.[SemesterStudents] ([MajorId]);
 GO
 
--- Groups: Project groups formed inside a class.
-CREATE TABLE dbo.[Groups] (
-    [GroupId] uniqueidentifier NOT NULL,
-    [ClassId] uniqueidentifier NOT NULL,
-    [LeaderId] uniqueidentifier NOT NULL,
-    [Title] nvarchar(200) NOT NULL,
-    [Description] nvarchar(1000) NULL,
-    [CurrentMemberCount] int NOT NULL CONSTRAINT [DF_Groups_CurrentMemberCount] DEFAULT (1),
-    [Status] varchar(20) NOT NULL CONSTRAINT [DF_Groups_Status] DEFAULT ('Recruiting'),
+CREATE TABLE dbo.[StudentSkills] (
+    [SemesterId] uniqueidentifier NOT NULL,
+    [StudentId] uniqueidentifier NOT NULL,
+    [SkillId] uniqueidentifier NOT NULL,
+    [Level] tinyint NOT NULL,
+    [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_StudentSkills_UpdatedAt] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_StudentSkills] PRIMARY KEY CLUSTERED ([SemesterId], [StudentId], [SkillId]),
+    CONSTRAINT [CK_StudentSkills_Level] CHECK ([Level] BETWEEN 1 AND 5)
+);
+CREATE INDEX [IX_StudentSkills_SkillId] ON dbo.[StudentSkills] ([SkillId]);
+GO
+
+CREATE TABLE dbo.[Courses] (
+    [CourseId] uniqueidentifier NOT NULL,
+    [SemesterId] uniqueidentifier NOT NULL,
+    [SubjectId] uniqueidentifier NOT NULL,
+    [ClassCode] varchar(30) NOT NULL,
+    [LecturerId] uniqueidentifier NULL,
+    [LecturerName] nvarchar(150) NULL,
+    [MinGroupSize] int NOT NULL CONSTRAINT [DF_Courses_MinGroupSize] DEFAULT (4),
+    [MaxGroupSize] int NOT NULL CONSTRAINT [DF_Courses_MaxGroupSize] DEFAULT (6),
+    [RoomFactor] decimal(3,2) NOT NULL CONSTRAINT [DF_Courses_RoomFactor] DEFAULT (1.20),
+    [Phase] varchar(20) NOT NULL CONSTRAINT [DF_Courses_Phase] DEFAULT ('Setup'),
+    [PublishAt] datetime2 NULL,
+    [ExpireAt] datetime2 NULL,
+    [FinalizedAt] datetime2 NULL,
     [RowVersion] rowversion NOT NULL,
-    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_Groups_CreatedAt] DEFAULT (SYSUTCDATETIME()),
-    [UpdatedAt] datetime2 NULL,
-    CONSTRAINT [PK_Groups] PRIMARY KEY CLUSTERED ([GroupId]),
-    CONSTRAINT [AK_Groups_GroupId_ClassId] UNIQUE ([GroupId], [ClassId]),
-    CONSTRAINT [CK_Groups_Status] CHECK ([Status] IN ('Recruiting', 'Full', 'Locked', 'Dissolved')),
-    CONSTRAINT [CK_Groups_MemberCount] CHECK (([Status] = 'Dissolved' AND [CurrentMemberCount] = 0) OR ([Status] <> 'Dissolved' AND [CurrentMemberCount] >= 1))
+    CONSTRAINT [PK_Courses] PRIMARY KEY CLUSTERED ([CourseId]),
+    CONSTRAINT [AK_Courses_CourseId_SemesterId] UNIQUE ([CourseId], [SemesterId]),
+    CONSTRAINT [CK_Courses_GroupSize] CHECK ([MinGroupSize] >= 1 AND [MaxGroupSize] >= [MinGroupSize]),
+    CONSTRAINT [CK_Courses_RoomFactor] CHECK ([RoomFactor] >= 1.00),
+    CONSTRAINT [CK_Courses_Phase] CHECK ([Phase] IN ('Setup', 'Published', 'Expired', 'Finalized')),
+    CONSTRAINT [CK_Courses_Schedule] CHECK ([PublishAt] IS NULL OR [ExpireAt] IS NULL OR [ExpireAt] > [PublishAt])
 );
-CREATE UNIQUE INDEX [UX_Groups_Class_Title] ON dbo.[Groups] ([ClassId], [Title]) WHERE [Status] <> 'Dissolved';
-CREATE INDEX [IX_Groups_Class_Status] ON dbo.[Groups] ([ClassId], [Status]);
-CREATE INDEX [IX_Groups_LeaderId] ON dbo.[Groups] ([LeaderId]);
+CREATE UNIQUE INDEX [UX_Courses_Semester_Subject_Class] ON dbo.[Courses] ([SemesterId], [SubjectId], [ClassCode]);
+CREATE INDEX [IX_Courses_SubjectId] ON dbo.[Courses] ([SubjectId]);
+CREATE INDEX [IX_Courses_LecturerId] ON dbo.[Courses] ([LecturerId]) WHERE [LecturerId] IS NOT NULL;
+CREATE INDEX [IX_Courses_Phase] ON dbo.[Courses] ([Phase]);
 GO
 
--- GroupMembers: Membership of enrolled students in groups.
-CREATE TABLE dbo.[GroupMembers] (
-    [MembershipId] uniqueidentifier NOT NULL,
-    [GroupId] uniqueidentifier NOT NULL,
-    [ClassId] uniqueidentifier NOT NULL,
+CREATE TABLE dbo.[CourseEnrollments] (
+    [CourseId] uniqueidentifier NOT NULL,
     [StudentId] uniqueidentifier NOT NULL,
-    [JoinedAt] datetime2 NOT NULL CONSTRAINT [DF_GroupMembers_JoinedAt] DEFAULT (SYSUTCDATETIME()),
-    CONSTRAINT [PK_GroupMembers] PRIMARY KEY CLUSTERED ([MembershipId])
+    [SemesterId] uniqueidentifier NOT NULL,
+    [EnrolledAt] datetime2 NOT NULL CONSTRAINT [DF_CourseEnrollments_EnrolledAt] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_CourseEnrollments] PRIMARY KEY CLUSTERED ([CourseId], [StudentId])
 );
-CREATE UNIQUE INDEX [UX_GroupMembers_Class_Student] ON dbo.[GroupMembers] ([ClassId], [StudentId]);
-CREATE INDEX [IX_GroupMembers_Group_Class] ON dbo.[GroupMembers] ([GroupId], [ClassId]);
+CREATE INDEX [IX_CourseEnrollments_Semester_Student] ON dbo.[CourseEnrollments] ([SemesterId], [StudentId]);
 GO
 
--- AddMemberRequests: Idempotency records of successful AddMemberIfEligible calls (one per join request).
-CREATE TABLE dbo.[AddMemberRequests] (
+CREATE TABLE dbo.[GroupTypes] (
+    [GroupTypeId] uniqueidentifier NOT NULL,
+    [Code] varchar(20) NOT NULL,
+    [Name] nvarchar(100) NOT NULL,
+    [MinDistinctMajors] int NOT NULL CONSTRAINT [DF_GroupTypes_MinDistinctMajors] DEFAULT (2),
+    CONSTRAINT [PK_GroupTypes] PRIMARY KEY CLUSTERED ([GroupTypeId]),
+    CONSTRAINT [CK_GroupTypes_MinDistinctMajors] CHECK ([MinDistinctMajors] >= 1)
+);
+CREATE UNIQUE INDEX [UX_GroupTypes_Code] ON dbo.[GroupTypes] ([Code]);
+GO
+
+CREATE TABLE dbo.[GroupTypeMajors] (
+    [GroupTypeId] uniqueidentifier NOT NULL,
+    [MajorId] uniqueidentifier NOT NULL,
+    [MinMembers] int NOT NULL,
+    CONSTRAINT [PK_GroupTypeMajors] PRIMARY KEY CLUSTERED ([GroupTypeId], [MajorId]),
+    CONSTRAINT [CK_GroupTypeMajors_MinMembers] CHECK ([MinMembers] >= 1)
+);
+CREATE INDEX [IX_GroupTypeMajors_MajorId] ON dbo.[GroupTypeMajors] ([MajorId]);
+GO
+
+CREATE TABLE dbo.[SemesterGroupTypes] (
+    [SemesterId] uniqueidentifier NOT NULL,
+    [GroupTypeId] uniqueidentifier NOT NULL,
+    CONSTRAINT [PK_SemesterGroupTypes] PRIMARY KEY CLUSTERED ([SemesterId], [GroupTypeId])
+);
+CREATE INDEX [IX_SemesterGroupTypes_GroupTypeId] ON dbo.[SemesterGroupTypes] ([GroupTypeId]);
+GO
+
+CREATE TABLE dbo.[Rooms] (
+    [RoomId] uniqueidentifier NOT NULL,
+    [CourseId] uniqueidentifier NOT NULL,
+    [SemesterId] uniqueidentifier NOT NULL,
+    [GroupTypeId] uniqueidentifier NOT NULL,
+    [Name] nvarchar(50) NOT NULL,
+    [Topic] nvarchar(200) NULL,
+    [Capacity] int NOT NULL,
+    [Status] varchar(20) NOT NULL CONSTRAINT [DF_Rooms_Status] DEFAULT ('Open'),
+    [LeaderId] uniqueidentifier NULL,
+    [MemberCount] int NOT NULL CONSTRAINT [DF_Rooms_MemberCount] DEFAULT (0),
+    [GroupNo] int NULL,
+    [LockedAt] datetime2 NULL,
+    [RowVersion] rowversion NOT NULL,
+    CONSTRAINT [PK_Rooms] PRIMARY KEY CLUSTERED ([RoomId]),
+    CONSTRAINT [AK_Rooms_RoomId_CourseId] UNIQUE ([RoomId], [CourseId]),
+    CONSTRAINT [CK_Rooms_Status] CHECK ([Status] IN ('Open', 'Locked', 'Finalized')),
+    CONSTRAINT [CK_Rooms_MemberCount] CHECK ([MemberCount] >= 0 AND [MemberCount] <= [Capacity]),
+    CONSTRAINT [CK_Rooms_Leader] CHECK (([MemberCount] = 0 AND [LeaderId] IS NULL) OR ([MemberCount] > 0 AND [LeaderId] IS NOT NULL))
+);
+CREATE UNIQUE INDEX [UX_Rooms_Course_Name] ON dbo.[Rooms] ([CourseId], [Name]);
+CREATE UNIQUE INDEX [UX_Rooms_Course_GroupNo] ON dbo.[Rooms] ([CourseId], [GroupNo]) WHERE [GroupNo] IS NOT NULL;
+CREATE INDEX [IX_Rooms_Semester_GroupType] ON dbo.[Rooms] ([SemesterId], [GroupTypeId]);
+GO
+
+CREATE TABLE dbo.[RoomMembers] (
+    [MembershipId] uniqueidentifier NOT NULL,
+    [RoomId] uniqueidentifier NOT NULL,
+    [CourseId] uniqueidentifier NOT NULL,
+    [StudentId] uniqueidentifier NOT NULL,
+    [JoinedVia] varchar(20) NOT NULL,
+    [JoinedAt] datetime2 NOT NULL CONSTRAINT [DF_RoomMembers_JoinedAt] DEFAULT (SYSUTCDATETIME()),
+    [EndedAt] datetime2 NULL,
+    [EndReason] varchar(20) NULL,
+    [EndedBy] uniqueidentifier NULL,
+    [EndNote] nvarchar(300) NULL,
+    CONSTRAINT [PK_RoomMembers] PRIMARY KEY CLUSTERED ([MembershipId]),
+    CONSTRAINT [CK_RoomMembers_JoinedVia] CHECK ([JoinedVia] IN ('Open', 'Application', 'Admin')),
+    CONSTRAINT [CK_RoomMembers_End] CHECK (([EndedAt] IS NULL AND [EndReason] IS NULL) OR ([EndedAt] IS NOT NULL AND [EndReason] IN ('Left', 'Removed', 'Moved'))),
+    CONSTRAINT [CK_RoomMembers_RemovedNote] CHECK ([EndReason] IS NULL OR [EndReason] <> 'Removed' OR [EndNote] IS NOT NULL)
+);
+CREATE UNIQUE INDEX [UX_RoomMembers_Course_Student] ON dbo.[RoomMembers] ([CourseId], [StudentId]) WHERE [EndedAt] IS NULL;
+CREATE INDEX [IX_RoomMembers_Room_Student] ON dbo.[RoomMembers] ([RoomId], [StudentId]);
+GO
+
+CREATE TABLE dbo.[JoinRequests] (
     [RequestId] uniqueidentifier NOT NULL,
-    [GroupId] uniqueidentifier NOT NULL,
+    [RoomId] uniqueidentifier NOT NULL,
+    [CourseId] uniqueidentifier NOT NULL,
     [StudentId] uniqueidentifier NOT NULL,
-    [MembershipId] uniqueidentifier NOT NULL,
-    [ProcessedAtUtc] datetime2 NOT NULL CONSTRAINT [DF_AddMemberRequests_ProcessedAtUtc] DEFAULT (SYSUTCDATETIME()),
-    CONSTRAINT [PK_AddMemberRequests] PRIMARY KEY CLUSTERED ([RequestId])
+    [Message] nvarchar(500) NULL,
+    [Status] varchar(20) NOT NULL CONSTRAINT [DF_JoinRequests_Status] DEFAULT ('Pending'),
+    [DecidedBy] uniqueidentifier NULL,
+    [DecidedAt] datetime2 NULL,
+    [ReasonCode] varchar(40) NULL,
+    [ReasonText] nvarchar(500) NULL,
+    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_JoinRequests_CreatedAt] DEFAULT (SYSUTCDATETIME()),
+    [RowVersion] rowversion NOT NULL,
+    CONSTRAINT [PK_JoinRequests] PRIMARY KEY CLUSTERED ([RequestId]),
+    CONSTRAINT [CK_JoinRequests_Status] CHECK ([Status] IN ('Pending', 'Approved', 'Rejected', 'Cancelled')),
+    CONSTRAINT [CK_JoinRequests_ReasonCode] CHECK ([ReasonCode] IS NULL OR [ReasonCode] IN ('REJECTED_BY_LEADER', 'WITHDRAWN', 'ROOM_FULL', 'ROOM_REOPENED', 'COMPOSITION_RULE', 'JOINED_ANOTHER_ROOM', 'GROUPING_EXPIRED'))
 );
-CREATE INDEX [IX_AddMemberRequests_GroupId] ON dbo.[AddMemberRequests] ([GroupId]);
-CREATE INDEX [IX_AddMemberRequests_ProcessedAtUtc] ON dbo.[AddMemberRequests] ([ProcessedAtUtc]);
+CREATE UNIQUE INDEX [UX_JoinRequests_Pending] ON dbo.[JoinRequests] ([RoomId], [StudentId]) WHERE [Status] = 'Pending';
+CREATE INDEX [IX_JoinRequests_Course_Student_Status] ON dbo.[JoinRequests] ([CourseId], [StudentId], [Status]);
+CREATE INDEX [IX_JoinRequests_Room_Status] ON dbo.[JoinRequests] ([RoomId], [Status]);
 GO
 
--- OutboxEvents: Transactional outbox: events written in the same transaction as the business change.
 CREATE TABLE dbo.[OutboxEvents] (
     [EventId] uniqueidentifier NOT NULL,
     [EventType] varchar(100) NOT NULL,
@@ -204,56 +286,81 @@ CREATE INDEX [IX_OutboxEvents_Unpublished] ON dbo.[OutboxEvents] ([OccurredAtUtc
 CREATE INDEX [IX_OutboxEvents_PublishedAtUtc] ON dbo.[OutboxEvents] ([PublishedAtUtc]) WHERE [PublishedAtUtc] IS NOT NULL;
 GO
 
--- Foreign keys (NO ACTION except UserRoles -> Users, to avoid multiple cascade paths)
-ALTER TABLE dbo.[ExeClasses] ADD CONSTRAINT [FK_ExeClasses_Semesters] FOREIGN KEY ([SemesterId]) REFERENCES dbo.[Semesters] ([SemesterId]) ON DELETE NO ACTION;
-ALTER TABLE dbo.[ExeClasses] ADD CONSTRAINT [FK_ExeClasses_Courses] FOREIGN KEY ([CourseId]) REFERENCES dbo.[Courses] ([CourseId]) ON DELETE NO ACTION;
-ALTER TABLE dbo.[ClassEnrollments] ADD CONSTRAINT [FK_ClassEnrollments_ExeClasses] FOREIGN KEY ([ClassId]) REFERENCES dbo.[ExeClasses] ([ClassId]) ON DELETE NO ACTION;
-ALTER TABLE dbo.[Groups] ADD CONSTRAINT [FK_Groups_ExeClasses] FOREIGN KEY ([ClassId]) REFERENCES dbo.[ExeClasses] ([ClassId]) ON DELETE NO ACTION;
-ALTER TABLE dbo.[GroupMembers] ADD CONSTRAINT [FK_GroupMembers_Groups] FOREIGN KEY ([GroupId], [ClassId]) REFERENCES dbo.[Groups] ([GroupId], [ClassId]) ON DELETE NO ACTION;
-ALTER TABLE dbo.[GroupMembers] ADD CONSTRAINT [FK_GroupMembers_ClassEnrollments] FOREIGN KEY ([ClassId], [StudentId]) REFERENCES dbo.[ClassEnrollments] ([ClassId], [StudentId]) ON DELETE NO ACTION;
-ALTER TABLE dbo.[AddMemberRequests] ADD CONSTRAINT [FK_AddMemberRequests_Groups] FOREIGN KEY ([GroupId]) REFERENCES dbo.[Groups] ([GroupId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[SemesterStudents] ADD CONSTRAINT [FK_SemesterStudents_Semesters] FOREIGN KEY ([SemesterId]) REFERENCES dbo.[Semesters] ([SemesterId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[SemesterStudents] ADD CONSTRAINT [FK_SemesterStudents_Majors] FOREIGN KEY ([MajorId]) REFERENCES dbo.[Majors] ([MajorId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[StudentSkills] ADD CONSTRAINT [FK_StudentSkills_SemesterStudents] FOREIGN KEY ([SemesterId], [StudentId]) REFERENCES dbo.[SemesterStudents] ([SemesterId], [StudentId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[StudentSkills] ADD CONSTRAINT [FK_StudentSkills_Skills] FOREIGN KEY ([SkillId]) REFERENCES dbo.[Skills] ([SkillId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[Courses] ADD CONSTRAINT [FK_Courses_Semesters] FOREIGN KEY ([SemesterId]) REFERENCES dbo.[Semesters] ([SemesterId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[Courses] ADD CONSTRAINT [FK_Courses_Subjects] FOREIGN KEY ([SubjectId]) REFERENCES dbo.[Subjects] ([SubjectId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[CourseEnrollments] ADD CONSTRAINT [FK_CourseEnrollments_Courses] FOREIGN KEY ([CourseId], [SemesterId]) REFERENCES dbo.[Courses] ([CourseId], [SemesterId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[CourseEnrollments] ADD CONSTRAINT [FK_CourseEnrollments_SemesterStudents] FOREIGN KEY ([SemesterId], [StudentId]) REFERENCES dbo.[SemesterStudents] ([SemesterId], [StudentId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[GroupTypeMajors] ADD CONSTRAINT [FK_GroupTypeMajors_GroupTypes] FOREIGN KEY ([GroupTypeId]) REFERENCES dbo.[GroupTypes] ([GroupTypeId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[GroupTypeMajors] ADD CONSTRAINT [FK_GroupTypeMajors_Majors] FOREIGN KEY ([MajorId]) REFERENCES dbo.[Majors] ([MajorId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[SemesterGroupTypes] ADD CONSTRAINT [FK_SemesterGroupTypes_Semesters] FOREIGN KEY ([SemesterId]) REFERENCES dbo.[Semesters] ([SemesterId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[SemesterGroupTypes] ADD CONSTRAINT [FK_SemesterGroupTypes_GroupTypes] FOREIGN KEY ([GroupTypeId]) REFERENCES dbo.[GroupTypes] ([GroupTypeId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[Rooms] ADD CONSTRAINT [FK_Rooms_Courses] FOREIGN KEY ([CourseId], [SemesterId]) REFERENCES dbo.[Courses] ([CourseId], [SemesterId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[Rooms] ADD CONSTRAINT [FK_Rooms_SemesterGroupTypes] FOREIGN KEY ([SemesterId], [GroupTypeId]) REFERENCES dbo.[SemesterGroupTypes] ([SemesterId], [GroupTypeId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[RoomMembers] ADD CONSTRAINT [FK_RoomMembers_Rooms] FOREIGN KEY ([RoomId], [CourseId]) REFERENCES dbo.[Rooms] ([RoomId], [CourseId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[RoomMembers] ADD CONSTRAINT [FK_RoomMembers_CourseEnrollments] FOREIGN KEY ([CourseId], [StudentId]) REFERENCES dbo.[CourseEnrollments] ([CourseId], [StudentId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[JoinRequests] ADD CONSTRAINT [FK_JoinRequests_Rooms] FOREIGN KEY ([RoomId], [CourseId]) REFERENCES dbo.[Rooms] ([RoomId], [CourseId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[JoinRequests] ADD CONSTRAINT [FK_JoinRequests_CourseEnrollments] FOREIGN KEY ([CourseId], [StudentId]) REFERENCES dbo.[CourseEnrollments] ([CourseId], [StudentId]) ON DELETE NO ACTION;
 GO
 
--- ==========================================================================
--- RequestDb (owned by Join Request Service)
--- ==========================================================================
-IF DB_ID(N'RequestDb') IS NULL CREATE DATABASE [RequestDb];
+IF DB_ID(N'ChatDb') IS NULL CREATE DATABASE [ChatDb];
 GO
-USE [RequestDb];
+USE [ChatDb];
 GO
 SET ANSI_NULLS ON;
-SET QUOTED_IDENTIFIER ON;  -- required for filtered indexes
+SET QUOTED_IDENTIFIER ON;
 GO
 
--- JoinRequests: Requests from students to join a group, with their lifecycle state.
-CREATE TABLE dbo.[JoinRequests] (
-    [RequestId] uniqueidentifier NOT NULL,
-    [GroupId] uniqueidentifier NOT NULL,
-    [ClassId] uniqueidentifier NOT NULL,
-    [StudentId] uniqueidentifier NOT NULL,
-    [StudentCode] varchar(20) NOT NULL,
-    [StudentName] nvarchar(150) NOT NULL,
-    [GroupTitle] nvarchar(200) NOT NULL,
-    [Status] varchar(20) NOT NULL CONSTRAINT [DF_JoinRequests_Status] DEFAULT ('Pending'),
-    [Message] nvarchar(500) NULL,
-    [DecidedBy] uniqueidentifier NULL,
-    [DecidedAt] datetime2 NULL,
-    [ReasonCode] varchar(40) NULL,
-    [ReasonText] nvarchar(500) NULL,
-    [RowVersion] rowversion NOT NULL,
-    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_JoinRequests_CreatedAt] DEFAULT (SYSUTCDATETIME()),
-    [UpdatedAt] datetime2 NULL,
-    CONSTRAINT [PK_JoinRequests] PRIMARY KEY CLUSTERED ([RequestId]),
-    CONSTRAINT [CK_JoinRequests_Status] CHECK ([Status] IN ('Pending', 'Processing', 'Approved', 'Rejected', 'Cancelled')),
-    CONSTRAINT [CK_JoinRequests_ReasonCode] CHECK ([ReasonCode] IS NULL OR [ReasonCode] IN ('GROUP_FULL', 'GROUP_LOCKED', 'GROUP_DISSOLVED', 'DEADLINE_PASSED', 'ALREADY_IN_OTHER_GROUP', 'NOT_ENROLLED', 'GROUP_NOT_FOUND', 'JOINED_ANOTHER_GROUP', 'REJECTED_BY_LEADER'))
+CREATE TABLE dbo.[Conversations] (
+    [ConversationId] uniqueidentifier NOT NULL,
+    [CourseId] uniqueidentifier NOT NULL,
+    [Title] nvarchar(50) NOT NULL,
+    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_Conversations_CreatedAt] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_Conversations] PRIMARY KEY CLUSTERED ([ConversationId])
 );
-CREATE UNIQUE INDEX [UX_JoinRequests_ActiveRequest] ON dbo.[JoinRequests] ([GroupId], [StudentId]) WHERE [Status] IN ('Pending', 'Processing');
-CREATE INDEX [IX_JoinRequests_Student_Class_Status] ON dbo.[JoinRequests] ([StudentId], [ClassId], [Status]);
-CREATE INDEX [IX_JoinRequests_Group_Status] ON dbo.[JoinRequests] ([GroupId], [Status]);
-CREATE INDEX [IX_JoinRequests_Processing] ON dbo.[JoinRequests] ([DecidedAt]) WHERE [Status] = 'Processing';
+CREATE INDEX [IX_Conversations_CourseId] ON dbo.[Conversations] ([CourseId]);
 GO
 
--- ProcessedEvents: Inbox of consumed event ids (idempotent consumer).
+CREATE TABLE dbo.[ConversationMembers] (
+    [ConversationId] uniqueidentifier NOT NULL,
+    [UserId] uniqueidentifier NOT NULL,
+    [JoinedAt] datetime2 NOT NULL,
+    [LeftAt] datetime2 NULL,
+    CONSTRAINT [PK_ConversationMembers] PRIMARY KEY CLUSTERED ([ConversationId], [UserId])
+);
+CREATE INDEX [IX_ConversationMembers_UserId] ON dbo.[ConversationMembers] ([UserId]);
+GO
+
+CREATE TABLE dbo.[Messages] (
+    [MessageId] uniqueidentifier NOT NULL,
+    [ConversationId] uniqueidentifier NOT NULL,
+    [SenderId] uniqueidentifier NOT NULL,
+    [SenderName] nvarchar(150) NOT NULL,
+    [Content] nvarchar(2000) NOT NULL,
+    [SentAt] datetime2 NOT NULL CONSTRAINT [DF_Messages_SentAt] DEFAULT (SYSUTCDATETIME()),
+    [DeletedAt] datetime2 NULL,
+    CONSTRAINT [PK_Messages] PRIMARY KEY CLUSTERED ([MessageId])
+);
+CREATE INDEX [IX_Messages_Conversation_SentAt] ON dbo.[Messages] ([ConversationId], [SentAt]);
+GO
+
+CREATE TABLE dbo.[Notifications] (
+    [NotificationId] uniqueidentifier NOT NULL,
+    [UserId] uniqueidentifier NOT NULL,
+    [Type] varchar(50) NOT NULL,
+    [Title] nvarchar(200) NOT NULL,
+    [Body] nvarchar(500) NOT NULL,
+    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_Notifications_CreatedAt] DEFAULT (SYSUTCDATETIME()),
+    [ReadAt] datetime2 NULL,
+    CONSTRAINT [PK_Notifications] PRIMARY KEY CLUSTERED ([NotificationId])
+);
+CREATE INDEX [IX_Notifications_Unread] ON dbo.[Notifications] ([UserId], [CreatedAt]) WHERE [ReadAt] IS NULL;
+CREATE INDEX [IX_Notifications_User_CreatedAt] ON dbo.[Notifications] ([UserId], [CreatedAt]);
+GO
+
 CREATE TABLE dbo.[ProcessedEvents] (
     [EventId] uniqueidentifier NOT NULL,
     [EventType] varchar(100) NOT NULL,
@@ -261,4 +368,8 @@ CREATE TABLE dbo.[ProcessedEvents] (
     CONSTRAINT [PK_ProcessedEvents] PRIMARY KEY CLUSTERED ([EventId])
 );
 CREATE INDEX [IX_ProcessedEvents_ProcessedAtUtc] ON dbo.[ProcessedEvents] ([ProcessedAtUtc]);
+GO
+
+ALTER TABLE dbo.[ConversationMembers] ADD CONSTRAINT [FK_ConversationMembers_Conversations] FOREIGN KEY ([ConversationId]) REFERENCES dbo.[Conversations] ([ConversationId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[Messages] ADD CONSTRAINT [FK_Messages_Conversations] FOREIGN KEY ([ConversationId]) REFERENCES dbo.[Conversations] ([ConversationId]) ON DELETE NO ACTION;
 GO

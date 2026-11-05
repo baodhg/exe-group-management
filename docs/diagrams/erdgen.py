@@ -1,7 +1,7 @@
 """Hand-laid-out ER diagrams (conceptual + one physical diagram per database) rendered as SVG.
 
 Usage: python erdgen.py <out_dir>
-Writes conceptual_erd.svg, physical_identitydb.svg, physical_groupdb.svg and physical_requestdb.svg.
+Writes fig3_conceptual_erd.svg and fig4-fig6 physical diagrams, one per database (GroupDb in two parts: 5a, 5b).
 Tables, columns and keys come from spec.py; this file only sets positions and connector routes.
 Connectors are orthogonal (horizontal and vertical segments) with crow's-foot cardinality marks.
 Text widths are measured with the Segoe UI font files (Windows) through Pillow.
@@ -25,10 +25,10 @@ TEXT, MUTED, EDGE, ZEBRA = "#1F2937", "#4B5563", "#374151", "#F6F8FB"
 CONTEXT = {
     "IdentityDb": ("#FDF0E1", "#B45309", "#F8DCB8"),
     "GroupDb": ("#E3F0FB", "#2E6295", "#C6DBF1"),
-    "RequestDb": ("#E6F4EA", "#2F7D4A", "#C9E5D1"),
+    "ChatDb": ("#F3EAFD", "#7C3AED", "#E2D2FA"),
 }
 TYPE_ALIAS = {"uniqueidentifier": "guid"}
-NO_FK_REFS = {("OutboxEvents", "AggregateId"): "→ Groups (no FK)"}
+NO_FK_REFS = {("GroupDb", "OutboxEvents", "AggregateId"): "course, room or request id (no FK)"}
 
 # physical diagrams: font sizes and table metrics (SVG units)
 PF = {"title": 15, "row": 14, "key": 12.5, "note": 13, "label": 13, "legend": 13}
@@ -217,58 +217,93 @@ def entity(svg, box, name, ctx):
 def conceptual():
     svg = Svg()
     eh = 46
-    ew = lambda name, minimum=120: max(minimum, text_width(name, CF["entity"], "700") + 40)
-    y0, y1, y2, y3, y4 = 46, 176, 306, 456, 586  # row centres
-    x0, wu = 24, 140                 # Identity column (ROLE above a tall USER)
-    xc, wc = x0 + wu + 218, 200      # main column of the Group context
-    c = lambda y, w=wc: Box(xc, y - eh / 2, w, eh)
+    ytop = 22                                          # lane above the top row (lecturer -> course)
+    r0, r1, r2, r3, r4 = 86, 206, 326, 446, 566        # row centres
+    cL, cML, cM, cR, cRR = 130, 320, 500, 710, 930      # column centres
 
-    role = Box(x0, y0 - eh / 2, wu, eh)
-    user = Box(x0, y1 - 32, wu, y4 + 32 - (y1 - 32))
-    sem = Box(xc + (wc - ew("SEMESTER")) / 2, y0 - eh / 2, ew("SEMESTER"), eh)
-    exe, enr, grp, jrq = c(y1), c(y2), c(y3), c(y4)
-    gmw = ew("GROUP_MEMBER")
-    gm = Box(xc + wc + 95 - gmw / 2, (y2 + y3) / 2 - eh / 2, gmw, eh)
-    crs = Box(gm.cx - ew("COURSE", 130) / 2, y0 - eh / 2, ew("COURSE", 130), eh)
-    chan = gm.r + 38                 # vertical channel of EXE_CLASS -> GROUP, right of GROUP_MEMBER
+    def at(cx, cy, name, minimum=120):
+        w = max(minimum, text_width(name, CF["entity"], "700") + 40)
+        return Box(cx - w / 2, cy - eh / 2, w, eh)
 
-    # connectors first, boxes on top
+    subject, course, chat = at(cL, r0, "SUBJECT"), at(cL, r1, "COURSE"), at(cL, r3, "CHAT_MESSAGE")
+    room, member = at(cML, r2, "ROOM"), at(cML, r3, "ROOM_MEMBER")
+    semester = Box(cM - 100, r0 - eh / 2, 200, eh)     # wider than GROUP_TYPE: its side routes pass outside it
+    gtype, request, enrol = at(cM, r1, "GROUP_TYPE"), at(cM, r3, "JOIN_REQUEST"), at(cM, r4, "ENROLLMENT")
+    skill, student, major = at(cR, r0, "SKILL"), at(cR, r1, "STUDENT"), at(cR, r2, "MAJOR")
+    role, user = at(cRR, r0, "ROLE"), at(cRR, r1, "USER")
+    lane_l, lane_r = 18, (major.r + user.l) / 2
     lf = CF["label"]
-    connector(svg, [(role.cx, role.b), (user.cx, user.t)], "many", "many")
-    label(svg, role.cx + 8, (role.b + user.t) / 2, "assigned to", lf, "start")
-    connector(svg, [(sem.cx, sem.b), (sem.cx, exe.t)], "one", "many")
-    label(svg, sem.cx + 8, (sem.b + exe.t) / 2, "contains", lf, "start")
-    connector(svg, [(crs.cx, crs.b), (crs.cx, y1 - 13), (exe.r, y1 - 13)], "one", "many")
-    label(svg, crs.cx + 8, (crs.b + y1 - 13) / 2, "offered in", lf, "start")
-    connector(svg, [(exe.cx, exe.b), (exe.cx, enr.t)], "one", "many")
-    label(svg, exe.cx + 8, (exe.b + enr.t) / 2, "has roster", lf, "start")
-    connector(svg, [(exe.r, y1 + 13), (chan, y1 + 13), (chan, y3 + 13), (grp.r, y3 + 13)], "one", "many")
-    label(svg, chan + 8, (y2 + y3) / 2 - 40, "hosts", lf, "start")
-    connector(svg, [(enr.r, y2), (gm.cx, y2), (gm.cx, gm.t)], "one", "zero_one")
-    label(svg, (enr.r + gm.cx) / 2 + 4, y2 - 14, "joins as", lf)
-    connector(svg, [(grp.r, y3 - 13), (gm.cx, y3 - 13), (gm.cx, gm.b)], "one", "many")
-    label(svg, (grp.r + gm.cx) / 2 + 4, y3 - 27, "includes", lf)
-    connector(svg, [(grp.cx, grp.b), (grp.cx, jrq.t)], "one", "many", dashed=True)
-    label(svg, grp.cx + 8, (grp.b + jrq.t) / 2, "receives", lf, "start")
-    mid = (user.r + xc) / 2
-    for y, text in ((y1, "teaches (Lecturer)"), (y2, "enrolled as (Student)"), (y3, "leads (Team Leader)")):
-        connector(svg, [(user.r, y), (xc, y)], "one", "many", dashed=True)
-        label(svg, mid, y - 13, text, lf)
-    connector(svg, [(user.r, y4 - 13), (xc, y4 - 13)], "one", "many", dashed=True)
-    label(svg, mid, y4 - 27, "submits (Student)", lf)
-    connector(svg, [(user.r, y4 + 13), (xc, y4 + 13)], "zero_one", "many", dashed=True)
-    label(svg, mid, y4 + 27, "decides (Team Leader)", lf)
 
-    for box, name, ctx in ((role, "ROLE", "IdentityDb"), (user, "USER", "IdentityDb"), (sem, "SEMESTER", "GroupDb"),
-                           (crs, "COURSE", "GroupDb"), (exe, "EXE_CLASS", "GroupDb"), (enr, "CLASS_ENROLLMENT", "GroupDb"),
-                           (grp, "GROUP", "GroupDb"), (gm, "GROUP_MEMBER", "GroupDb"), (jrq, "JOIN_REQUEST", "RequestDb")):
+    # identity
+    connector(svg, [(role.cx, role.b), (user.cx, user.t)], "many", "many")
+    lw = text_width("assigned to", lf, "600") + 8
+    label(svg, role.cx - 8 - lw, (role.b + user.t) / 2, "assigned to", lf, "start")   # left: the lane passes right
+    connector(svg, [(user.l, r1 - 8), (student.r, r1 - 8)], "one", "many", dashed=True)
+    label(svg, (student.r + user.l) / 2, r1 - 24, "is (Student)", lf)
+    # a lecturer (user) teaches courses: lane above the top row, entering the course from the left
+    x_u, x_c = user.r + 36, 32                       # corners clear of the cardinality marks
+    connector(svg, [(user.r, r1), (x_u, r1), (x_u, ytop), (x_c, ytop), (x_c, r1 - 12), (course.l, r1 - 12)],
+              "zero_one", "many", dashed=True)
+    label(svg, (cM + cR) / 2, ytop, "teaches (Lecturer)", lf)
+    # academic structure
+    connector(svg, [(subject.cx, subject.b), (course.cx, course.t)], "one", "many")
+    label(svg, subject.cx + 8, (subject.b + course.t) / 2, "taught as", lf, "start")
+    xs = semester.l + 12
+    connector(svg, [(xs, semester.b), (xs, r1 - 12), (course.r, r1 - 12)], "one", "many")
+    label(svg, (course.r + xs) / 2, r1 - 26, "offers", lf)
+    connector(svg, [(semester.cx, semester.b), (gtype.cx, gtype.t)], "many", "many")
+    label(svg, semester.cx + 8, (semester.b + gtype.t) / 2, "allows", lf, "start")
+    xe = semester.r - 12
+    connector(svg, [(xe, semester.b), (xe, r1 - 12), (student.l, r1 - 12)], "one", "many")
+    label(svg, xe + 8, (semester.b + r1 - 12) / 2, "includes", lf, "start")
+    # student profile
+    connector(svg, [(skill.cx, skill.b), (student.cx, student.t)], "many", "many")
+    label(svg, skill.cx + 8, (skill.b + student.t) / 2, "rates 1–5", lf, "start")
+    connector(svg, [(major.cx, major.t), (student.cx, student.b)], "one", "many")
+    label(svg, major.cx + 8, (student.b + major.t) / 2, "studies", lf, "start")
+    xg = gtype.r - 15
+    connector(svg, [(xg, gtype.b), (xg, r2), (major.l, r2)], "many", "many")
+    label(svg, xg + 8, (gtype.b + r2) / 2 - 4, "requires ≥ n", lf, "start")
+    connector(svg, [(student.r, r1 + 12), (lane_r, r1 + 12), (lane_r, r4), (enrol.r, r4)], "one", "many")
+    label(svg, lane_r + 8, (r2 + r3) / 2, "enrolls", lf, "start")
+    connector(svg, [(course.l, r1 + 10), (lane_l, r1 + 10), (lane_l, r4 + 12), (enrol.l, r4 + 12)], "one", "many")
+    label(svg, lane_l + 8, (r2 + r3) / 2 - 10, "has roster", lf, "start")
+    # rooms
+    xc = course.r - 20
+    connector(svg, [(xc, course.b), (xc, r2 - 12), (room.l, r2 - 12)], "one", "many")
+    label(svg, (xc + room.l) / 2 + 4, r2 - 26, "has", lf)
+    xt = room.cx + 30
+    connector(svg, [(gtype.l, r1 + 12), (xt, r1 + 12), (xt, room.t)], "one", "many")
+    label(svg, xt + 8, (r1 + 12 + room.t) / 2 + 4, "typed as", lf, "start")
+    xk, xl = room.cx + 18, room.cx - 18
+    connector(svg, [(xk, room.b), (xk, member.t)], "one", "many")
+    label(svg, xk + 8, (room.b + member.t) / 2, "contains", lf, "start")
+    connector(svg, [(xl, room.b), (xl, member.t)], "zero_one", "zero_one")
+    lw = text_width("led by", lf, "600") + 8
+    label(svg, xl - 8 - lw, (room.b + member.t) / 2, "led by", lf, "start")
+    connector(svg, [(member.cx, member.b), (member.cx, r4 - 12), (enrol.l, r4 - 12)], "zero_one", "one")
+    label(svg, member.cx + 8, (member.b + r4 - 12) / 2, "joins as", lf, "start")
+    connector(svg, [(room.r, r2), (request.cx, r2), (request.cx, request.t)], "one", "many")
+    label(svg, (room.r + request.cx) / 2, r2 - 14, "receives", lf)
+    connector(svg, [(request.cx, request.b), (enrol.cx, enrol.t)], "many", "one")
+    label(svg, request.cx + 8, (request.b + enrol.t) / 2, "submits", lf, "start")
+    connector(svg, [(room.l, r2 + 12), (chat.cx, r2 + 12), (chat.cx, chat.t)], "one", "many", dashed=True)
+    label(svg, chat.cx + 8, (r2 + 12 + chat.t) / 2, "holds", lf, "start")
+
+    for box, name, ctx in ((role, "ROLE", "IdentityDb"), (user, "USER", "IdentityDb"),
+                           (subject, "SUBJECT", "GroupDb"), (semester, "SEMESTER", "GroupDb"),
+                           (course, "COURSE", "GroupDb"), (gtype, "GROUP_TYPE", "GroupDb"),
+                           (skill, "SKILL", "GroupDb"), (student, "STUDENT", "GroupDb"), (major, "MAJOR", "GroupDb"),
+                           (room, "ROOM", "GroupDb"), (member, "ROOM_MEMBER", "GroupDb"),
+                           (enrol, "ENROLLMENT", "GroupDb"), (request, "JOIN_REQUEST", "GroupDb"),
+                           (chat, "CHAT_MESSAGE", "ChatDb")):
         entity(svg, box, name, ctx)
 
-    width = chan + 70
-    bottom = legend(svg, x0, user.b + 30, width - 2 * x0, [
-        ("swatch", CONTEXT["IdentityDb"][:2], "Identity context (IdentityDb)"),
-        ("swatch", CONTEXT["GroupDb"][:2], "Group context (GroupDb)"),
-        ("swatch", CONTEXT["RequestDb"][:2], "Join Request context (RequestDb)"), BREAK,
+    width = user.r + 50
+    bottom = legend(svg, 18, enrol.b + 30, width - 36, [
+        ("swatch", CONTEXT["IdentityDb"][:2], "Identity (IdentityDb)"),
+        ("swatch", CONTEXT["GroupDb"][:2], "Group (GroupDb)"),
+        ("swatch", CONTEXT["ChatDb"][:2], "Realtime (ChatDb)"), BREAK,
         ("line", "solid", "Relationship inside one database"),
         ("line", "dashed", "Cross-service logical reference (no FK)"), BREAK,
     ] + NOTATION, CF["legend"])
@@ -283,24 +318,29 @@ def key_groups(table):
     for _, cols in table.get("alternate_keys", []):
         n += 1
         groups.append((f"AK{n}", cols))
-    for _, cols, _flt in table.get("unique_indexes", []):
+    for _, cols, flt in table.get("unique_indexes", []):
         n += 1
-        groups.append((f"UX{n}", cols))
+        groups.append((f"UX{n}*" if flt else f"UX{n}", cols))   # * = filtered index (explained in the key)
     return groups
 
 
-def table_rows(t):
+def table_rows(t, outside=(), db=None):
+    """outside: tables drawn in another figure; an FK to them gets a note on its first column."""
     groups = key_groups(t)
+    away = {fk[1][0]: fk[2] for fk in t.get("fks", []) if fk[2] in outside}
     rows = []
     for c in t["columns"]:
         codes = c["key"].split(", ") if c["key"] else []
         member = [lbl for lbl, cols in groups if c["name"] in cols]
         keys = [k for k in ("PK", "FK") if k in codes] + (["UK"] if member else [])
         notes = list(member)
+        if c["name"] in away:
+            notes.append(f"→ {away[c['name']]}")
         if "LR" in codes:
-            notes.append(f"LR → {spec.LR_TARGET[(t['name'], c['name'])]}")
-        if (t["name"], c["name"]) in NO_FK_REFS:
-            notes.append(NO_FK_REFS[(t["name"], c["name"])])
+            target = spec.LR_TARGET.get((db, t["name"], c["name"])) or spec.LR_TARGET[(t["name"], c["name"])]
+            notes.append(f"LR → {target}")
+        if (db, t["name"], c["name"]) in NO_FK_REFS:
+            notes.append(NO_FK_REFS[(db, t["name"], c["name"])])
         if c["null"]:
             notes.append("NULL")
         rows.append((", ".join(keys), c["name"], TYPE_ALIAS.get(c["type"], c["type"]), ", ".join(notes), "PK" in codes))
@@ -308,9 +348,9 @@ def table_rows(t):
 
 
 class Table(Box):
-    def __init__(self, t):
+    def __init__(self, t, outside=(), db=None):
         self.tdef = t
-        self.rows = table_rows(t)
+        self.rows = table_rows(t, outside, db)
         self.wk = max(text_width(r[0], PF["key"], "700") for r in self.rows)
         self.wn = max(text_width(r[1], PF["row"], "600" if r[4] else "400") for r in self.rows)
         self.wt = max(text_width(r[2], PF["row"]) for r in self.rows)
@@ -356,20 +396,24 @@ class Table(Box):
 
 KEY_TEXT = [
     ("text", None, "PK / FK / UK = primary key / foreign key / member of a unique key"), BREAK,
-    ("text", None, "AKn / UXn = columns of the same alternate key / unique index (names and filters in section 9.3)"), BREAK,
-    ("text", None, "LR → T = logical reference to table T in another database (no FK)"), BREAK,
+    ("text", None, "AKn / UXn = columns of the same alternate key / unique index"), BREAK,
+    ("text", None, "LR → T = logical reference to table T in another database (no FK)"), BREAK,
     ("text", None, "guid = uniqueidentifier; columns are NOT NULL unless marked NULL"), BREAK,
 ]
 
 
-def tables_of(db_name):
+def tables_of(db_name, names=None):
+    """Tables of one database; with names, only those (FKs to the others become notes)."""
     db = next(d for d in spec.DATABASES if d["name"] == db_name)
-    return {t["name"]: Table(t) for t in db["tables"]}
+    shown = [t for t in db["tables"] if names is None or t["name"] in names]
+    outside = {t["name"] for t in db["tables"]} - {t["name"] for t in shown}
+    return {t["name"]: Table(t, outside, db_name) for t in shown}
 
 
-def vlink(svg, upper, lower, start, end, text):
-    """Vertical connector between two boxes stacked in one column (left-aligned)."""
-    x = upper.x + min(upper.w, lower.w) / 2
+def vlink(svg, upper, lower, start, end, text, x=None):
+    """Vertical connector between two stacked boxes (x defaults to the middle of their overlap)."""
+    if x is None:
+        x = (max(upper.l, lower.l) + min(upper.r, lower.r)) / 2
     connector(svg, [(x, upper.b), (x, lower.t)], start, end)
     label(svg, x + 8, (upper.b + lower.t) / 2, text, PF["label"], "start")
 
@@ -380,7 +424,13 @@ def row_y(table, column):
     return table.y + HEAD_H + (i + 0.5) * ROW_H
 
 
+FILTERED_KEY = [("text", None, "UXn* = filtered unique index: covers only the rows that match its filter"), BREAK]
+
+
 def finish(svg, tables, ctx, legend_items, margin=20, legend_at=None):
+    if any(flt for tb in tables for _, _, flt in tb.tdef.get("unique_indexes", [])):
+        i = legend_items.index(KEY_TEXT[2]) + 2                     # right after the "AKn / UXn" line
+        legend_items = legend_items[:i] + FILTERED_KEY + legend_items[i:]
     for tb in tables:
         tb.draw(svg, ctx)
     width = max(tb.r for tb in tables) + margin
@@ -394,68 +444,101 @@ def physical_identitydb():
     users = T["Users"].at(20, 20)
     ur = T["UserRoles"].at(users.r + 120, users.y)
     roles = T["Roles"].at(ur.x, ur.b + 78)
-    tokens = T["RefreshTokens"].at(users.x, users.b + 78)
     y = row_y(users, "UserId")
     connector(svg, [(users.r, y), (ur.l, y)], "one", "many")
     label(svg, (users.r + ur.l) / 2, y - 14, "UserId", PF["label"])
     x = ur.x + min(ur.w, roles.w) / 2
     connector(svg, [(x, roles.t), (x, ur.b)], "one", "many")
     label(svg, x + 8, (ur.b + roles.t) / 2, "RoleId", PF["label"], "start")
-    xt = users.x + min(users.w, tokens.w) / 2
-    connector(svg, [(xt, users.b), (xt, tokens.t)], "one", "many")
-    label(svg, xt + 8, (users.b + tokens.t) / 2, "UserId", PF["label"], "start")
-    return finish(svg, [users, ur, roles, tokens], "IdentityDb", KEY_TEXT + [NOTATION[0], NOTATION[2]])
+    rt = T["RefreshTokens"].at(20, users.b + 78)
+    vlink(svg, users, rt, "one", "many", "UserId", x=users.x + 60)
+    return finish(svg, [users, ur, roles, rt], "IdentityDb", KEY_TEXT + [NOTATION[0], NOTATION[2]])
 
 
-def physical_groupdb():
-    svg, T = Svg(), tables_of("GroupDb")
-    vgap, hgap, m = 70, 110, 20
-    wa = max(T[n].w for n in ("Semesters", "ExeClasses", "ClassEnrollments", "GroupMembers"))
+ACADEMIC = ("Semesters", "Subjects", "Majors", "Skills", "SemesterStudents", "StudentSkills", "Courses", "CourseEnrollments")
+
+
+def physical_groupdb_academic():
+    svg, T = Svg(), tables_of("GroupDb", ACADEMIC)
+    vgap, hgap, m = 70, 140, 20
+    wa = max(T[n].w for n in ("Subjects", "Courses", "CourseEnrollments"))
     xa, xb = m, m + wa + hgap
-    gx = xa + wa + hgap / 2  # vertical routing channel between the two columns
-    sem = T["Semesters"].at(xa, m)
-    crs = T["Courses"].at(xb, m)
-    y2 = m + max(sem.h, crs.h) + vgap
-    exe = T["ExeClasses"].at(xa, y2)
-    grp = T["Groups"].at(xb, y2)
-    y3 = y2 + max(exe.h, grp.h) + vgap
-    enr = T["ClassEnrollments"].at(xa, y3)
-    amr = T["AddMemberRequests"].at(xb, y3)
-    y4 = y3 + max(enr.h, amr.h) + vgap
-    gm = T["GroupMembers"].at(xa, y4)
-    obx = T["OutboxEvents"].at(xb, y4)
+    gx = xa + wa + hgap / 2
+    sem, subj, ss, maj = T["Semesters"], T["Subjects"], T["SemesterStudents"], T["Majors"]
+    sem.at(gx - sem.w / 2, m)                                   # centred over the gap, above both columns
+    subj.at(xa, m)
+    y2 = m + max(subj.h, sem.h, maj.h) + vgap
+    crs = T["Courses"].at(xa, y2)
+    ss.at(xb, y2 + 2 * ROW_H)
+    maj.at(ss.r - maj.w, m)                                    # right-aligned above SemesterStudents
+    y3 = y2 + max(crs.h, ss.h + 2 * ROW_H) + vgap
+    enr = T["CourseEnrollments"].at(xa, y3)
+    sk = T["StudentSkills"].at(xb, y3)
+    skl = T["Skills"].at(xb, sk.b + vgap)
 
-    # rule: side connectors attach at the key-column rows, top/bottom connectors at the box edge
-    vlink(svg, sem, exe, "one", "many", "SemesterId")
-    ya, xc = row_y(crs, "CourseId"), (sem.r + exe.r) / 2          # down into ExeClasses, right of Semesters
-    connector(svg, [(crs.l, ya), (xc, ya), (xc, exe.t)], "one", "many")
-    label(svg, (xc + crs.l) / 2, ya - 14, "CourseId", PF["label"])
-    yf, yt = row_y(exe, "ClassId"), row_y(grp, "ClassId")
-    connector(svg, [(exe.r, yf), (gx, yf), (gx, yt), (grp.l, yt)], "one", "many")
-    label(svg, (exe.r + gx) / 2, yf - 14, "ClassId", PF["label"])
-    vlink(svg, exe, enr, "one", "many", "ClassId")
-    vlink(svg, grp, amr, "one", "many", "GroupId")
-    xs, ym = grp.l + 40, (grp.b + amr.t) / 2                        # leaves Groups at the bottom, left of GroupId
-    ygm = gm.y + HEAD_H + 2 * ROW_H                                 # between the GroupId and ClassId rows
-    connector(svg, [(xs, grp.b), (xs, ym), (gx, ym), (gx, ygm), (gm.r, ygm)], "one", "many")
-    label(svg, gx, (ym + ygm) / 2, ["GroupId,", "ClassId"], PF["label"])
-    vlink(svg, enr, gm, "one", "zero_one", "ClassId, StudentId")
-    return finish(svg, [sem, crs, exe, grp, enr, amr, gm, obx], "GroupDb", KEY_TEXT + NOTATION)
+    vlink(svg, subj, crs, "one", "many", "SubjectId", x=(subj.l + min(subj.r, sem.l - 30)) / 2)
+    vlink(svg, sem, crs, "one", "many", "SemesterId")
+    vlink(svg, sem, ss, "one", "many", "SemesterId")
+    vlink(svg, maj, ss, "one", "many", "MajorId")
+    vlink(svg, crs, enr, "one", "many", "CourseId, SemesterId")
+    ya, yb = row_y(ss, "StudentId"), row_y(enr, "StudentId")
+    connector(svg, [(ss.l, ya), (gx, ya), (gx, yb), (enr.r, yb)], "one", "many")
+    label(svg, gx, (ya + yb) / 2, ["SemesterId,", "StudentId"], PF["label"])
+    vlink(svg, ss, sk, "one", "many", "SemesterId, StudentId")
+    vlink(svg, sk, skl, "many", "one", "SkillId")
+    return finish(svg, [subj, sem, maj, crs, ss, enr, sk, skl], "GroupDb", KEY_TEXT + [NOTATION[0], NOTATION[2]])
 
 
-def physical_requestdb():
-    svg, T = Svg(), tables_of("RequestDb")
-    jr = T["JoinRequests"].at(20, 20)
-    pe = T["ProcessedEvents"].at(jr.r + 70, 20)
-    # no relationships in this database: the key sits in the free space under ProcessedEvents
-    return finish(svg, [jr, pe], "RequestDb", KEY_TEXT, legend_at=(pe.x, pe.b + 40, pe.w))
+ROOMS = ("GroupTypes", "GroupTypeMajors", "SemesterGroupTypes", "Rooms", "RoomMembers", "JoinRequests", "OutboxEvents")
+
+
+def physical_groupdb_rooms():
+    svg, T = Svg(), tables_of("GroupDb", ROOMS)
+    vgap, hgap, m = 70, 110, 20
+    wa = max(T[n].w for n in ("GroupTypes", "SemesterGroupTypes", "Rooms", "RoomMembers"))
+    xa, xb = m, m + wa + hgap
+    gt = T["GroupTypes"].at(xa, m)
+    gtm = T["GroupTypeMajors"].at(xb, m)                          # GroupTypeId rows aligned
+    sgt = T["SemesterGroupTypes"].at(xa, max(gt.b, gtm.b) + vgap)
+    rooms = T["Rooms"].at(xa, sgt.b + vgap)
+    jr = T["JoinRequests"].at(xb, rooms.y - ROW_H)              # RoomId rows aligned
+    members = T["RoomMembers"].at(xa, rooms.b + vgap)
+    obx = T["OutboxEvents"].at(xb, max(members.y, jr.b + vgap))
+
+    y = row_y(gt, "GroupTypeId")
+    connector(svg, [(gt.r, y), (gtm.l, y)], "one", "many")
+    label(svg, (gt.r + gtm.l) / 2, y - 14, "GroupTypeId", PF["label"])
+    vlink(svg, gt, sgt, "one", "many", "GroupTypeId")
+    vlink(svg, sgt, rooms, "one", "many", "SemesterId, GroupTypeId")
+    y = row_y(rooms, "RoomId")
+    connector(svg, [(rooms.r, y), (jr.l, y)], "one", "many")
+    label(svg, (rooms.r + jr.l) / 2, y - 24, ["RoomId,", "CourseId"], PF["label"])   # two lines: the gap is narrow
+    vlink(svg, rooms, members, "one", "many", "RoomId, CourseId")
+    key = KEY_TEXT + [("text", None, "→ T = foreign key to table T shown in GroupDb (1/2)"), BREAK, NOTATION[0], NOTATION[2]]
+    return finish(svg, [gt, gtm, sgt, rooms, jr, members, obx], "GroupDb", key)
+
+
+def physical_chatdb():
+    svg, T = Svg(), tables_of("ChatDb")
+    conv = T["Conversations"].at(20, 20)
+    cm = T["ConversationMembers"].at(conv.r + 110, 20)          # ConversationId rows aligned
+    msg = T["Messages"].at(20, conv.b + 70)
+    note = T["Notifications"].at(cm.x, cm.b + 70)
+    pe = T["ProcessedEvents"].at(cm.x, note.b + 40)
+    y = row_y(conv, "ConversationId")
+    connector(svg, [(conv.r, y), (cm.l, y)], "one", "many")
+    label(svg, (conv.r + cm.l) / 2, y - 14, "ConversationId", PF["label"])
+    vlink(svg, conv, msg, "one", "many", "ConversationId")
+    return finish(svg, [conv, cm, msg, note, pe], "ChatDb", KEY_TEXT + [NOTATION[0], NOTATION[2]])
 
 
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "."
     os.makedirs(out, exist_ok=True)
-    for name, make in (("conceptual_erd", conceptual), ("physical_identitydb", physical_identitydb),
-                       ("physical_groupdb", physical_groupdb), ("physical_requestdb", physical_requestdb)):
+    for name, make in (("fig3_conceptual_erd", conceptual), ("fig4_physical_identitydb", physical_identitydb),
+                       ("fig5a_physical_groupdb_academic", physical_groupdb_academic),
+                       ("fig5b_physical_groupdb_rooms", physical_groupdb_rooms),
+                       ("fig6_physical_chatdb", physical_chatdb)):
         with open(os.path.join(out, name + ".svg"), "w", encoding="utf-8", newline="\n") as f:
             f.write(make())
         print("wrote", name + ".svg")
