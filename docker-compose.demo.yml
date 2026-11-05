@@ -1,0 +1,74 @@
+name: exe-group-demo
+
+x-demo-limits: &demo-limits
+  restart: unless-stopped
+  mem_limit: 1g
+  cpus: 2
+
+x-demo-database-env: &demo-database-env
+  ASPNETCORE_ENVIRONMENT: Production
+  Database__MigrateOnStartup: "true"
+
+configs:
+  web-real-ip:
+    content: |
+      set_real_ip_from 10.0.0.0/8;
+      set_real_ip_from 172.16.0.0/12;
+      set_real_ip_from 192.168.0.0/16;
+      real_ip_header X-Forwarded-For;
+      real_ip_recursive on;
+
+networks:
+  edge:
+    name: nginx-network
+    external: true
+
+services:
+  sqlserver:
+    restart: unless-stopped
+    mem_limit: 3g
+    cpus: 2
+    environment:
+      MSSQL_MEMORY_LIMIT_MB: "2048"
+
+  redis:
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 1
+
+  identity-service:
+    <<: *demo-limits
+    image: exe-group-demo/identity-service:${IMAGE_TAG:?Set IMAGE_TAG}
+    environment: *demo-database-env
+
+  group-service:
+    <<: *demo-limits
+    image: exe-group-demo/group-service:${IMAGE_TAG:?Set IMAGE_TAG}
+    environment: *demo-database-env
+
+  join-request-service:
+    <<: *demo-limits
+    image: exe-group-demo/join-request-service:${IMAGE_TAG:?Set IMAGE_TAG}
+    environment: *demo-database-env
+
+  gateway:
+    <<: *demo-limits
+    image: exe-group-demo/gateway:${IMAGE_TAG:?Set IMAGE_TAG}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    ports: !reset []
+
+  web:
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 1
+    image: exe-group-demo/web:${IMAGE_TAG:?Set IMAGE_TAG}
+    ports: !reset []
+    configs:
+      - source: web-real-ip
+        target: /etc/nginx/conf.d/00-real-ip.conf
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - exe-group-web
