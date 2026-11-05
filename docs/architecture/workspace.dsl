@@ -13,7 +13,7 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
             gateway = container "API Gateway" "Single public entry point: JWT check at the edge, path routing, merged Swagger UI, sign-in rate limit." "ASP.NET Core 10, YARP 2.3"
 
             identity = container "Identity Service" "Sign-in, JWT access and refresh tokens, users and roles." "ASP.NET Core 10 Web API" {
-                authController = component "AuthController" "[Planned] POST /api/v1/auth/login, /refresh-token; GET/PUT /api/v1/auth/me." "ASP.NET Core MVC" "Planned"
+                authController = component "AuthController" "[Planned] POST /api/v1/auth/login, /refresh-token, /logout; GET/PUT /api/v1/auth/me." "ASP.NET Core MVC" "Planned"
                 usersController = component "UsersController" "[Planned] Administrator user and role management." "ASP.NET Core MVC" "Planned"
                 tokenFactory = component "AccessTokenFactory" "Issues HS256 JWTs shared with every service (BuildingBlocks)." "Microsoft.IdentityModel.JsonWebTokens"
                 identityDbContext = component "IdentityDbContext" "Users, Roles, UserRoles, RefreshTokens." "EF Core 10"

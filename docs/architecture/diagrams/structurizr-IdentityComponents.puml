@@ -20,7 +20,7 @@ System_Boundary("EXEGroupManagementSystem_boundary", "EXE Group Management Syste
   Container_Boundary("EXEGroupManagementSystem.IdentityService_boundary", "Identity Service", $tags="") {
     Component(EXEGroupManagementSystem.IdentityService.AccessTokenFactory, "AccessTokenFactory", $techn="Microsoft.IdentityModel.JsonWebTokens", $descr="Issues HS256 JWTs shared with every service (BuildingBlocks).", $tags="", $link="")
     Component(EXEGroupManagementSystem.IdentityService.IdentityDbContext, "IdentityDbContext", $techn="EF Core 10", $descr="Users, Roles, UserRoles, RefreshTokens.", $tags="", $link="")
-    Component(EXEGroupManagementSystem.IdentityService.AuthController, "AuthController", $techn="ASP.NET Core MVC", $descr="[Planned] POST /api/v1/auth/login, /refresh-token; GET/PUT /api/v1/auth/me.", $tags="", $link="")
+    Component(EXEGroupManagementSystem.IdentityService.AuthController, "AuthController", $techn="ASP.NET Core MVC", $descr="[Planned] POST /api/v1/auth/login, /refresh-token, /logout; GET/PUT /api/v1/auth/me.", $tags="", $link="")
     Component(EXEGroupManagementSystem.IdentityService.UsersController, "UsersController", $techn="ASP.NET Core MVC", $descr="[Planned] Administrator user and role management.", $tags="", $link="")
   }
 

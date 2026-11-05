@@ -355,6 +355,7 @@ ENDPOINTS = {
     "Identity Service": [
         ("POST", "/api/v1/auth/login", "Anonymous", "Verify credentials and issue a JWT access token (60 min) and a refresh token (7 days)."),
         ("POST", "/api/v1/auth/refresh-token", "Anonymous", "Rotate a refresh token: revoke it and issue a new access + refresh token pair."),
+        ("POST", "/api/v1/auth/logout", "Anonymous", "Revoke the given refresh token → 204, also when it is already revoked or unknown."),
         ("GET", "/api/v1/auth/me", "Any signed-in user", "Current profile and roles."),
         ("PUT", "/api/v1/auth/me", "Any signed-in user", "Update own profile (full name)."),
         ("GET", "/api/v1/users", "Administrator", "Search users; filter by `role` and `status`; sort and paging."),
@@ -389,7 +390,7 @@ ENDPOINTS = {
         ("GET", "/api/v1/join-requests/{id}", "Requester, Team Leader", "Request details and current status (used for polling after approve)."),
         ("POST", "/api/v1/join-requests", "Student (eligible)", "Submit a request to a group → 201, status Pending."),
         ("POST", "/api/v1/join-requests/{id}/cancel", "Requester", "Cancel a Pending request → Cancelled."),
-        ("POST", "/api/v1/join-requests/{id}/approve", "Team Leader", "Approve → 202 Accepted with `Location: /api/join-requests/{id}` and `{ requestId, status: Processing }`; 409 with the rule that failed."),
+        ("POST", "/api/v1/join-requests/{id}/approve", "Team Leader", "Approve → 202 Accepted with `Location: /api/v1/join-requests/{id}` and `{ requestId, status: Processing }`; 409 with the rule that failed."),
         ("POST", "/api/v1/join-requests/{id}/reject", "Team Leader", "Reject with an optional text → Rejected (REJECTED_BY_LEADER)."),
     ],
 }
@@ -470,7 +471,7 @@ COMPOSE = [
 ]
 
 GATEWAY_ROUTES = [
-    ("/api/v1/auth/login, /api/v1/auth/refresh-token", "identity-service – anonymous (no JWT required), rate limited"),
+    ("/api/v1/auth/login, /api/v1/auth/refresh-token, /api/v1/auth/logout", "identity-service – anonymous (no JWT required), rate limited"),
     ("/api/v1/auth/**, /api/v1/users/**", "identity-service"),
     ("/api/v1/semesters/**, /api/v1/courses/**, /api/v1/classes/**, /api/v1/groups/**", "group-service"),
     ("/api/v1/join-requests/**", "join-request-service"),
