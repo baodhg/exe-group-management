@@ -72,4 +72,4 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - run: docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr validate -workspace /usr/local/structurizr/workspace.dsl
+      - run: docker run --rm -v "$PWD/docs/architecture:/usr/local/structurizr" structurizr/structurizr@sha256:8aebde645a7cc8d3b9e1e774cd6d75a84ce45d74ae70eb783876182fe7db31a2 validate -workspace /usr/local/structurizr/workspace.dsl

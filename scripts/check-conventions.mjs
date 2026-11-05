@@ -15,27 +15,35 @@ const featureCode = /^src\/(Identity|Group|JoinRequest)Service\/[^/]+\.(API|Serv
 export function parseDiff(diff) {
   const files = new Map();
   let current = null;
+  let inHeader = false;
   let line = 0;
+  const clean = (text) => text.slice(4).split("\t")[0];
+  const fileAt = (path) => {
+    const file = files.get(path) ?? { path, added: [], removed: [] };
+    files.set(path, file);
+    return file;
+  };
 
   for (const text of diff.split("\n")) {
-    if (text.startsWith("+++ ")) {
-      const path = text.slice(4).replace(/^b\//, "");
-      current = path === "/dev/null" ? null : { path, added: [], removed: [] };
-      if (current) {
-        files.set(path, current);
-      }
-    } else if (text.startsWith("--- ")) {
-      const path = text.slice(4).replace(/^a\//, "");
+    if (text.startsWith("diff --git ")) {
+      inHeader = true;
+      current = null;
+    } else if (inHeader && text.startsWith("--- ")) {
+      const path = clean(text);
+      current = path === "/dev/null" ? null : fileAt(path.replace(/^a\//, ""));
+    } else if (inHeader && text.startsWith("+++ ")) {
+      const path = clean(text);
       if (path !== "/dev/null") {
-        current = files.get(path) ?? { path, added: [], removed: [] };
-        files.set(path, current);
+        files.delete(current?.path);
+        current = fileAt(path.replace(/^b\//, ""));
       }
     } else if (text.startsWith("@@")) {
+      inHeader = false;
       line = Number(/\+(\d+)/.exec(text)?.[1] ?? 0);
-    } else if (current && text.startsWith("+")) {
+    } else if (!inHeader && current && text.startsWith("+")) {
       current.added.push({ line, text: text.slice(1) });
       line += 1;
-    } else if (current && text.startsWith("-")) {
+    } else if (!inHeader && current && text.startsWith("-")) {
       current.removed.push(text.slice(1));
     }
   }
@@ -58,11 +66,11 @@ export function hasComment(path, text) {
 
   const trimmed = text.trim();
   if (slashCommentFiles.test(path)) {
-    return /^(\/\/|\/\*|\*\/|\* |\*$)/.test(trimmed) || /(^|\s)(\/\/|\/\*)/.test(withoutStrings(text));
+    return /^\*\//.test(trimmed) || /(^|[^:])\/\/|\/\*/.test(withoutStrings(text));
   }
 
   if (hashCommentFiles.test(path)) {
-    return trimmed.startsWith("#") && !/^#!|^# syntax=|^# shellcheck/.test(trimmed);
+    return !/^#!|^# syntax=|^# shellcheck/.test(trimmed) && /(^|\s)#(\s|$)/.test(withoutStrings(text));
   }
 
   if (path.endsWith(".sql")) {
@@ -79,18 +87,18 @@ export function hasComment(path, text) {
 function lineRules(path) {
   const rules = [];
   if (path.endsWith(".csproj")) {
-    rules.push([/<PackageReference\b[^>]*\bVersion=/, "Package versions live only in Directory.Packages.props."]);
+    rules.push([/<PackageReference\b[^>]*\bVersion(Override)?=/, "Package versions live only in Directory.Packages.props."]);
   }
 
   if (path.startsWith("src/") && path.endsWith(".cs") && !commentFreeExemptions.test(path)) {
     rules.push([/\bConsole\.(Write|WriteLine)\(/, "Log through ILogger instead of Console."]);
     rules.push([/\bcatch\s*(\([^)]*\))?\s*\{\s*\}/, "Do not swallow exceptions with an empty catch."]);
-    rules.push([/\.(Result|GetAwaiter\(\)\.GetResult\(\))\b|\.Wait\(\)/, "Await instead of blocking on a task."]);
+    rules.push([/\.Result\b(?!\s*=[^=])|\.GetAwaiter\(\)\.GetResult\(\)|\.Wait\(\)/, "Await instead of blocking on a task."]);
   }
 
   if (/\/Controllers\/[^/]+\.cs$/.test(path)) {
     rules.push([
-      /\b(return\s+)(Ok|BadRequest|NotFound|Conflict|Unauthorized|Forbid|StatusCode|Json)\(/,
+      /(\breturn\s+|=>\s*)(Ok|BadRequest|NotFound|Conflict|Unauthorized|Forbid|StatusCode|Json)\(/,
       "Controllers answer through ApiControllerBase helpers and throw coded exceptions for failures.",
     ]);
   }
@@ -110,13 +118,13 @@ function protoProblems(file) {
   const added = file.added.map((entry) => entry.text);
   const problems = [];
   for (const removed of file.removed) {
-    const field = /(\w+)\s*=\s*(\d+)\s*;/.exec(removed);
+    const field = /([\w.]+)\s+(\w+)\s*=\s*(\d+)\s*;/.exec(removed);
     if (!field) {
       continue;
     }
 
-    const [, name, number] = field;
-    const kept = added.some((text) => new RegExp(`\\b${name}\\s*=\\s*${number}\\s*;`).test(text));
+    const [, type, name, number] = field;
+    const kept = added.some((text) => new RegExp(`(^|\\s)${type.replace(/\./g, "\\.")}\\s+${name}\\s*=\\s*${number}\\s*;`).test(text));
     const reserved = added.some((text) => new RegExp(`\\breserved\\b.*\\b${number}\\b`).test(text));
     if (!kept && !reserved) {
       problems.push({ path: file.path, rule: "proto", message: `Field ${name} = ${number} changed: proto fields may only be added, or removed with reserved.` });
@@ -143,6 +151,13 @@ export function checkFiles(files) {
         if (pattern.test(text)) {
           problems.push({ path: file.path, line, rule: "code", message });
         }
+      }
+    }
+
+    if (rules.some(([pattern]) => pattern.source.includes("catch"))) {
+      const joined = file.added.map((entry) => entry.text).join("\n");
+      if (!file.added.some(({ text }) => /\bcatch\s*(\([^)]*\))?\s*\{\s*\}/.test(text)) && /\bcatch\s*(\([^)]*\))?\s*\{\s*\}/.test(joined)) {
+        problems.push({ path: file.path, rule: "code", message: "Do not swallow exceptions with an empty catch." });
       }
     }
 
@@ -198,12 +213,12 @@ function main() {
     throw new Error("BASE_SHA is required.");
   }
 
-  const diff = execFileSync("git", ["diff", "--unified=0", "--no-color", "--no-ext-diff", `${base}...HEAD`], {
+  const diff = execFileSync("git", ["-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff", `${base}...HEAD`], {
     encoding: "utf8",
     maxBuffer: 1 << 28,
   });
   const files = parseDiff(diff);
-  const problems = [...checkFiles(files), ...checkPullRequest({ title, body, author, paths: files.map((file) => file.path) })];
+  const problems = [...checkFiles(files), ...checkPullRequest({ title, body, author, paths: files.filter((file) => file.added.length > 0).map((file) => file.path) })];
   problems.forEach(annotate);
   if (problems.length > 0) {
     console.error(`${problems.length} convention problem(s). See CONTRIBUTING.md.`);

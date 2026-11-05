@@ -1,0 +1,11 @@
+src/IdentityService/
+src/GroupService/
+src/JoinRequestService/
+src/web/src/features/
+src/web/src/app/
+tests/ExeGroup.Group.IntegrationTests/
+tests/ExeGroup.Identity.IntegrationTests/
+tests/ExeGroup.JoinRequest.IntegrationTests/
+database/
+docs/
+README.md

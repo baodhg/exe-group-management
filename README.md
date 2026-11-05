@@ -206,8 +206,8 @@ version if anything fails. Follow it in the **Actions** tab; a failed deployment
 
 `main` accepts pull requests only and nobody can skip the rules, administrators included. A pull request merges when
 `dotnet`, `web`, `docker`, `architecture`, `conventions` and `infra-guard` are green on a branch that is up to date with
-`main`. No review is required, except that `infra-guard` asks the project manager to approve member changes to the
-infrastructure files listed in `.github/CODEOWNERS`. See `CONTRIBUTING.md` for what each check verifies.
+`main`. No review is required, except that `infra-guard` asks the project manager to approve member changes outside the
+areas listed in `.github/member-paths.txt`. See `CONTRIBUTING.md` for what each check verifies.
 
 ## 6. Demo script (end-to-end)
 
