@@ -9,6 +9,7 @@ using ExeGroup.Group.Services.Rosters;
 using ExeGroup.Group.Services.Semesters;
 using ExeGroup.Group.Services.Skills;
 using ExeGroup.Group.Services.Subjects;
+using ExeGroup.Group.Services.Suggestions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<IRoomService, RoomService>();
         services.AddScoped<IRoomMembershipService, RoomMembershipService>();
         services.AddScoped<IJoinRequestService, JoinRequestService>();
+        services.AddScoped<ISuggestionService, SuggestionService>();
+        RecommendationClient.Register(services, configuration);
         return services;
     }
 }

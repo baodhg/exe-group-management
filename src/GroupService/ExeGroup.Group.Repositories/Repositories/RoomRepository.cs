@@ -46,6 +46,51 @@ public sealed class RoomRepository(GroupDbContext context) : IRoomRepository
     public Task<RoomRow?> FindRowAsync(Guid roomId, CancellationToken cancellationToken) =>
         Rows(context.Rooms.AsNoTracking().Where(room => room.RoomId == roomId)).SingleOrDefaultAsync(cancellationToken);
 
+    public Task<List<RoomRow>> ListRowsWithSeatAsync(Guid courseId, CancellationToken cancellationToken) =>
+        Rows(context.Rooms.AsNoTracking().Where(room => room.CourseId == courseId && room.MemberCount < room.Capacity))
+            .OrderBy(row => row.Room.Name)
+            .ToListAsync(cancellationToken);
+
+    public async Task<List<CourseStudentProfile>> ListCourseStudentsAsync(Course course, CancellationToken cancellationToken)
+    {
+        var students = await (
+            from enrollment in context.CourseEnrollments.AsNoTracking()
+            where enrollment.CourseId == course.CourseId
+            join student in context.SemesterStudents on new { enrollment.SemesterId, enrollment.StudentId } equals new { student.SemesterId, student.StudentId }
+            join major in context.Majors on student.MajorId equals major.MajorId
+            orderby student.StudentCode
+            select new { student.StudentId, student.StudentCode, student.FullName, student.MajorId, MajorCode = major.Code })
+            .ToListAsync(cancellationToken);
+        var rooms = await context.RoomMembers.AsNoTracking()
+            .Where(member => member.CourseId == course.CourseId && member.EndedAt == null)
+            .ToDictionaryAsync(member => member.StudentId, member => member.RoomId, cancellationToken);
+        var skills = await (
+            from rating in context.StudentSkills.AsNoTracking()
+            where rating.SemesterId == course.SemesterId
+                && context.CourseEnrollments.Any(enrollment => enrollment.CourseId == course.CourseId && enrollment.StudentId == rating.StudentId)
+            join skill in context.Skills on rating.SkillId equals skill.SkillId
+            select new { rating.StudentId, skill.Code, rating.Level })
+            .ToListAsync(cancellationToken);
+        var skillsByStudent = skills.ToLookup(skill => skill.StudentId);
+        return students
+            .Select(student => new CourseStudentProfile(
+                student.StudentId,
+                student.StudentCode,
+                student.FullName,
+                student.MajorId,
+                student.MajorCode,
+                rooms.TryGetValue(student.StudentId, out var roomId) ? roomId : null,
+                skillsByStudent[student.StudentId].ToDictionary(skill => skill.Code, skill => (int)skill.Level)))
+            .ToList();
+    }
+
+    public Task<List<Guid>> ListRoomsRemovedFromAsync(Guid courseId, Guid studentId, CancellationToken cancellationToken) =>
+        context.RoomMembers
+            .Where(member => member.CourseId == courseId && member.StudentId == studentId && member.EndReason == MembershipEndReasons.Removed)
+            .Select(member => member.RoomId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
     public Task<Room?> FindAsync(Guid roomId, CancellationToken cancellationToken) =>
         context.Rooms.SingleOrDefaultAsync(room => room.RoomId == roomId, cancellationToken);
 

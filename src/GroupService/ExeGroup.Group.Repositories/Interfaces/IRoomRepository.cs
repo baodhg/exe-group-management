@@ -32,11 +32,26 @@ public sealed record GroupTypeRules(
     IReadOnlyDictionary<Guid, int> MinPerMajor,
     IReadOnlyDictionary<Guid, string> MajorCodes);
 
+public sealed record CourseStudentProfile(
+    Guid StudentId,
+    string StudentCode,
+    string FullName,
+    Guid MajorId,
+    string MajorCode,
+    Guid? RoomId,
+    IReadOnlyDictionary<string, int> Skills);
+
 public interface IRoomRepository
 {
     Task<PagedResult<RoomRow>> GetPageAsync(Guid courseId, RoomFilter filter, ListQuery query, CancellationToken cancellationToken);
 
     Task<RoomRow?> FindRowAsync(Guid roomId, CancellationToken cancellationToken);
+
+    Task<List<RoomRow>> ListRowsWithSeatAsync(Guid courseId, CancellationToken cancellationToken);
+
+    Task<List<CourseStudentProfile>> ListCourseStudentsAsync(Course course, CancellationToken cancellationToken);
+
+    Task<List<Guid>> ListRoomsRemovedFromAsync(Guid courseId, Guid studentId, CancellationToken cancellationToken);
 
     Task<Room?> FindAsync(Guid roomId, CancellationToken cancellationToken);
 
