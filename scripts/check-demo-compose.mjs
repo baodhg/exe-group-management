@@ -37,7 +37,7 @@ for (const [name, service] of Object.entries(services)) {
   }
 
   if ((service.volumes ?? []).some((volume) => volume.type === "bind")) {
-    problems.push(`${name} must not bind mount: paths inside the Jenkins workspace do not exist on the host`);
+    problems.push(`${name} must not bind mount: the demo keeps no project files on the shared host`);
   }
 }
 
@@ -72,6 +72,10 @@ for (const [name, service] of Object.entries(services)) {
 
 if (!(services.web?.configs ?? []).some((entry) => entry.target === "/etc/nginx/conf.d/00-real-ip.conf")) {
   problems.push("web must trust the proxy in front of it for the client address");
+}
+
+if (!config.configs?.["web-real-ip"]?.content?.includes("104.16.0.0/13")) {
+  problems.push("web must trust Cloudflare so the client address survives the proxy");
 }
 
 if (problems.length > 0) {

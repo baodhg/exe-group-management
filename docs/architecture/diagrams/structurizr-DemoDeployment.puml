@@ -16,9 +16,16 @@ left to right direction
 !include <C4/C4_Container>
 !include <C4/C4_Deployment>
 
+Deployment_Node(Demo.GitHub, "GitHub", $type="github.com", $descr="", $tags="", $link="") {
+  Deployment_Node(Demo.GitHub.GitHubActions, "GitHub Actions", $type="Hosted runner", $descr="Deploys main after CI is green; holds a key limited to the deploy command", $tags="", $link="")
+}
+
+Deployment_Node(Demo.Cloudflare, "Cloudflare", $type="Proxied DNS", $descr="", $tags="", $link="") {
+  Deployment_Node(Demo.Cloudflare.Cloudflareproxy, "Cloudflare proxy", $type="Full (strict) TLS", $descr="Protects exe.qizhub.com", $tags="", $link="")
+}
+
 Deployment_Node(Demo.Sharedserver, "Shared server", $type="Ubuntu 24.04, Docker", $descr="No host ports; project exe-group-demo", $tags="", $link="") {
   Deployment_Node(Demo.Sharedserver.NginxProxyManager, "Nginx Proxy Manager", $type="nginx-network", $descr="Owns ports 80 and 443; terminates TLS for exe.qizhub.com", $tags="", $link="")
-  Deployment_Node(Demo.Sharedserver.Jenkins, "Jenkins", $type="Pipeline on the built-in node", $descr="Builds main and runs the deploy script with smoke checks and rollback", $tags="", $link="")
   Deployment_Node(Demo.Sharedserver.web, "web", $type="nginx:1.27-alpine", $descr="Alias exe-group-web on nginx-network", $tags="", $link="") {
     Container(Demo.Sharedserver.web.SinglePageApp_1, "Single-Page App", $techn="React 19, TypeScript, Vite, nginx", $descr="UI for all roles; nginx also proxies /api and /swagger to the gateway.", $tags="", $link="")
   }
@@ -62,7 +69,8 @@ Rel(Demo.Sharedserver.joinrequestservice.JoinRequestService_1, Demo.Sharedserver
 Rel(Demo.Sharedserver.groupservice.GroupService_1, Demo.Sharedserver.redis.GroupEvents_1, "Publishes", $techn="XADD", $tags="", $link="")
 Rel(Demo.Sharedserver.joinrequestservice.JoinRequestService_1, Demo.Sharedserver.redis.GroupEvents_1, "Consumes", $techn="XREADGROUP / XACK", $tags="", $link="")
 Rel(Demo.Sharedserver.NginxProxyManager, Demo.Sharedserver.web.SinglePageApp_1, "Forwards exe.qizhub.com", $techn="HTTP", $tags="", $link="")
-Rel(Demo.Sharedserver.Jenkins, Demo.Sharedserver.web, "Deploys tagged images of the whole stack", $techn="Docker socket", $tags="", $link="")
+Rel(Demo.GitHub.GitHubActions, Demo.Sharedserver.web, "Runs the deploy command for one commit", $techn="SSH", $tags="", $link="")
+Rel(Demo.Cloudflare.Cloudflareproxy, Demo.Sharedserver.NginxProxyManager, "Forwards exe.qizhub.com", $techn="HTTPS", $tags="", $link="")
 
 SHOW_LEGEND(true)
 hide stereotypes

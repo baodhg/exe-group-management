@@ -3,7 +3,7 @@ set -euo pipefail
 
 : "${IMAGE_TAG:?Set IMAGE_TAG}"
 
-state_dir="${DEMO_STATE_DIR:-/var/jenkins_home/exe-group-demo}"
+state_dir="${DEMO_STATE_DIR:?Set DEMO_STATE_DIR}"
 env_file="$state_dir/demo.env"
 last_good_file="$state_dir/last-good"
 compose=(docker compose -f docker-compose.yml -f docker-compose.demo.yml --env-file "$env_file")

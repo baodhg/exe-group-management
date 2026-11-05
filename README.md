@@ -188,17 +188,25 @@ Notes:
 
 ### Demo on the shared server
 
-Merging into `main` redeploys the demo at `https://exe.qizhub.com`. Jenkins polls `main` every 5 minutes (`Jenkinsfile`),
-builds images tagged `jenkins-<build>` and runs `scripts/demo-deploy.sh`, which starts the stack, runs the smoke checks
-and returns to the last good tag if anything fails.
+Merging into `main` redeploys the demo at `https://exe.qizhub.com`. After `ci` turns green on `main`, the `deploy-demo`
+workflow asks the server to deploy that commit. The server builds it, runs the smoke checks and returns to the last good
+version if anything fails. Follow it in the **Actions** tab; a failed deployment never blocks pull requests.
 
 - `docker-compose.demo.yml` is an overlay on `docker-compose.yml`: project `exe-group-demo`, Production, migrations on
   start-up, no host ports, memory and CPU limits. `node scripts/check-demo-compose.mjs` verifies this in CI.
-- The existing Nginx Proxy Manager forwards the domain to `exe-group-web:80` over the shared `nginx-network`. Only the
-  `web` container joins that network. Keep the DNS record DNS-only so the client address reaches the sign-in rate limit.
-- Secrets live on the server in `/var/jenkins_home/exe-group-demo/demo.env` (`SA_PASSWORD`, `JWT_SIGNING_KEY`,
-  `JWT_ISSUER`, `JWT_AUDIENCE`, `ASPNETCORE_ENVIRONMENT=Production`), never in the repository.
+- Traffic goes through Cloudflare and the server's reverse proxy to the `web` container, the only container on the shared
+  network.
+- The deploy key can only run `scripts/demo-deploy-entry.sh` for a commit that is on `main`. It lives in the `demo`
+  GitHub environment, which only `main` can use, so pull requests cannot read it.
+- Secrets stay in `demo.env` on the server (`SA_PASSWORD`, `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`,
+  `ASPNETCORE_ENVIRONMENT=Production`), never in the repository. Do not store real student data on this demo.
 - The server hosts other projects: never run `docker system prune` or `docker compose down -v` there.
+
+### Merging into main
+
+`main` accepts pull requests only. The checks `dotnet`, `web`, `docker` and `architecture` must be green on a branch that is
+up to date with `main`; nobody can skip them. Use **Update branch** when asked, and **Enable auto-merge** to let GitHub
+squash-merge once everything passes.
 
 ## 6. Demo script (end-to-end)
 

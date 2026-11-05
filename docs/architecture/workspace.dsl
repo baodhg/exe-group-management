@@ -106,9 +106,14 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
         }
 
         demo = deploymentEnvironment "Demo" {
+            github = deploymentNode "GitHub" "" "github.com" {
+                actions = infrastructureNode "GitHub Actions" "Deploys main after CI is green; holds a key limited to the deploy command" "Hosted runner"
+            }
+            cloudflare = deploymentNode "Cloudflare" "" "Proxied DNS" {
+                edge = infrastructureNode "Cloudflare proxy" "Protects exe.qizhub.com" "Full (strict) TLS"
+            }
             server = deploymentNode "Shared server" "No host ports; project exe-group-demo" "Ubuntu 24.04, Docker" {
                 proxy = infrastructureNode "Nginx Proxy Manager" "Owns ports 80 and 443; terminates TLS for exe.qizhub.com" "nginx-network"
-                jenkins = infrastructureNode "Jenkins" "Builds main and runs the deploy script with smoke checks and rollback" "Pipeline on the built-in node"
                 webNode = deploymentNode "web" "Alias exe-group-web on nginx-network" "nginx:1.27-alpine" {
                     webInstance = containerInstance exe.spa
                 }
@@ -135,7 +140,8 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
             }
         }
         demo.server.proxy -> demo.server.webNode.webInstance "Forwards exe.qizhub.com" "HTTP"
-        demo.server.jenkins -> demo.server.webNode "Deploys tagged images of the whole stack" "Docker socket"
+        demo.github.actions -> demo.server.webNode "Runs the deploy command for one commit" "SSH"
+        demo.cloudflare.edge -> demo.server.proxy "Forwards exe.qizhub.com" "HTTPS"
     }
 
     views {
