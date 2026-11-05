@@ -141,3 +141,5 @@ services:
 volumes:
   sqlserver-data:
   redis-data:
+
+# probe line that the real conventions check must reject

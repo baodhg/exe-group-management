@@ -1,0 +1,11 @@
+name: probe-twin
+
+on:
+  pull_request:
+
+jobs:
+  twin:
+    name: conventions
+    runs-on: ubuntu-latest
+    steps:
+      - run: sleep 100
