@@ -72,5 +72,32 @@ public static class GroupSeed
         return student;
     }
 
+    public static GroupType GroupType(this GroupDbContext database, Guid? allowedInSemesterId = null)
+    {
+        var groupType = new GroupType { GroupTypeId = Guid.NewGuid(), Code = Code("GT"), Name = "Seed group type", MinDistinctMajors = 1 };
+        database.GroupTypes.Add(groupType);
+        if (allowedInSemesterId is { } semesterId)
+        {
+            database.SemesterGroupTypes.Add(new SemesterGroupType { SemesterId = semesterId, GroupTypeId = groupType.GroupTypeId });
+        }
+
+        return groupType;
+    }
+
+    public static Room Room(this GroupDbContext database, Course course, Guid groupTypeId, string? name = null, int capacity = 5)
+    {
+        var room = new Room
+        {
+            RoomId = Guid.NewGuid(),
+            CourseId = course.CourseId,
+            SemesterId = course.SemesterId,
+            GroupTypeId = groupTypeId,
+            Name = name ?? Code("Room "),
+            Capacity = capacity,
+        };
+        database.Rooms.Add(room);
+        return room;
+    }
+
     public static JsonElement Data(this JsonElement body) => body.GetProperty("data");
 }

@@ -10,4 +10,6 @@ public static class GroupErrorCodes
     public const string MajorInUse = "MAJOR_IN_USE";
     public const string SkillCodeTaken = "SKILL_CODE_TAKEN";
     public const string SkillInUse = "SKILL_IN_USE";
+    public const string GroupTypeCodeTaken = "GROUP_TYPE_CODE_TAKEN";
+    public const string GroupTypeInUse = "GROUP_TYPE_IN_USE";
 }
