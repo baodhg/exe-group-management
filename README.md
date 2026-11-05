@@ -172,6 +172,8 @@ Notes:
 
 - `docker-compose.yml` is the only file a developer needs. SQL Server and Redis publish their ports on `127.0.0.1` so `dotnet run`
   and database tools can reach them.
+- Services started outside Docker read `.env.local` (copy `.env.local.example`) in the Development environment only. Real
+  environment variables win over the file. Visual Studio needs version 2026 or later; see `CONTRIBUTING.md`.
 - The gateway checks the JWT for every route except `/api/v1/auth/login`, `/api/v1/auth/refresh-token`, `/api/v1/auth/logout`, `/swagger/**`,
   `/health/**` and `/hubs/**`; each service checks it again and applies the business permissions. The hub is passed through
   because a browser cannot add the header to a WebSocket: the Realtime Service authenticates the connection itself.
