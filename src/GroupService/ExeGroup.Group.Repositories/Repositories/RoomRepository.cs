@@ -46,6 +46,15 @@ public sealed class RoomRepository(GroupDbContext context) : IRoomRepository
     public Task<RoomRow?> FindRowAsync(Guid roomId, CancellationToken cancellationToken) =>
         Rows(context.Rooms.AsNoTracking().Where(room => room.RoomId == roomId)).SingleOrDefaultAsync(cancellationToken);
 
+    public Task<List<RoomRow>> ListRowsAsync(Guid courseId, CancellationToken cancellationToken) =>
+        Rows(context.Rooms.AsNoTracking().Where(room => room.CourseId == courseId)).OrderBy(row => row.Room.Name).ToListAsync(cancellationToken);
+
+    public Task<List<string>> ListRoomNamesAsync(Guid courseId, CancellationToken cancellationToken) =>
+        context.Rooms.Where(room => room.CourseId == courseId).Select(room => room.Name).ToListAsync(cancellationToken);
+
+    public Task<List<Guid>> ListEnrolledIdsAsync(Guid courseId, CancellationToken cancellationToken) =>
+        context.CourseEnrollments.Where(enrollment => enrollment.CourseId == courseId).Select(enrollment => enrollment.StudentId).ToListAsync(cancellationToken);
+
     public Task<List<RoomRow>> ListRowsWithSeatAsync(Guid courseId, CancellationToken cancellationToken) =>
         Rows(context.Rooms.AsNoTracking().Where(room => room.CourseId == courseId && room.MemberCount < room.Capacity))
             .OrderBy(row => row.Room.Name)
@@ -178,10 +187,17 @@ public sealed class RoomRepository(GroupDbContext context) : IRoomRepository
         context.JoinRequests.Where(request => request.CourseId == courseId && request.StudentId == studentId && request.Status == JoinRequestStatuses.Pending)
             .ToListAsync(cancellationToken);
 
+    public Task<List<JoinRequest>> ListPendingForCourseAsync(Guid courseId, CancellationToken cancellationToken) =>
+        context.JoinRequests.Where(request => request.CourseId == courseId && request.Status == JoinRequestStatuses.Pending).ToListAsync(cancellationToken);
+
     public Task<Dictionary<Guid, string>> FindRoomNamesAsync(IReadOnlyCollection<Guid> roomIds, CancellationToken cancellationToken) =>
         context.Rooms.AsNoTracking().Where(room => roomIds.Contains(room.RoomId)).ToDictionaryAsync(room => room.RoomId, room => room.Name, cancellationToken);
 
     public void Add(RoomMember member) => context.RoomMembers.Add(member);
+
+    public void Add(Room room) => context.Rooms.Add(room);
+
+    public void Remove(Room room) => context.Rooms.Remove(room);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
 

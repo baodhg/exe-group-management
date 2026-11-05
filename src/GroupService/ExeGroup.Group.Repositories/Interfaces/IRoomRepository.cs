@@ -47,7 +47,13 @@ public interface IRoomRepository
 
     Task<RoomRow?> FindRowAsync(Guid roomId, CancellationToken cancellationToken);
 
+    Task<List<RoomRow>> ListRowsAsync(Guid courseId, CancellationToken cancellationToken);
+
     Task<List<RoomRow>> ListRowsWithSeatAsync(Guid courseId, CancellationToken cancellationToken);
+
+    Task<List<string>> ListRoomNamesAsync(Guid courseId, CancellationToken cancellationToken);
+
+    Task<List<Guid>> ListEnrolledIdsAsync(Guid courseId, CancellationToken cancellationToken);
 
     Task<List<CourseStudentProfile>> ListCourseStudentsAsync(Course course, CancellationToken cancellationToken);
 
@@ -81,9 +87,15 @@ public interface IRoomRepository
 
     Task<List<JoinRequest>> ListPendingForStudentAsync(Guid courseId, Guid studentId, CancellationToken cancellationToken);
 
+    Task<List<JoinRequest>> ListPendingForCourseAsync(Guid courseId, CancellationToken cancellationToken);
+
     Task<Dictionary<Guid, string>> FindRoomNamesAsync(IReadOnlyCollection<Guid> roomIds, CancellationToken cancellationToken);
 
     void Add(RoomMember member);
+
+    void Add(Room room);
+
+    void Remove(Room room);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 

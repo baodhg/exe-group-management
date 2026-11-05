@@ -11,7 +11,7 @@ public static class GroupEventTypes
     public const string JoinRequestDecided = "JoinRequestDecided";
 }
 
-public sealed record CoursePhaseChangedEvent(Guid CourseId, string CourseName, string Phase, Guid? LecturerId);
+public sealed record CoursePhaseChangedEvent(Guid CourseId, string CourseName, string Phase, Guid? LecturerId, IReadOnlyList<Guid> StudentIds);
 
 public sealed record RoomMemberJoinedEvent(Guid CourseId, Guid RoomId, string RoomName, Guid StudentId, string JoinedVia, Guid? LeaderId);
 

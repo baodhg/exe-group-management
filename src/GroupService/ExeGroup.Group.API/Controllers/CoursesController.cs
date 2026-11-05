@@ -11,7 +11,7 @@ namespace ExeGroup.Group.API.Controllers;
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/courses")]
 [Tags("Courses")]
-public sealed class CoursesController(ICourseService courses) : ApiControllerBase
+public sealed class CoursesController(ICourseService courses, ICoursePhaseService phases) : ApiControllerBase
 {
     public const string GetByIdRoute = "GetCourseById";
 
@@ -49,6 +49,24 @@ public sealed class CoursesController(ICourseService courses) : ApiControllerBas
         var created = (await courses.CreateAsync(request.SemesterId!.Value, request.SubjectId!.Value, request.ToSettings(), cancellationToken)).ToResponse();
         return CreatedAtRoute(GetByIdRoute, new { version = "1", id = created.Id }, created, "Course created");
     }
+
+    [HttpPost("{id:guid}/publish")]
+    [Authorize(Roles = Roles.Administrator)]
+    [EndpointSummary("Setup -> Published now: students start joining rooms")]
+    [ProducesResponseType<ApiResponse<CourseResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Publish([FromRoute] Guid id, CancellationToken cancellationToken) =>
+        Success((await phases.PublishAsync(id, cancellationToken)).ToResponse(), "Course published");
+
+    [HttpPost("{id:guid}/expire")]
+    [Authorize(Roles = Roles.Administrator)]
+    [EndpointSummary("Published -> Expired now: pending applications are rejected (GROUPING_EXPIRED)")]
+    [ProducesResponseType<ApiResponse<CourseResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Expire([FromRoute] Guid id, CancellationToken cancellationToken) =>
+        Success((await phases.ExpireAsync(id, cancellationToken)).ToResponse(), "Course expired");
 
     [HttpPut("{id:guid}")]
     [Authorize(Roles = Roles.Administrator)]

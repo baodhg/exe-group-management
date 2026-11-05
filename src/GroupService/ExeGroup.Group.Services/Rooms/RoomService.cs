@@ -1,4 +1,6 @@
+using System.Globalization;
 using ExeGroup.BuildingBlocks.Context;
+using ExeGroup.BuildingBlocks.Data;
 using ExeGroup.BuildingBlocks.Errors;
 using ExeGroup.BuildingBlocks.Paging;
 using ExeGroup.Group.Repositories.Entities;
@@ -51,6 +53,8 @@ public sealed record RoomChanges(string? Name, string? Topic, Guid? GroupTypeId)
 
 public sealed record RoomListFilter(string? Status, bool? HasSeat, Guid? GroupTypeId);
 
+public sealed record RoomGenerationModel(int Target, int Created, IReadOnlyList<RoomSummaryModel> Rooms);
+
 public interface IRoomService
 {
     Task<PagedResult<RoomSummaryModel>> ListAsync(Guid courseId, RoomListFilter filter, ListQuery query, CancellationToken cancellationToken);
@@ -58,9 +62,13 @@ public interface IRoomService
     Task<RoomDetailModel> GetAsync(Guid roomId, CancellationToken cancellationToken);
 
     Task<RoomDetailModel> UpdateAsync(Guid roomId, RoomChanges changes, CancellationToken cancellationToken);
+
+    Task<RoomGenerationModel> GenerateAsync(Guid courseId, Guid groupTypeId, CancellationToken cancellationToken);
+
+    Task DeleteAsync(Guid roomId, CancellationToken cancellationToken);
 }
 
-public sealed class RoomService(IRoomRepository rooms, ICurrentUser currentUser) : IRoomService
+public sealed class RoomService(IRoomRepository rooms, ITransactionRunner transactions, ICurrentUser currentUser) : IRoomService
 {
     private static readonly string[] Statuses = [RoomStatuses.Open, RoomStatuses.Locked, RoomStatuses.Finalized];
 
@@ -118,6 +126,66 @@ public sealed class RoomService(IRoomRepository rooms, ICurrentUser currentUser)
         return await GetAsync(roomId, cancellationToken);
     }
 
+    public static int TargetRoomCount(int students, int maxGroupSize, decimal roomFactor) =>
+        students == 0 ? 0 : (int)decimal.Ceiling(students * roomFactor / maxGroupSize);
+
+    public async Task<RoomGenerationModel> GenerateAsync(Guid courseId, Guid groupTypeId, CancellationToken cancellationToken)
+    {
+        var (target, created) = await transactions.ExecuteWithConflictRetryAsync(
+            async token =>
+            {
+                var course = await rooms.FindCourseAsync(courseId, token) ?? throw new NotFoundException("Course", courseId);
+                EnsureSetup(course, "Rooms are generated only while the course is in Setup.");
+                if (!await rooms.IsGroupTypeAllowedAsync(course.SemesterId, groupTypeId, token))
+                {
+                    throw new ValidationFailedException("groupTypeId", "This group type is not allowed in the course's semester.");
+                }
+
+                var students = (await rooms.ListEnrolledIdsAsync(courseId, token)).Count;
+                var target = TargetRoomCount(students, course.MaxGroupSize, course.RoomFactor);
+                var names = (await rooms.ListRoomNamesAsync(courseId, token)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var missing = Math.Max(0, target - names.Count);
+                var width = Math.Max(2, (names.Count + missing).ToString(CultureInfo.InvariantCulture).Length);
+                var number = 0;
+                for (var added = 0; added < missing; added++)
+                {
+                    string name;
+                    do
+                    {
+                        number++;
+                        name = $"Room {number.ToString(CultureInfo.InvariantCulture).PadLeft(width, '0')}";
+                    }
+                    while (names.Contains(name));
+
+                    names.Add(name);
+                    rooms.Add(new Room
+                    {
+                        RoomId = Guid.NewGuid(),
+                        CourseId = course.CourseId,
+                        SemesterId = course.SemesterId,
+                        GroupTypeId = groupTypeId,
+                        Name = name,
+                        Capacity = course.MaxGroupSize,
+                    });
+                }
+
+                await rooms.SaveChangesAsync(token);
+                return (target, missing);
+            },
+            cancellationToken);
+        var all = await rooms.ListRowsAsync(courseId, cancellationToken);
+        return new RoomGenerationModel(target, created, [.. all.Select(ToSummary)]);
+    }
+
+    public async Task DeleteAsync(Guid roomId, CancellationToken cancellationToken)
+    {
+        var room = await rooms.FindAsync(roomId, cancellationToken) ?? throw new NotFoundException("Room", roomId);
+        var course = await rooms.FindCourseAsync(room.CourseId, cancellationToken) ?? throw new NotFoundException("Course", room.CourseId);
+        EnsureSetup(course, "Rooms are deleted only while the course is in Setup.");
+        rooms.Remove(room);
+        await rooms.SaveChangesAsync(cancellationToken);
+    }
+
     public static ForbiddenException NotLeader() => new("Only the room leader can do this.", GroupErrorCodes.NotRoomLeader);
 
     private async Task ApplyAdministratorChangesAsync(Room room, Course course, RoomChanges changes, CancellationToken cancellationToken)
@@ -151,6 +219,14 @@ public sealed class RoomService(IRoomRepository rooms, ICurrentUser currentUser)
 
         room.Name = name;
         room.GroupTypeId = groupTypeId;
+    }
+
+    private static void EnsureSetup(Course course, string message)
+    {
+        if (course.Phase != CoursePhases.Setup)
+        {
+            throw new ConflictException(GroupErrorCodes.CourseNotInSetup, message);
+        }
     }
 
     private async Task EnsureCanReadAsync(Course course, CancellationToken cancellationToken)
