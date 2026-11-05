@@ -75,6 +75,10 @@ remove_old_images() {
   done
 }
 
+remove_old_build_cache() {
+  docker builder prune --force --filter until=168h > /dev/null || echo "Could not remove old build cache; the deploy is not affected." >&2
+}
+
 main() {
   local current_commit previous_tag previous_commit
   current_commit="$(git rev-parse HEAD)"
@@ -104,6 +108,7 @@ main() {
     echo "$IMAGE_TAG" > "$last_good_file"
     echo "$current_commit" > "$last_good_commit_file"
     remove_old_images "$IMAGE_TAG" "$previous_tag"
+    remove_old_build_cache
     echo "Deployed $IMAGE_TAG"
     exit 0
   fi
