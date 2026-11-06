@@ -26,8 +26,8 @@ function IconInput({ icon: Icon, ...props }: { icon: LucideIcon } & ComponentPro
 function BrandPanel() {
   return (
     <section className="relative hidden min-w-0 flex-[3_1_560px] flex-col justify-between gap-10 overflow-hidden border-r bg-card px-12 pt-8 pb-12 lg:flex">
-      <SeatPattern className="mask-b-from-40% mask-b-to-78%" />
-      <Link to="/" className="relative self-start rounded-full border bg-card py-1.5 pr-3.5 pl-1.5 shadow-card outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <SeatPattern className="mask-t-from-68% mask-t-to-94% mask-b-from-40% mask-b-to-78%" />
+      <Link to="/" className="relative self-start rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Brand />
       </Link>
       <div className="relative flex max-w-[34rem] flex-col gap-3">
