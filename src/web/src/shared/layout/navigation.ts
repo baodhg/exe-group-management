@@ -8,6 +8,7 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  activeOn?: string[];
   count?: number;
 }
 
@@ -22,12 +23,12 @@ export const navSections: NavSection[] = [
     title: "Học tập",
     roles: ["Student"],
     items: [
-      { to: "/student", label: "Lớp của tôi", icon: GraduationCap, end: true },
+      { to: "/student", label: "Lớp của tôi", icon: GraduationCap, end: true, activeOn: ["/student/courses", "/student/semesters"] },
       { to: "/student/applications", label: "Đơn của tôi", icon: Inbox },
       { to: "/conversations", label: "Trò chuyện", icon: MessageSquare },
     ],
   },
-  { title: "Lớp tôi dạy", roles: ["Lecturer"], items: [{ to: "/lecturer", label: "Các lớp", icon: GraduationCap, end: true }] },
+  { title: "Lớp tôi dạy", roles: ["Lecturer"], items: [{ to: "/lecturer", label: "Các lớp", icon: GraduationCap, end: true, activeOn: ["/lecturer/courses"] }] },
   {
     title: "Vận hành",
     roles: ["Administrator"],
@@ -72,8 +73,14 @@ export function courseSectionsFor(phase: CoursePhaseName): string[] {
   return sectionsByPhase[phase];
 }
 
+const defaultSections: Record<CoursePhaseName, string> = { Setup: "settings", Published: "overview", Expired: "placement", Finalized: "final" };
+
 export function defaultCourseSection(phase: CoursePhaseName): string {
-  return sectionsByPhase[phase][0] ?? "settings";
+  return defaultSections[phase];
+}
+
+export function navItemActive(item: Pick<NavItem, "activeOn">, pathname: string): boolean {
+  return item.activeOn?.some((prefix) => pathname.startsWith(`${prefix}/`)) ?? false;
 }
 
 export function adminCourseSection(courseId: string, phase: CoursePhaseName, classCode: string): NavSection {

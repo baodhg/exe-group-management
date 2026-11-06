@@ -1,4 +1,4 @@
-import { requestReasonText, requestStatusLabels } from "../common/messages";
+import { requestStatusLabels, roomRequestReasonText } from "../common/messages";
 import type { CoursePhase, JoinRequest, MajorCount, RoomDetail } from "../common/types";
 
 export const topicLimit = 200;
@@ -15,7 +15,7 @@ export function leaderKeepsRecords(room: Pick<RoomDetail, "leaderId">, userId: s
 
 export function decisionNote(request: Pick<JoinRequest, "studentName" | "studentCode" | "status" | "reasonCode">): string {
   const who = request.studentName ?? request.studentCode ?? "Người xin";
-  const reason = requestReasonText(request.reasonCode);
+  const reason = roomRequestReasonText(request.reasonCode);
   return `${who}: ${requestStatusLabels[request.status]}${reason ? ` – ${reason}` : ""}`;
 }
 
@@ -23,7 +23,7 @@ export function approvalFillsRoom(result: Pick<JoinRequest, "status">, room: Pic
   return result.status === "Approved" && room.freeSeats === 1 && pendingCount > 1;
 }
 
-function seatsStillNeeded(majors: readonly MajorCount[], minDistinctMajors: number): number {
+export function seatsStillNeeded(majors: readonly MajorCount[], minDistinctMajors: number): number {
   const missingPerMajor = majors.reduce((sum, major) => sum + Math.max(major.required - major.members, 0), 0);
   const present = majors.filter((major) => major.members > 0).length;
   const addedByRules = majors.filter((major) => major.required > 0 && major.members === 0).length;

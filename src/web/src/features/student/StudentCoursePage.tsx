@@ -46,5 +46,5 @@ export function StudentCoursePage() {
     return <StudentExpiredView course={current} myRoom={myRoom} applications={applications} showBoard={() => setSearchParams({ view: "board" })} />;
   }
 
-  return <StudentBoardView course={current} myRoom={myRoom} requests={requests} backToStatus={current.phase === "Expired" ? () => setSearchParams({}) : undefined} />;
+  return <StudentBoardView course={current} myRoom={myRoom} requests={requests} requestsError={applications.isError ? applications.error : null} onRetryRequests={() => void applications.refetch()} backToStatus={current.phase === "Expired" ? () => setSearchParams({}) : undefined} />;
 }

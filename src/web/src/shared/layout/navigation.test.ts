@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Role } from "../auth/sessionStore";
-import { adminCourseSection, courseSectionsFor, defaultCourseSection, initialsOf, navSections } from "./navigation";
+import { adminCourseSection, courseSectionsFor, defaultCourseSection, initialsOf, navItemActive, navSections } from "./navigation";
 
 describe("initialsOf", () => {
   it("takes the first and last word of a Vietnamese name", () => {
@@ -41,5 +41,23 @@ describe("navSections", () => {
     expect(titlesFor("Student")).toEqual(["Học tập"]);
     expect(titlesFor("Lecturer")).toEqual(["Lớp tôi dạy"]);
     expect(titlesFor("Administrator")).toEqual(["Vận hành", "Dữ liệu nền", "Hệ thống"]);
+  });
+});
+
+describe("opening a course", () => {
+  it("lands an expired course on placement", () => {
+    expect(defaultCourseSection("Expired")).toBe("placement");
+    expect(defaultCourseSection("Published")).toBe("overview");
+  });
+});
+
+describe("menu items for course pages", () => {
+  const item = (to: string) => navSections.flatMap((section) => section.items).find((entry) => entry.to === to);
+
+  it("keeps the course list lit inside a course", () => {
+    expect(navItemActive(item("/student")!, "/student/courses/c1")).toBe(true);
+    expect(navItemActive(item("/student")!, "/student/semesters/s1/skills")).toBe(true);
+    expect(navItemActive(item("/student")!, "/student/applications")).toBe(false);
+    expect(navItemActive(item("/lecturer")!, "/lecturer/courses/c1")).toBe(true);
   });
 });

@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../../shared/auth/useAuth";
 import { initialsOf } from "../../shared/layout/navigation";
-import { errorText, formatRelative, requestReasonText, requestStatusLabels } from "../common/messages";
+import { errorText, formatRelative, requestStatusLabels, roomRequestReasonText } from "../common/messages";
 import type { JoinRequest, RoomDetail } from "../common/types";
 import { Badge, Choice, Criteria, Criterion, EmptyState, ErrorNote, Failure, Field, Loading, Notice, Pager, Section, Toolbar, type Tone } from "../common/ui";
 import { ActionDialog } from "./ActionDialog";
@@ -214,7 +214,7 @@ export function LeaderPanel({ room }: { room: RoomDetail }) {
                   )}
                 </div>
                 <div className="flex flex-none items-center gap-2">
-                  <Button size="sm" variant="secondary" pending={busyId === request.id && !rejecting} disabled={busyId !== null} onClick={() => decide.mutate({ id: request.id, approve: true })}>
+                  <Button size="sm" variant="secondary" pending={busyId === request.id && !rejecting} disabled={busyId !== null || room.freeSeats === 0} onClick={() => decide.mutate({ id: request.id, approve: true })}>
                     {busyId !== request.id && <Check aria-hidden />}
                     {busyId === request.id && !rejecting ? "Đang duyệt" : "Duyệt"}
                   </Button>
@@ -428,7 +428,7 @@ export function ApplicationHistory({ roomId }: { roomId: string }) {
                     </Badge>
                   </TableCell>
                   <TableCell className="whitespace-normal">
-                    <span className="block font-semibold">{requestReasonText(row.reasonCode)}</span>
+                    <span className="block font-semibold">{roomRequestReasonText(row.reasonCode)}</span>
                     <span className="block text-xs text-muted-foreground">{row.reasonText}</span>
                   </TableCell>
                   <TableCell className="tabular whitespace-nowrap">

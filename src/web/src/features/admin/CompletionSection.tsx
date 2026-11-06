@@ -206,7 +206,8 @@ export function PlacementSection({ course, onFinalized }: { course: Course; onFi
     },
     onError: (error, moves) => {
       const isFull = error instanceof ApiError && error.code === "ROOM_FULL";
-      failureToast(error, isFull ? fullRoomText(moves, allRooms) : null);
+      const notEnrolled = error instanceof ApiError && error.code === "NOT_ENROLLED";
+      failureToast(error, isFull ? fullRoomText(moves, allRooms) : notEnrolled ? "Sinh viên không còn trong danh sách của lớp, hãy tải lại trang." : null);
     },
   });
 

@@ -305,11 +305,9 @@ export function CoursesPage() {
         onCreated={(course) => {
           setCreating(false);
           clearFilters();
-          toast.success("Đã tạo lớp", {
-            description: `${course.subjectCode} ${course.classCode} đang ở giai đoạn Chuẩn bị.`,
-            action: { label: "Mở lớp", onClick: () => navigate(`/admin/courses/${course.id}`) },
-          });
+          toast.success("Đã tạo lớp", { description: `${course.subjectCode} ${course.classCode} đang ở giai đoạn Chuẩn bị.` });
           void queryClient.invalidateQueries({ queryKey: ["courses"] });
+          navigate(`/admin/courses/${course.id}`);
         }}
       />
       {deleting && <DeleteCourseDialog course={deleting} onClose={() => setDeleting(null)} />}

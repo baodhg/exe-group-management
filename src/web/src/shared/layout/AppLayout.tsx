@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Sun, UserRound } from "lucide-react";
 import { Suspense, useState, type ReactNode } from "react";
-import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -12,7 +12,7 @@ import type { Role } from "../auth/sessionStore";
 import { useAuth } from "../auth/useAuth";
 import { useTheme } from "../theme/theme";
 import { Brand } from "./Brand";
-import { adminCourseSection, initialsOf, navSections, roleLabels, type CoursePhaseName, type NavSection } from "./navigation";
+import { adminCourseSection, initialsOf, navItemActive, navSections, roleLabels, type CoursePhaseName, type NavSection } from "./navigation";
 
 const collapseKey = "exe-group.sidebar";
 
@@ -39,6 +39,7 @@ function useCourseSection(): NavSection | null {
 
 function SideNav({ roles, collapsed, onNavigate }: { roles: Role[]; collapsed: boolean; onNavigate?: () => void }) {
   const courseSection = useCourseSection();
+  const { pathname } = useLocation();
   const sections = navSections.filter((section) => section.roles.some((role) => roles.includes(role)));
   const shown = courseSection ? [...sections.slice(0, 1), courseSection, ...sections.slice(1)] : sections;
 
@@ -58,7 +59,7 @@ function SideNav({ roles, collapsed, onNavigate }: { roles: Role[]; collapsed: b
                 cn(
                   "relative flex min-h-10 items-center gap-2.5 rounded-[10px] px-2.5 text-sm font-medium whitespace-nowrap transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                   collapsed && "justify-center px-0",
-                  isActive && "bg-sidebar-accent font-bold [&>svg]:text-ink",
+                  (isActive || navItemActive(item, pathname)) && "bg-sidebar-accent font-bold [&>svg]:text-ink",
                 )
               }
             >
@@ -185,7 +186,9 @@ function PageSkeleton() {
 
 export function AppLayout({ bell, status }: { bell?: (collapsed: boolean) => ReactNode; status?: ReactNode }) {
   const { user } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const [menuOpenAt, setMenuOpenAt] = useState<string | null>(null);
+  const menuOpen = menuOpenAt === pathname;
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const roles = user?.roles ?? [];
   const home = homeFor(roles);
@@ -207,7 +210,7 @@ export function AppLayout({ bell, status }: { bell?: (collapsed: boolean) => Rea
         <SidebarBody roles={roles} home={home} bell={bell?.(collapsed)} status={status} collapsed={collapsed} onCollapse={toggleCollapsed} />
       </aside>
       <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-2 border-b bg-card px-3 py-2 lg:hidden">
-        <Button variant="ghost" size="icon-sm" aria-label="Mở menu" onClick={() => setMenuOpen(true)}>
+        <Button variant="ghost" size="icon-sm" aria-label="Mở menu" onClick={() => setMenuOpenAt(pathname)}>
           <Menu />
         </Button>
         <Link to={home} aria-label="Trang chủ">
@@ -215,10 +218,10 @@ export function AppLayout({ bell, status }: { bell?: (collapsed: boolean) => Rea
         </Link>
         {bell?.(true)}
       </header>
-      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+      <Sheet open={menuOpen} onOpenChange={(next) => setMenuOpenAt(next ? pathname : null)}>
         <SheetContent side="left" showCloseButton={false} className="w-[280px] max-w-[86vw] gap-0 bg-sidebar p-0">
           <SheetTitle className="sr-only">Điều hướng</SheetTitle>
-          <SidebarBody roles={roles} home={home} bell={bell?.(false)} status={status} collapsed={false} onNavigate={() => setMenuOpen(false)} />
+          <SidebarBody roles={roles} home={home} bell={bell?.(false)} status={status} collapsed={false} onNavigate={() => setMenuOpenAt(null)} />
         </SheetContent>
       </Sheet>
       <main className="mx-auto flex w-full max-w-[1376px] min-w-0 flex-1 flex-col px-3 pb-6 lg:px-7 lg:pb-7">

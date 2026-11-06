@@ -6,15 +6,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { ApiError } from "../../shared/api/apiClient";
 import { useAuth } from "../../shared/auth/useAuth";
 import { errorText } from "../common/messages";
-import type { Course, JoinRequest, RoomDetail, RoomSummary } from "../common/types";
+import type { Course, JoinRequest, RoomDetail, RoomSummary, StudentProfile } from "../common/types";
 import { Badge, Criteria, Criterion, EmptyState, ErrorNote, Failure, Field, LinkButton, Notice, PageHeader, Section, SummaryCard } from "../common/ui";
 import type { Conversation } from "../conversations/conversations";
 import { ChatPanel } from "../realtime/ChatPanel";
 import { useWatchCourse } from "../realtime/realtimeContext";
 import { ActionDialog } from "./ActionDialog";
-import { leaderKeepsRecords, leadsRoom } from "./leader";
+import { leaderKeepsRecords, leadsRoom, seatsStillNeeded } from "./leader";
 import { ApplicationHistory, LeaderAfterDeadline, LeaderPanel, MemberActions } from "./LeaderPanel";
 import { AfterDeadline, Composition, CountChip, EligibleChip, ExceptionBox, MemberList, PhaseChip, StatusChip, SuggestionsBox } from "./RoomSections";
 import { applicationLimit, capabilitiesOf, dayTime, deadlineCard, isBlockedRoom, leaveOutcome, leftRoomText, studentActionFor, viewerOf, visitorNote, type LeaveOutcome } from "./roomActions";
@@ -135,7 +136,13 @@ export function RoomPage() {
     enabled: courseId !== undefined,
   });
   const phase = course.data?.data.phase;
+  const semesterId = course.data?.data.semesterId;
   const viewer = detail ? viewerOf(detail, userId, isStudent) : "staff";
+  const profile = useQuery({
+    queryKey: ["profile", semesterId],
+    queryFn: () => api.get<StudentProfile>(`/api/v1/semesters/${semesterId}/students/me`),
+    enabled: viewer === "visitor" && semesterId !== undefined,
+  });
   const myRoom = useQuery({
     queryKey: ["rooms", courseId, "mine"],
     queryFn: () => api.get<RoomSummary[]>(`/api/v1/courses/${courseId}/rooms`, { mine: true }),
@@ -275,9 +282,10 @@ export function RoomPage() {
   const outcome = leaveOutcome(detail, userId, pendingCount);
   const hasPending = (myApplications.data?.data ?? []).some((request) => request.studentId === userId);
   const myRoomSummary = myRoom.data?.data[0] ?? null;
-  const visitorState = { phase, room: detail, myRoomId: myRoomSummary?.id ?? null, hasPendingApplication: hasPending };
-  const action = viewer === "visitor" && myRoom.isSuccess ? studentActionFor(visitorState) : "none";
-  const caseNote = viewer === "visitor" && myRoom.isSuccess ? visitorNote(visitorState) : null;
+  const visitorState = { phase, room: { ...detail, missingMajorSeats: seatsStillNeeded(detail.majors, detail.minDistinctMajors) }, myRoomId: myRoomSummary?.id ?? null, myMajorId: profile.data?.data.majorId ?? null, hasPendingApplication: hasPending };
+  const removed = join.error instanceof ApiError && join.error.code === "REMOVED_FROM_ROOM";
+  const action = viewer === "visitor" && myRoom.isSuccess && !removed ? studentActionFor(visitorState) : "none";
+  const caseNote = removed ? errorText(join.error) : viewer === "visitor" && myRoom.isSuccess ? visitorNote(visitorState) : null;
   const former = viewer === "visitor" ? (conversations.data?.data ?? []).find((conversation) => conversation.id === roomId && !conversation.canSend) : undefined;
   const otherRoom = myRoomSummary && myRoomSummary.id !== roomId ? myRoomSummary : null;
   const card = can.deadlineCard ? deadlineCard(viewer, phase, info.expireAt) : null;

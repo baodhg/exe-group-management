@@ -47,20 +47,22 @@ const errorTexts: Record<string, string> = {
   ROOM_NAME_TAKEN: "Lớp đã có phòng trùng tên.",
   APPLICATION_PENDING: "Bạn đã có đơn đang chờ vào phòng này.",
   REQUEST_NOT_PENDING: "Đơn đã được xử lý.",
+  DUPLICATE: "Dữ liệu này vừa được người khác tạo, hãy tải lại trang.",
+  BAD_REQUEST: "Yêu cầu không hợp lệ, hãy tải lại trang rồi thử lại.",
+  METHOD_NOT_ALLOWED: "Yêu cầu không hợp lệ, hãy tải lại trang rồi thử lại.",
+  NOT_ACCEPTABLE: "Yêu cầu không hợp lệ, hãy tải lại trang rồi thử lại.",
+  UNSUPPORTED_MEDIA_TYPE: "Yêu cầu không hợp lệ, hãy tải lại trang rồi thử lại.",
   FINALIZE_BLOCKED: "Chưa chốt được: còn sinh viên chưa có phòng, hoặc còn phòng chưa đủ điều kiện mà chưa chấp nhận ngoại lệ.",
 };
 
+const fallbackErrorText = "Không thực hiện được, hãy thử lại.";
+
 export function errorText(error: unknown): string {
   if (error instanceof ApiError) {
-    const fieldMessages = error.errors.map((item) => item.message).filter(Boolean).join(" ");
-    if (error.code === "VALIDATION_FAILED" && fieldMessages) {
-      return fieldMessages;
-    }
-
-    return errorTexts[error.code] ?? error.message;
+    return errorTexts[error.code] ?? fallbackErrorText;
   }
 
-  return "Không thực hiện được, hãy thử lại.";
+  return fallbackErrorText;
 }
 
 export function traceIdOf(error: unknown): string | null {
@@ -96,6 +98,15 @@ const requestReasons: Record<string, string> = {
   JOINED_ANOTHER_ROOM: "Bạn đã vào phòng khác",
   GROUPING_EXPIRED: "Đã hết hạn tìm nhóm",
 };
+
+const roomRequestReasons: Record<string, string> = {
+  WITHDRAWN: "Sinh viên đã rút đơn",
+  JOINED_ANOTHER_ROOM: "Sinh viên đã vào phòng khác",
+};
+
+export function roomRequestReasonText(code: string | null): string {
+  return (code && roomRequestReasons[code]) || requestReasonText(code);
+}
 
 export function requestReasonText(code: string | null): string {
   return code ? (requestReasons[code] ?? code) : "";

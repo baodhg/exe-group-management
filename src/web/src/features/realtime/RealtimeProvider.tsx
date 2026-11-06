@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { toast } from "sonner";
 import { browserSessionStore, decodeUser } from "../../shared/auth/sessionStore";
 import { useAuth } from "../../shared/auth/useAuth";
-import { notificationQueryKeys, notificationTarget, tokenExpired, type ChatMessage, type Notification, type RoomChange } from "./chat";
+import { notificationQueryKeys, notificationTarget, roomChangeQueryKeys, tokenExpired, type ChatMessage, type Notification, type RoomChange } from "./chat";
 import { PushCard } from "./PushCard";
 import { RealtimeContext, type ConnectionState, type RealtimeState } from "./realtimeContext";
 
@@ -58,7 +58,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       listeners.current.get(message.conversationId)?.forEach((listener) => listener(message));
     });
     hub.on("roomChanged", (change: RoomChange) => {
-      for (const queryKey of [["rooms", change.courseId], ["room", change.roomId], ["overview", change.courseId], ["suggestions", change.courseId], ["course", change.courseId]]) {
+      for (const queryKey of roomChangeQueryKeys(change)) {
         void queryClient.invalidateQueries({ queryKey });
       }
     });
@@ -66,10 +66,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     hub.onreconnected(() => {
       setState("connected");
       void rewatch();
-      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      void queryClient.invalidateQueries({ queryKey: ["chat"] });
+      void queryClient.invalidateQueries();
     });
-    hub.onclose(() => setState("disconnected"));
+    hub.onclose(() => {
+      setState("disconnected");
+      if (!run.stopped) {
+        clearTimeout(run.retry);
+        run.retry = setTimeout(() => void start(), retryDelayMs);
+      }
+    });
 
     const run: { stopped: boolean; retry?: ReturnType<typeof setTimeout> } = { stopped: false };
     const start = async () => {

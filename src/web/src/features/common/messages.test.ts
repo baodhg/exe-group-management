@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../shared/api/apiClient";
-import { deadlineInfo, errorText, formatRelative, phaseLabels, requestReasonText, requestStatusLabels, roomStatusLabels, signInErrorText, suggestionReasonText } from "./messages";
+import { deadlineInfo, errorText, formatRelative, phaseLabels, requestReasonText, requestStatusLabels, roomRequestReasonText, roomStatusLabels, signInErrorText, suggestionReasonText } from "./messages";
 
 const errorSheet: [code: string, status: number, text: string][] = [
   ["VALIDATION_FAILED", 400, "Dữ liệu chưa hợp lệ."],
@@ -75,7 +75,7 @@ describe("messages", () => {
     expect(errorText(error)).toBe("Phòng đã đủ người.");
   });
 
-  it("shows the server message for an unknown code and field messages for validation errors", () => {
+  it("never shows the server's English wording", () => {
     const unknown = new ApiError(409, "Something new.", [{ code: "BRAND_NEW", field: null, message: "Something new." }], null);
     const invalid = new ApiError(
       400,
@@ -87,8 +87,8 @@ describe("messages", () => {
       null,
     );
 
-    expect(errorText(unknown)).toBe("Something new.");
-    expect(errorText(invalid)).toBe("Give a reason. Name is required.");
+    expect(errorText(unknown)).toBe("Không thực hiện được, hãy thử lại.");
+    expect(errorText(invalid)).toBe("Dữ liệu chưa hợp lệ.");
     expect(errorText(new Error("network"))).toBe("Không thực hiện được, hãy thử lại.");
   });
 
@@ -122,5 +122,23 @@ describe("messages", () => {
     expect(deadlineInfo("2026-11-06T10:20:00Z", now)).toEqual({ text: "Còn 20 phút", urgent: true, passed: false });
     expect(deadlineInfo("2026-11-07T15:00:00Z", now)).toEqual({ text: "Còn 29 giờ", urgent: true, passed: false });
     expect(deadlineInfo("2026-11-10T10:00:00Z", now)).toEqual({ text: "Còn 4 ngày", urgent: false, passed: false });
+  });
+});
+
+describe("errors outside the agreed sheet", () => {
+  it.each(["DUPLICATE", "BAD_REQUEST", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "UNSUPPORTED_MEDIA_TYPE"])("has Vietnamese wording for %s", (code) => {
+    const text = errorText(new ApiError(400, "English.", [{ code, field: null, message: "English." }], null));
+
+    expect(text).not.toBe("English.");
+    expect(text).toMatch(/[ạ-ỹ]/);
+  });
+});
+
+describe("roomRequestReasonText", () => {
+  it("speaks about the student when the leader reads the history", () => {
+    expect(roomRequestReasonText("WITHDRAWN")).toBe("Sinh viên đã rút đơn");
+    expect(roomRequestReasonText("JOINED_ANOTHER_ROOM")).toBe("Sinh viên đã vào phòng khác");
+    expect(roomRequestReasonText("ROOM_FULL")).toBe("Phòng đã đủ người");
+    expect(roomRequestReasonText(null)).toBe(requestReasonText(null));
   });
 });

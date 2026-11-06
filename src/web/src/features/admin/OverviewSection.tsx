@@ -97,9 +97,10 @@ function CloseDialog({ course, onClose, onClosed }: { course: Course; onClose: (
   const expire = useMutation({
     mutationFn: () => api.post<Course>(`/api/v1/courses/${course.id}/expire`),
     onSuccess: async () => {
-      toast.success("Đã kết thúc tìm nhóm", { action: { label: "Xếp và chốt nhóm", onClick: () => navigate(`/admin/courses/${course.id}/placement`) } });
+      toast.success("Đã kết thúc tìm nhóm");
       onClose();
       await onClosed();
+      navigate(`/admin/courses/${course.id}/placement`);
     },
   });
 

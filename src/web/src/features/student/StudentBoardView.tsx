@@ -54,11 +54,15 @@ export function StudentBoardView({
   course,
   myRoom,
   requests,
+  requestsError,
+  onRetryRequests,
   backToStatus,
 }: {
   course: Course;
   myRoom: UseQueryResult<ApiResult<RoomSummary[]>>;
   requests: readonly JoinRequest[];
+  requestsError?: unknown;
+  onRetryRequests?: () => void;
   backToStatus?: () => void;
 }) {
   const { api, user } = useAuth();
@@ -206,6 +210,7 @@ export function StudentBoardView({
 
       <div className="grid items-start gap-4 xl:has-[>aside]:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
         <section className="flex min-w-0 flex-col gap-3.5" aria-label="Danh sách phòng">
+          {requestsError ? <Failure error={requestsError} title="Không tải được đơn của bạn" onRetry={onRetryRequests} /> : null}
           {stale && (
             <Notice tone="warn" icon={Clock} title="Lớp vừa chuyển giai đoạn">
               <p>Đã qua hạn tìm nhóm. Trang này đang hiện dữ liệu cũ, hãy tải lại để xem giai đoạn mới.</p>
@@ -343,6 +348,9 @@ export function StudentBoardView({
             if (dialogPending) {
               setDialogError(null);
               withdraw.mutate({ requestId: dialogPending.id, roomId: dialog.room.id });
+            } else {
+              closeDialog();
+              toast.info("Đơn đã được xử lý.");
             }
           }}
         />

@@ -98,7 +98,7 @@ export const roles: { name: string; icon: LucideIcon; headline: string; points: 
 export const faqs = [
   { question: "Ai tạo phòng?", answer: "Giáo vụ tạo phòng cho từng lớp theo sĩ số và số người tối đa của nhóm. Sinh viên chọn phòng thay vì tự lập nhóm." },
   { question: "Có được đổi phòng không?", answer: "Có, trước hạn chót sinh viên được rời phòng và chọn phòng khác. Sau hạn chỉ giáo vụ mới chuyển được người." },
-  { question: "Hết hạn mà chưa có phòng thì sao?", answer: "Giáo vụ sẽ xếp bạn vào một phòng phù hợp, có gợi ý từ hệ thống để nhóm vẫn đủ ngành." },
+  { question: "Hết hạn mà chưa có phòng thì sao?", answer: "Giáo vụ sẽ xếp bạn vào một phòng còn chỗ, có gợi ý từ hệ thống. Điều kiện đủ người và đủ ngành được kiểm lại lúc chốt nhóm." },
   { question: "Kỹ năng tự chấm có làm mình bị chặn không?", answer: "Không. Kỹ năng chỉ dùng để hiển thị và gợi ý, không bao giờ chặn việc vào phòng." },
   { question: "Ai đọc được cuộc trò chuyện của phòng?", answer: "Chỉ thành viên của phòng. Giảng viên không đọc được nội dung trò chuyện." },
 ];

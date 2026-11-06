@@ -149,13 +149,18 @@ export function unreadLabel(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
 
+export function roomChangeQueryKeys({ courseId, roomId }: Pick<RoomChange, "courseId" | "roomId">): string[][] {
+  return [["rooms", courseId], ["room", roomId], ["overview", courseId], ["suggestions", courseId], ["course", courseId], ["roster", courseId], ["placementSuggestions", courseId]];
+}
+
 export function notificationQueryKeys(notification: Pick<Notification, "courseId" | "roomId">): string[][] {
   const { courseId, roomId } = notification;
   return [
     ["notifications"],
     ["joinRequests"],
     ["courses"],
-    ...(courseId ? [["course", courseId], ["rooms", courseId], ["overview", courseId], ["suggestions", courseId], ["roster", courseId]] : []),
+    ["conversations"],
+    ...(courseId ? [["course", courseId], ["rooms", courseId], ["overview", courseId], ["suggestions", courseId], ["roster", courseId], ["placementSuggestions", courseId]] : []),
     ...(roomId ? [["room", roomId]] : []),
   ];
 }

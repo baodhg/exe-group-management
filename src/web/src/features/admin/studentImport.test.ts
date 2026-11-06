@@ -202,3 +202,12 @@ describe("enrolPool", () => {
     expect(courseLoadText(2)).toBe("Đang học 2 lớp");
   });
 });
+
+describe("parseStudentCsv duplicates", () => {
+  it("rejects a repeated student code before calling the server", () => {
+    const parsed = parseStudentCsv("email,fullName,userCode,majorCode\na@x.vn,An,HE1,SE\nb@x.vn,Binh,he1,SE");
+
+    expect(parsed.problems).toEqual(['Dòng 3: mã "he1" bị lặp.']);
+    expect(parsed.rows).toHaveLength(1);
+  });
+});

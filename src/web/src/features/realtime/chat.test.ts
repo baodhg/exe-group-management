@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../shared/api/apiClient";
-import { notificationQueryKeys, canSendDraft, chatRows, chatViewState, connectionLook, dayLabel, draftCounter, mergeMessages, notificationTarget, stillSyncing, timeLabel, tokenExpired, unreadLabel, type ChatMessage } from "./chat";
+import { notificationQueryKeys, roomChangeQueryKeys, canSendDraft, chatRows, chatViewState, connectionLook, dayLabel, draftCounter, mergeMessages, notificationTarget, stillSyncing, timeLabel, tokenExpired, unreadLabel, type ChatMessage } from "./chat";
 
 function message(id: string, sentAt: string, content = "hi"): ChatMessage {
   return { id, conversationId: "c1", senderId: "u1", senderName: "An", content, sentAt, deleted: false };
@@ -157,6 +157,20 @@ describe("notificationQueryKeys", () => {
   });
 
   it("refreshes only shared lists when a push has no target", () => {
-    expect(notificationQueryKeys({ courseId: null, roomId: null })).toEqual([["notifications"], ["joinRequests"], ["courses"]]);
+    expect(notificationQueryKeys({ courseId: null, roomId: null })).toEqual([["notifications"], ["joinRequests"], ["courses"], ["conversations"]]);
+  });
+});
+
+describe("roomChangeQueryKeys", () => {
+  it("refreshes every list that shows who sits where", () => {
+    const keys = roomChangeQueryKeys({ courseId: "c1", roomId: "r1" });
+
+    for (const key of [["rooms", "c1"], ["room", "r1"], ["overview", "c1"], ["suggestions", "c1"], ["course", "c1"], ["roster", "c1"], ["placementSuggestions", "c1"]]) {
+      expect(keys).toContainEqual(key);
+    }
+  });
+
+  it("a push also refreshes conversations, so a removed student loses the room", () => {
+    expect(notificationQueryKeys({ courseId: "c1", roomId: "r1" })).toContainEqual(["conversations"]);
   });
 });

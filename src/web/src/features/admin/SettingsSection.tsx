@@ -13,7 +13,7 @@ import { Badge, CheckItem, Checks, Criteria, Criterion, EmptyState, Failure, Fie
 import { useAllRooms, useAllRoster, useMajors, useNow } from "../courses/courseData";
 import { shortDateTime } from "../courses/overview";
 import { MajorTag } from "../rooms/seats";
-import { courseFieldErrors, draftChanged, draftOf, settingsFor, stuckInSetup, validateDraft, type CourseDraft, type CourseFieldErrors } from "./courseDraft";
+import { courseFieldErrors, draftChanged, draftOf, expectedRooms, settingsFor, stuckInSetup, validateDraft, type CourseDraft, type CourseFieldErrors } from "./courseDraft";
 import { CourseForm, FactorButtons } from "./CourseForm";
 import { failureToast } from "./courseErrors";
 import { CourseHeader, FailureNote } from "./CourseHeader";
@@ -206,17 +206,17 @@ function PublishDialog({ course, open, onOpenChange, onPastDeadline }: { course:
   const publish = useMutation({
     mutationFn: () => api.post<Course>(`/api/v1/courses/${course.id}/publish`),
     onSuccess: async () => {
-      toast.success("Đã mở tìm nhóm", {
-        description: `${course.studentCount} sinh viên nhận thông báo.`,
-        action: { label: "Mở trang điều phối", onClick: () => navigate(`/admin/courses/${course.id}/overview`) },
-      });
+      toast.success("Đã mở tìm nhóm", { description: `${course.studentCount} sinh viên nhận thông báo.` });
       onOpenChange(false);
+      navigate(`/admin/courses/${course.id}/overview`);
       await Promise.all([["course", course.id], ["courses"], ["overview", course.id], ["rooms", course.id]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === "VALIDATION_FAILED") {
         setPastDeadline(true);
         onPastDeadline();
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["course", course.id] });
       }
     },
   });
@@ -280,6 +280,7 @@ export function SettingsSection({ course }: { course: Course }) {
   }
 
   const check = setupCheck({ students: course.studentCount, maxGroupSize: draft.maxGroupSize, minGroupSize: draft.minGroupSize, roomFactor: draft.roomFactor, majorCounts, rule });
+  const savedRooms = expectedRooms(course.studentCount, course.maxGroupSize, course.roomFactor);
   const driftCapacity = isSetup ? rooms.data?.find((room) => room.capacity !== draft.maxGroupSize)?.capacity : undefined;
 
   const save = useMutation({
@@ -318,9 +319,9 @@ export function SettingsSection({ course }: { course: Course }) {
         description={isSetup ? "Nhập sinh viên, tạo phòng và kiểm tra lớp có ghép được theo luật không, trước khi mở cho sinh viên." : "Cài đặt của lớp. Trường bị khoá theo giai đoạn hiện ở dạng không sửa được."}
         aside={
           isSetup ? (
-            <SummaryCard icon={DoorOpen} label="Số phòng sẽ tạo" value={`${check.rooms} phòng`}>
+            <SummaryCard icon={DoorOpen} label="Số phòng sẽ tạo" value={`${savedRooms} phòng`}>
               <span className="text-xs text-muted-foreground">
-                {course.studentCount} sinh viên × hệ số {String(draft.roomFactor).replace(".", ",")} ÷ {draft.maxGroupSize} người, làm tròn lên
+                {course.studentCount} sinh viên × hệ số {String(course.roomFactor).replace(".", ",")} ÷ {course.maxGroupSize} người, làm tròn lên
               </span>
             </SummaryCard>
           ) : (
@@ -418,7 +419,7 @@ export function SettingsSection({ course }: { course: Course }) {
                   <Criterion label="Mở được khi">Không cần đủ phòng, đủ sinh viên</Criterion>
                 </Criteria>
               </Section>
-              <GenerateRooms course={course} allowed={allowed.data?.data} loadError={allowed.error} groupTypeId={groupTypeId} onPick={setGroupTypeId} rule={rule} rooms={check.rooms} />
+              <GenerateRooms course={course} allowed={allowed.data?.data} loadError={allowed.error} groupTypeId={groupTypeId} onPick={setGroupTypeId} rule={rule} rooms={savedRooms} />
             </>
           )}
           <Section title="Lịch của lớp" icon={CalendarRange}>

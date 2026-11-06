@@ -8,6 +8,17 @@ export function deadlineReached(phase: CoursePhase, expireAt: string | null, now
   return phase === "Published" && deadlinePassed(expireAt, now);
 }
 
+const closingRefreshMs = 20_000;
+const phaseRefreshMs = 60_000;
+
+export function courseRefreshMs(course: { phase: CoursePhase; expireAt: string | null }, now: number = Date.now()): number | false {
+  if (course.phase === "Finalized") {
+    return false;
+  }
+
+  return deadlineReached(course.phase, course.expireAt, now) ? closingRefreshMs : phaseRefreshMs;
+}
+
 export function countdownText(expireAt: string | null, now: number = Date.now()): string | null {
   if (expireAt === null) {
     return null;

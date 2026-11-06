@@ -35,6 +35,7 @@ export function parseStudentCsv(text: string): ParsedStudents {
 
   const rows: StudentRow[] = [];
   const seen = new Set<string>();
+  const seenCodes = new Set<string>();
   lines.slice(1).forEach((line, index) => {
     const cells = splitLine(line);
     const [email, fullName, userCode, majorCode] = positions.map((position) => cells[position]?.trim() ?? "");
@@ -54,7 +55,13 @@ export function parseStudentCsv(text: string): ParsedStudents {
       return;
     }
 
+    if (seenCodes.has(userCode.toUpperCase())) {
+      problems.push(`Dòng ${lineNo}: mã "${userCode}" bị lặp.`);
+      return;
+    }
+
     seen.add(email.toLowerCase());
+    seenCodes.add(userCode.toUpperCase());
     rows.push({ email, fullName, userCode: userCode.toUpperCase(), majorCode: majorCode.toUpperCase() });
   });
   return { rows, problems };

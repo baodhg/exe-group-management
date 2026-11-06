@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Bell, Check } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
     queryFn: () => api.get<Notification[]>("/api/v1/notifications", { pageSize: 6 }),
     enabled: user !== null,
   });
+  const [open, setOpen] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["notifications"] });
   const failed = (error: unknown) => toast.error(errorText(error));
   const read = useMutation({ mutationFn: (id: string) => api.post(`/api/v1/notifications/${id}/read`), onSuccess: refresh, onError: failed });
@@ -34,7 +36,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
   const roles = user?.roles ?? [];
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         title="Thông báo"
         aria-label={count > 0 ? `Thông báo, ${count} chưa đọc` : "Thông báo"}
@@ -68,6 +70,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
                 if (!notification.readAt) {
                   read.mutate(notification.id);
                 }
+                setOpen(false);
                 navigate(notificationTarget(notification, roles));
               }}
             >
@@ -85,7 +88,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
           ))}
         </div>
         <div className="flex justify-center border-t p-2">
-          <Link to="/notifications" className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:underline">
+          <Link to="/notifications" onClick={() => setOpen(false)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:underline">
             <ArrowRight className="size-3.5" aria-hidden />
             Xem tất cả thông báo
           </Link>

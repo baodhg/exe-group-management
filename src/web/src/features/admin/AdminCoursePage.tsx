@@ -6,7 +6,7 @@ import { useAuth } from "../../shared/auth/useAuth";
 import type { Course } from "../common/types";
 import { PageLoading } from "../common/ui";
 import { CourseFailure } from "../courses/CourseFailure";
-import { deadlineReached } from "../courses/overview";
+import { courseRefreshMs } from "../courses/deadline";
 import { useWatchCourse } from "../realtime/realtimeContext";
 import { PlacementSection } from "./CompletionSection";
 import { FinalSection } from "./FinalSection";
@@ -16,7 +16,6 @@ import { RoomsSection } from "./RoomsSection";
 import { SettingsSection } from "./SettingsSection";
 import { StudentsSection } from "./StudentsSection";
 
-const closingRefreshMs = 20_000;
 
 export function AdminCoursePage() {
   const { courseId = "", section } = useParams();
@@ -28,7 +27,7 @@ export function AdminCoursePage() {
     queryFn: () => api.get<Course>(`/api/v1/courses/${courseId}`),
     refetchInterval: (query) => {
       const current = query.state.data?.data;
-      return current && deadlineReached(current.phase, current.expireAt) ? closingRefreshMs : false;
+      return current ? courseRefreshMs(current) : false;
     },
   });
 

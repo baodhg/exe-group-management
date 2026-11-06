@@ -54,6 +54,8 @@ export function ImportDialog({ course, onClose, onImported }: { course: Course; 
       return importStudents(api, { semesterId: course.semesterId, courseId: course.id, rows: parsed?.rows ?? [], majors, defaultPassword: password });
     },
     onSuccess: async (result) => {
+      setFailure(null);
+      setStages(null);
       setSummary(result);
       setCsv("");
       setPassword("");

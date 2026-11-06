@@ -1,4 +1,4 @@
-import { Award, Crown, DoorOpen, Inbox, MoveRight, Users, X, type LucideIcon } from "lucide-react";
+import { Award, Clock, Crown, DoorOpen, Inbox, MoveRight, Users, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Look = { icon: LucideIcon; tone: string };
@@ -14,6 +14,7 @@ function lookOf(type: string, title: string): Look {
   if (type.startsWith("RoomLeader")) return { icon: Crown, tone: info };
   if (type.startsWith("RoomMemberJoined")) return { icon: Users, tone: plain };
   if (type.startsWith("RoomMemberLeft")) return { icon: MoveRight, tone: warn };
+  if (type.startsWith("CoursePhase") && title.includes("hết hạn")) return { icon: Clock, tone: warn };
   if (type.startsWith("CoursePhase")) return title.includes("chốt") ? { icon: Award, tone: good } : { icon: DoorOpen, tone: info };
   return { icon: Inbox, tone: plain };
 }

@@ -10,6 +10,7 @@ import { Badge, Count, Criteria, Criterion, EmptyState, Failure, Notice, PageHea
 import { useCourseOverview, useNow } from "../courses/courseData";
 import { CourseFailure } from "../courses/CourseFailure";
 import { CourseRoomsTable } from "../courses/CourseRoomsTable";
+import { courseRefreshMs } from "../courses/deadline";
 import { countdownText, shortDateTime } from "../courses/overview";
 import { IneligibleRooms, OverviewSkeleton, OverviewTiles, PlacementProgress, UnplacedMajors, UnplacedStudents } from "../courses/OverviewPanel";
 import { PhaseChip } from "../courses/PhaseChip";
@@ -56,7 +57,14 @@ export function LecturerCoursePage() {
   const now = useNow();
   const [tab, setTab] = useState("progress");
   useWatchCourse(courseId);
-  const course = useQuery({ queryKey: ["course", courseId], queryFn: () => api.get<Course>(`/api/v1/courses/${courseId}`) });
+  const course = useQuery({
+    queryKey: ["course", courseId],
+    queryFn: () => api.get<Course>(`/api/v1/courses/${courseId}`),
+    refetchInterval: (query) => {
+      const current = query.state.data?.data;
+      return current ? courseRefreshMs(current) : false;
+    },
+  });
   const overview = useCourseOverview(courseId);
 
   if (course.isLoading) {

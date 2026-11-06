@@ -231,3 +231,27 @@ describe("isBlockedRoom", () => {
     expect(isBlockedRoom(new Error("offline"))).toBe(false);
   });
 });
+
+describe("major fit on the room page", () => {
+  const seats = { id: "r1", status: "Open" as const, freeSeats: 1, missingMajorSeats: 1, majors: [major("SE", 0, 1), major("MKT", 2, 1)] };
+  const state = { phase: "Published" as const, room: seats, myRoomId: null, hasPendingApplication: false };
+
+  it("offers no entry when the last seats are held for another major", () => {
+    const mkt = seats.majors[1]!.majorId;
+
+    expect(studentActionFor({ ...state, myMajorId: mkt })).toBe("none");
+    expect(visitorNote({ ...state, myMajorId: mkt })).toBe("Chỗ còn lại đang giữ cho ngành phòng còn thiếu.");
+  });
+
+  it("offers entry to the major the room needs and while the major is unknown", () => {
+    expect(studentActionFor({ ...state, myMajorId: seats.majors[0]!.majorId })).toBe("join");
+    expect(studentActionFor(state)).toBe("join");
+  });
+});
+
+describe("join details", () => {
+  it("are visible to staff on a finalized group", () => {
+    expect(capabilitiesOf("staff", "Finalized").joinDetails).toBe(true);
+    expect(capabilitiesOf("staff", "Published").joinDetails).toBe(false);
+  });
+});

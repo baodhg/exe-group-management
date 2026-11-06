@@ -1,6 +1,7 @@
 import { ApiError } from "../../shared/api/apiClient";
 import type { CoursePhase, RoomDetail, RoomSummary } from "../common/types";
 import { countdownText } from "../courses/deadline";
+import { fitsMajor } from "./roomBoardLogic";
 
 export type StudentRoomAction = "join" | "apply" | "leave" | "none";
 
@@ -8,12 +9,17 @@ export const applicationLimit = 500;
 
 export interface StudentRoomState {
   phase: CoursePhase;
-  room: Pick<RoomSummary, "id" | "status" | "freeSeats">;
+  room: Pick<RoomSummary, "id" | "status" | "freeSeats" | "majors" | "missingMajorSeats">;
   myRoomId: string | null;
+  myMajorId?: string | null;
   hasPendingApplication: boolean;
 }
 
-export function studentActionFor({ phase, room, myRoomId, hasPendingApplication }: StudentRoomState): StudentRoomAction {
+function seatsHeldForOthers(room: StudentRoomState["room"], myMajorId: string | null | undefined): boolean {
+  return Boolean(myMajorId) && !fitsMajor(room, myMajorId as string);
+}
+
+export function studentActionFor({ phase, room, myRoomId, myMajorId, hasPendingApplication }: StudentRoomState): StudentRoomAction {
   if (phase !== "Published") {
     return "none";
   }
@@ -22,7 +28,7 @@ export function studentActionFor({ phase, room, myRoomId, hasPendingApplication 
     return "leave";
   }
 
-  if (myRoomId !== null || room.freeSeats === 0) {
+  if (myRoomId !== null || room.freeSeats === 0 || seatsHeldForOthers(room, myMajorId)) {
     return "none";
   }
 
@@ -33,7 +39,7 @@ export function studentActionFor({ phase, room, myRoomId, hasPendingApplication 
   return room.status === "Locked" && !hasPendingApplication ? "apply" : "none";
 }
 
-export function visitorNote({ phase, room, myRoomId }: StudentRoomState): string | null {
+export function visitorNote({ phase, room, myRoomId, myMajorId }: StudentRoomState): string | null {
   if (phase !== "Published" || myRoomId === room.id) {
     return null;
   }
@@ -42,7 +48,11 @@ export function visitorNote({ phase, room, myRoomId }: StudentRoomState): string
     return "Bạn đã có phòng trong lớp này. Muốn vào phòng này, hãy rời phòng hiện tại trước.";
   }
 
-  return room.freeSeats === 0 ? "Phòng đã đủ người." : null;
+  if (room.freeSeats === 0) {
+    return "Phòng đã đủ người.";
+  }
+
+  return seatsHeldForOthers(room, myMajorId) ? "Chỗ còn lại đang giữ cho ngành phòng còn thiếu." : null;
 }
 
 export type RoomViewer = "leader" | "member" | "visitor" | "staff";
@@ -78,7 +88,7 @@ export function capabilitiesOf(viewer: RoomViewer, phase: CoursePhase): RoomCapa
     deadlineCard: inRoom && (phase === "Published" || phase === "Expired"),
     afterDeadline: viewer === "member" && phase === "Expired",
     suggestions: viewer === "member" && phase === "Published",
-    joinDetails: inRoom && phase === "Finalized",
+    joinDetails: (inRoom || viewer === "staff") && phase === "Finalized",
   };
 }
 
