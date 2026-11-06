@@ -1,7 +1,9 @@
 import { ApiError, type ApiClient } from "../../shared/api/apiClient";
+import { fullNameMax } from "../account/accountRules";
 import type { CatalogItem } from "../common/types";
 import { foldText } from "../courses/overview";
 import { courseErrorText, errorTraceText } from "./courseErrors";
+import { userCodeMax } from "./userRules";
 
 export interface StudentRow {
   email: string;
@@ -16,6 +18,7 @@ export interface ParsedStudents {
 }
 
 const columns = ["email", "fullName", "userCode", "majorCode"] as const;
+const emailMax = 255;
 
 export function parseStudentCsv(text: string): ParsedStudents {
   const lines = text
@@ -42,6 +45,21 @@ export function parseStudentCsv(text: string): ParsedStudents {
     const lineNo = index + 2;
     if (!email || !fullName || !userCode || !majorCode) {
       problems.push(`Dòng ${lineNo}: thiếu dữ liệu.`);
+      return;
+    }
+
+    if (email.length > emailMax) {
+      problems.push(`Dòng ${lineNo}: email dài quá ${emailMax} ký tự.`);
+      return;
+    }
+
+    if (fullName.length > fullNameMax) {
+      problems.push(`Dòng ${lineNo}: họ tên dài quá ${fullNameMax} ký tự.`);
+      return;
+    }
+
+    if (userCode.length > userCodeMax) {
+      problems.push(`Dòng ${lineNo}: mã "${userCode}" dài quá ${userCodeMax} ký tự.`);
       return;
     }
 

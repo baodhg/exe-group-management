@@ -207,9 +207,9 @@ function PublishDialog({ course, open, onOpenChange, onPastDeadline }: { course:
     mutationFn: () => api.post<Course>(`/api/v1/courses/${course.id}/publish`),
     onSuccess: async () => {
       toast.success("Đã mở tìm nhóm", { description: `${course.studentCount} sinh viên nhận thông báo.` });
+      await Promise.all([["course", course.id], ["courses"], ["overview", course.id], ["rooms", course.id]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
       onOpenChange(false);
       navigate(`/admin/courses/${course.id}/overview`);
-      await Promise.all([["course", course.id], ["courses"], ["overview", course.id], ["rooms", course.id]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === "VALIDATION_FAILED") {

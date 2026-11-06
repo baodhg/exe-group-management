@@ -125,6 +125,7 @@ export function RoomPage() {
   const userId = user?.userId;
   const [dialog, setDialog] = useState<"leave" | "apply" | null>(null);
   const [left, setLeft] = useState<{ roomId: string; text: string } | null>(null);
+  const [refusal, setRefusal] = useState<{ roomId: string; text: string } | null>(null);
 
   const room = useQuery({ queryKey: ["room", roomId], queryFn: () => api.get<RoomDetail>(`/api/v1/rooms/${roomId}`) });
   const detail = room.data?.data;
@@ -179,6 +180,10 @@ export function RoomPage() {
     },
     onError: async (error) => {
       toast.error(errorText(error));
+      if (error instanceof ApiError && error.code === "REMOVED_FROM_ROOM") {
+        setRefusal({ roomId, text: errorText(error) });
+      }
+
       await refresh();
     },
   });
@@ -218,7 +223,7 @@ export function RoomPage() {
   const rootLink = hasRole("Administrator") ? { to: "/admin/courses", label: "Về các lớp" } : hasRole("Lecturer") ? { to: "/lecturer", label: "Về các lớp" } : { to: "/student", label: "Về lớp của tôi" };
   const loadError = room.error ?? course.error;
 
-  if (loadError) {
+  if (loadError && (!detail || !course.data)) {
     const blocked = isBlockedRoom(loadError);
     return (
       <>
@@ -283,9 +288,9 @@ export function RoomPage() {
   const hasPending = (myApplications.data?.data ?? []).some((request) => request.studentId === userId);
   const myRoomSummary = myRoom.data?.data[0] ?? null;
   const visitorState = { phase, room: { ...detail, missingMajorSeats: seatsStillNeeded(detail.majors, detail.minDistinctMajors) }, myRoomId: myRoomSummary?.id ?? null, myMajorId: profile.data?.data.majorId ?? null, hasPendingApplication: hasPending };
-  const removed = join.error instanceof ApiError && join.error.code === "REMOVED_FROM_ROOM";
+  const removed = refusal?.roomId === roomId;
   const action = viewer === "visitor" && myRoom.isSuccess && !removed ? studentActionFor(visitorState) : "none";
-  const caseNote = removed ? errorText(join.error) : viewer === "visitor" && myRoom.isSuccess ? visitorNote(visitorState) : null;
+  const caseNote = removed ? refusal.text : viewer === "visitor" && myRoom.isSuccess ? visitorNote(visitorState) : null;
   const former = viewer === "visitor" ? (conversations.data?.data ?? []).find((conversation) => conversation.id === roomId && !conversation.canSend) : undefined;
   const otherRoom = myRoomSummary && myRoomSummary.id !== roomId ? myRoomSummary : null;
   const card = can.deadlineCard ? deadlineCard(viewer, phase, info.expireAt) : null;

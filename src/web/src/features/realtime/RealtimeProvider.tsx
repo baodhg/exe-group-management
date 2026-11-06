@@ -71,12 +71,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     hub.onclose(() => {
       setState("disconnected");
       if (!run.stopped) {
+        run.dropped = true;
         clearTimeout(run.retry);
         run.retry = setTimeout(() => void start(), retryDelayMs);
       }
     });
 
-    const run: { stopped: boolean; retry?: ReturnType<typeof setTimeout> } = { stopped: false };
+    const run: { stopped: boolean; dropped: boolean; retry?: ReturnType<typeof setTimeout> } = { stopped: false, dropped: false };
     const start = async () => {
       setState("connecting");
       try {
@@ -84,6 +85,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         if (!run.stopped) {
           setState("connected");
           await rewatch();
+          if (run.dropped) {
+            run.dropped = false;
+            void queryClient.invalidateQueries();
+          }
         }
       } catch {
         if (!run.stopped) {

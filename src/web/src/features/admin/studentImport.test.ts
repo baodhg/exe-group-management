@@ -211,3 +211,14 @@ describe("parseStudentCsv duplicates", () => {
     expect(parsed.rows).toHaveLength(1);
   });
 });
+
+describe("parseStudentCsv lengths", () => {
+  const parse = (row: string) => parseStudentCsv(`email,fullName,userCode,majorCode\n${row}`);
+
+  it("names the line when a field is longer than the server accepts", () => {
+    expect(parse(`a@x.vn,An,${"H".repeat(21)},SE`).problems[0]).toContain("Dòng 2: mã");
+    expect(parse(`a@x.vn,${"A".repeat(151)},HE1,SE`).problems[0]).toContain("Dòng 2: họ tên");
+    expect(parse(`${"a".repeat(250)}@x.vn.vn,An,HE1,SE`).problems[0]).toContain("Dòng 2: email");
+    expect(parse("a@x.vn,An,HE1,SE").problems).toEqual([]);
+  });
+});

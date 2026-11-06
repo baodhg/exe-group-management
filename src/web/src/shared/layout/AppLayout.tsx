@@ -188,6 +188,10 @@ export function AppLayout({ bell, status }: { bell?: (collapsed: boolean) => Rea
   const { user } = useAuth();
   const { pathname } = useLocation();
   const [menuOpenAt, setMenuOpenAt] = useState<string | null>(null);
+  if (menuOpenAt !== null && menuOpenAt !== pathname) {
+    setMenuOpenAt(null);
+  }
+
   const menuOpen = menuOpenAt === pathname;
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const roles = user?.roles ?? [];
