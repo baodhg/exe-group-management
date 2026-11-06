@@ -272,7 +272,7 @@ public sealed class CourseService(ICourseRepository courses, ICurrentUser curren
     private static ConflictException ClassTaken(string classCode) =>
         new(GroupErrorCodes.CourseClassTaken, $"Class '{classCode}' already has this subject in this semester.");
 
-    private static CourseModel ToModel(CourseRow row) =>
+    internal static CourseModel ToModel(CourseRow row) =>
         new(
             row.Course.CourseId,
             row.Course.SemesterId,

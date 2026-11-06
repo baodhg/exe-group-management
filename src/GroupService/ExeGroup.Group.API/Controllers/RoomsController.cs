@@ -15,6 +15,15 @@ namespace ExeGroup.Group.API.Controllers;
 [Tags("Rooms")]
 public sealed class CourseRoomsController(IRoomService rooms, ISuggestionService suggestions) : ApiControllerBase
 {
+    [HttpPost("generate")]
+    [Authorize(Roles = Roles.Administrator)]
+    [EndpointSummary("Setup: create rooms up to ceil(students / MaxGroupSize x RoomFactor), named Room 01..n (BR-03)")]
+    [ProducesResponseType<ApiResponse<RoomGenerationResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Generate([FromRoute] Guid courseId, [FromBody] GenerateRoomsRequest request, CancellationToken cancellationToken) =>
+        Success((await rooms.GenerateAsync(courseId, request.GroupTypeId!.Value, cancellationToken)).ToResponse(), "Rooms generated");
+
     [HttpGet("suggestions")]
     [Authorize(Roles = Roles.Student)]
     [EndpointSummary("Rooms ranked for me with reasons (gRPC Recommendation); unranked rooms if it is down")]
@@ -62,6 +71,18 @@ public sealed class RoomsController(IRoomService rooms, IRoomMembershipService m
     [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateRoomRequest request, CancellationToken cancellationToken) =>
         Success((await rooms.UpdateAsync(id, new RoomChanges(request.Name, request.Topic, request.GroupTypeId), cancellationToken)).ToResponse(), "Room updated");
+
+    [HttpDelete]
+    [Authorize(Roles = Roles.Administrator)]
+    [EndpointSummary("Setup: delete a room")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken cancellationToken)
+    {
+        await rooms.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
 
     [HttpPost("join")]
     [Authorize(Roles = Roles.Student)]

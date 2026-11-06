@@ -21,6 +21,12 @@ public sealed class RemoveMemberRequest
     public string? Reason { get; init; }
 }
 
+public sealed class GenerateRoomsRequest
+{
+    [Required]
+    public Guid? GroupTypeId { get; init; }
+}
+
 public sealed class HandOverRequest
 {
     [Required]
@@ -78,8 +84,13 @@ public sealed record RoomDetailResponse(
     IReadOnlyList<MajorCountResponse> Majors,
     IReadOnlyList<RoomMemberResponse> Members);
 
+public sealed record RoomGenerationResponse(int Target, int Created, IReadOnlyList<RoomSummaryResponse> Rooms);
+
 public static class RoomMappings
 {
+    public static RoomGenerationResponse ToResponse(this RoomGenerationModel model) =>
+        new(model.Target, model.Created, model.Rooms.Select(room => room.ToResponse()).ToList());
+
     public static RoomSummaryResponse ToResponse(this RoomSummaryModel model) =>
         new(
             model.Id,
