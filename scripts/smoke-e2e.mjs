@@ -155,7 +155,7 @@ try {
     const list = await must(t2, "GET", "/api/v1/notifications?pageSize=20");
     return list.some((n) => n.type === "JoinRequestDecided") ? list : null;
   });
-  check("applicant is notified of the approval", applicantNotes.some((n) => n.title === "Application approved"));
+  check("applicant is notified of the approval", applicantNotes.some((n) => n.title === "Đơn được duyệt"));
   check("room board changes are pushed to watchers", boardChanges.some((change) => change.roomId === room1), `${boardChanges.length} changes`);
 
   const lecturer = await login(lecturerEmail, accountSecret);
@@ -188,7 +188,7 @@ try {
     const list = await must(lecturer, "GET", "/api/v1/notifications?pageSize=20");
     return list.find((n) => n.type === "CoursePhaseChanged") ?? null;
   });
-  check("lecturer is notified when the groups are final", phaseNote.title === "Groups are final");
+  check("lecturer is notified when the groups are final", phaseNote.title === "Đã chốt nhóm");
 
   await hub1.stop();
   await hub2.stop();

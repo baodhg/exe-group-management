@@ -46,7 +46,9 @@ public sealed record RoomSummaryResponse(
     string GroupTypeCode,
     Guid? LeaderId,
     string? LeaderName,
-    int? GroupNo);
+    int? GroupNo,
+    IReadOnlyList<MajorCountResponse> Majors,
+    int MissingMajorSeats);
 
 public sealed record RoomMemberResponse(
     Guid StudentId,
@@ -105,7 +107,9 @@ public static class RoomMappings
             model.GroupTypeCode,
             model.LeaderId,
             model.LeaderName,
-            model.GroupNo);
+            model.GroupNo,
+            model.Majors.Select(major => new MajorCountResponse(major.MajorId, major.MajorCode, major.Members, major.Required)).ToList(),
+            model.MissingMajorSeats);
 
     public static RoomDetailResponse ToResponse(this RoomDetailModel model) =>
         new(

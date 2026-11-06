@@ -12,6 +12,8 @@ public sealed class RoomRow
     public string? LeaderName { get; init; }
 }
 
+public sealed record RoomMemberMajor(Guid RoomId, Guid MajorId, string MajorCode);
+
 public sealed record RoomFilter(string? Status, bool? HasSeat, Guid? GroupTypeId, Guid? MemberId = null);
 
 public sealed record MemberProfile(
@@ -82,6 +84,8 @@ public interface IRoomRepository
     Task<Guid?> FindMajorAsync(Guid semesterId, Guid studentId, CancellationToken cancellationToken);
 
     Task<List<Guid>> ListMemberMajorsAsync(Room room, CancellationToken cancellationToken);
+
+    Task<List<RoomMemberMajor>> ListMemberMajorsAsync(IReadOnlyCollection<Guid> roomIds, CancellationToken cancellationToken);
 
     Task<GroupTypeRules> GetRulesAsync(Guid groupTypeId, CancellationToken cancellationToken);
 

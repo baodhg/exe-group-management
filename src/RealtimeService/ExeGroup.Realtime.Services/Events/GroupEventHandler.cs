@@ -89,7 +89,7 @@ public sealed class GroupEventHandler(
                 var submitted = Read<JoinRequestSubmitted>(message);
                 if (submitted.LeaderId is { } leaderId)
                 {
-                    Notify(leaderId, message.Type, $"New application to {submitted.RoomName}", $"A student applied to join {submitted.RoomName}.", pushes);
+                    Notify(leaderId, message.Type, $"Đơn mới vào {submitted.RoomName}", $"Một sinh viên vừa xin vào {submitted.RoomName}.", pushes);
                 }
 
                 break;
@@ -136,12 +136,12 @@ public sealed class GroupEventHandler(
         pushes.Add(token => push.JoinConversationAsync(joined.StudentId, joined.RoomId, token));
         if (joined.LeaderId is { } leaderId && leaderId != joined.StudentId)
         {
-            Notify(leaderId, type, $"New member in {joined.RoomName}", $"A student joined {joined.RoomName}.", pushes);
+            Notify(leaderId, type, $"Thành viên mới ở {joined.RoomName}", $"Một sinh viên vừa vào {joined.RoomName}.", pushes);
         }
 
         if (joined.JoinedVia == "Admin")
         {
-            Notify(joined.StudentId, type, $"Placed in {joined.RoomName}", $"An administrator placed you in {joined.RoomName}.", pushes);
+            Notify(joined.StudentId, type, $"Bạn được xếp vào {joined.RoomName}", $"Quản trị viên đã xếp bạn vào {joined.RoomName}.", pushes);
         }
 
         Board(joined.CourseId, joined.RoomId, joined.RoomName, type, pushes);
@@ -158,11 +158,11 @@ public sealed class GroupEventHandler(
         switch (left.EndReason)
         {
             case "Removed":
-                var reason = string.IsNullOrWhiteSpace(left.EndNote) ? string.Empty : $": {left.EndNote}";
-                Notify(left.StudentId, type, $"Removed from {left.RoomName}", $"The leader removed you from {left.RoomName}{reason}", pushes);
+                var reason = string.IsNullOrWhiteSpace(left.EndNote) ? "." : $". Lý do: {left.EndNote}";
+                Notify(left.StudentId, type, $"Bạn không còn ở {left.RoomName}", $"Trưởng phòng đã xóa bạn khỏi {left.RoomName}{reason}", pushes);
                 break;
             case "Moved":
-                Notify(left.StudentId, type, $"Moved out of {left.RoomName}", $"An administrator moved you out of {left.RoomName}.", pushes);
+                Notify(left.StudentId, type, $"Bạn được chuyển khỏi {left.RoomName}", $"Quản trị viên đã chuyển bạn khỏi {left.RoomName}.", pushes);
                 break;
         }
 
@@ -173,7 +173,7 @@ public sealed class GroupEventHandler(
     {
         if (changed.LeaderId is { } leaderId)
         {
-            Notify(leaderId, type, $"You lead {changed.RoomName}", $"You are now the leader of {changed.RoomName}.", pushes);
+            Notify(leaderId, type, $"Bạn là trưởng {changed.RoomName}", $"Bạn vừa trở thành trưởng phòng {changed.RoomName}.", pushes);
         }
 
         Board(changed.CourseId, changed.RoomId, changed.RoomName, type, pushes);
@@ -184,13 +184,13 @@ public sealed class GroupEventHandler(
         var room = decided.RoomName;
         (string Title, string Body)? text = (decided.Status, decided.ReasonCode) switch
         {
-            ("Approved", _) => ("Application approved", $"You joined {room}."),
-            (_, "REJECTED_BY_LEADER") => ("Application rejected", $"The leader of {room} rejected your application."),
-            (_, "ROOM_FULL") => ("Application rejected", $"{room} is full."),
-            (_, "COMPOSITION_RULE") => ("Application rejected", $"Adding you would leave {room} too few seats for the majors it still needs."),
-            (_, "GROUPING_EXPIRED") => ("Application closed", $"The deadline passed before {room} decided on your application."),
-            (_, "JOINED_ANOTHER_ROOM") => ("Application cancelled", $"Your application to {room} was cancelled because you joined another room."),
-            (_, "ROOM_REOPENED") => ("Application cancelled", $"{room} is open again: join it directly."),
+            ("Approved", _) => ("Đơn được duyệt", $"Bạn đã vào {room}."),
+            (_, "REJECTED_BY_LEADER") => ("Đơn bị từ chối", $"Trưởng phòng {room} đã từ chối đơn của bạn."),
+            (_, "ROOM_FULL") => ("Đơn bị từ chối", $"{room} đã đủ người."),
+            (_, "COMPOSITION_RULE") => ("Đơn bị từ chối", $"Nhận bạn sẽ khiến {room} không còn đủ chỗ cho các ngành còn thiếu."),
+            (_, "GROUPING_EXPIRED") => ("Đơn đã đóng", $"Đã hết hạn tìm nhóm trước khi {room} quyết định đơn của bạn."),
+            (_, "JOINED_ANOTHER_ROOM") => ("Đơn đã hủy", $"Đơn vào {room} được hủy vì bạn đã vào phòng khác."),
+            (_, "ROOM_REOPENED") => ("Đơn đã hủy", $"{room} đã mở lại, bạn có thể vào thẳng."),
             _ => null,
         };
         if (text is { } notice)
@@ -203,9 +203,9 @@ public sealed class GroupEventHandler(
     {
         (string Title, string Body)? text = changed.Phase switch
         {
-            "Published" => ("Rooms are open", $"{changed.CourseName}: rooms are open. Join one or apply to a locked room."),
-            "Expired" => ("Grouping closed", $"{changed.CourseName}: the deadline passed. The administrator places students without a room."),
-            "Finalized" => ("Groups are final", $"{changed.CourseName}: the groups are now official."),
+            "Published" => ("Đã mở tìm nhóm", $"{changed.CourseName}: các phòng đã mở. Hãy vào một phòng hoặc gửi đơn vào phòng đang khóa."),
+            "Expired" => ("Đã hết hạn tìm nhóm", $"{changed.CourseName}: đã hết hạn. Quản trị viên sẽ xếp các bạn chưa có phòng."),
+            "Finalized" => ("Đã chốt nhóm", $"{changed.CourseName}: danh sách nhóm đã chính thức."),
             _ => null,
         };
         if (text is not { } notice)

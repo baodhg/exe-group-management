@@ -27,7 +27,7 @@ public interface ISuggestionService
     Task<PlacementSuggestionsModel> SuggestPlacementsAsync(Guid courseId, CancellationToken cancellationToken);
 }
 
-public sealed class SuggestionService(IRoomRepository rooms, IRecommendationClient recommendations, ICurrentUser currentUser) : ISuggestionService
+public sealed class SuggestionService(IRoomRepository rooms, RoomSummaries summaries, IRecommendationClient recommendations, ICurrentUser currentUser) : ISuggestionService
 {
     public const int MaxTop = 20;
 
@@ -51,14 +51,14 @@ public sealed class SuggestionService(IRoomRepository rooms, IRecommendationClie
         var board = await BoardAsync(course, candidates, students, cancellationToken);
 
         var ranked = await recommendations.SuggestRoomsAsync(ToStudent(me), board.Rooms, top, cancellationToken);
+        var cards = (await summaries.BuildAsync(candidates, cancellationToken)).ToDictionary(card => card.Id);
         if (ranked is not null)
         {
-            var rows = candidates.ToDictionary(row => row.Room.RoomId);
             return new RoomSuggestionsModel(
                 true,
                 ranked
-                    .Where(room => rows.ContainsKey(room.RoomId))
-                    .Select(room => new SuggestedRoomModel(RoomService.ToSummary(rows[room.RoomId]), room.Score, room.Reasons))
+                    .Where(room => cards.ContainsKey(room.RoomId))
+                    .Select(room => new SuggestedRoomModel(cards[room.RoomId], room.Score, room.Reasons))
                     .ToList());
         }
 
@@ -66,7 +66,7 @@ public sealed class SuggestionService(IRoomRepository rooms, IRecommendationClie
             false,
             candidates
                 .Where(row => RoomComposition.CanAdd(row.Room.Capacity, board.MemberMajors(row.Room.RoomId), me.MajorId, board.Rules[row.Room.GroupTypeId]))
-                .Select(row => new SuggestedRoomModel(RoomService.ToSummary(row), null, []))
+                .Select(row => new SuggestedRoomModel(cards[row.Room.RoomId], null, []))
                 .ToList());
     }
 

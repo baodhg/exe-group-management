@@ -66,7 +66,7 @@ public sealed class GroupEventsConsumerTests(ConsumerFixture fixture) : IClassFi
         await fixture.AppendAsync(stream, Guid.NewGuid(), "RoomMemberJoined", new { courseId = course, roomId = room, roomName = "Room 01", studentId = member, joinedVia = "Open", leaderId = leader });
         await fixture.AppendAsync(stream, Guid.NewGuid(), "JoinRequestSubmitted", new { requestId = Guid.NewGuid(), courseId = course, roomId = room, roomName = "Room 01", studentId = applicant, leaderId = leader });
         await fixture.AppendAsync(stream, Guid.NewGuid(), "JoinRequestDecided", new { requestId = Guid.NewGuid(), courseId = course, roomId = room, roomName = "Room 01", studentId = applicant, status = "Approved", reasonCode = (string?)null });
-        await fixture.AppendAsync(stream, Guid.NewGuid(), "RoomMemberLeft", new { courseId = course, roomId = room, roomName = "Room 01", studentId = member, endReason = "Removed", endNote = "Never came" });
+        await fixture.AppendAsync(stream, Guid.NewGuid(), "RoomMemberLeft", new { courseId = course, roomId = room, roomName = "Room 01", studentId = member, endReason = "Removed", endNote = "Không tham gia buổi họp nào" });
         await fixture.AppendAsync(stream, Guid.NewGuid(), "CoursePhaseChanged", new { courseId = course, courseName = "PRN232 SE1801", phase = "Expired", lecturerId = Guid.NewGuid(), studentIds = new[] { leader, member, applicant } });
 
         var handled = await fixture.Consumer(stream).CatchUpAsync(Ct);
@@ -84,7 +84,7 @@ public sealed class GroupEventsConsumerTests(ConsumerFixture fixture) : IClassFi
         Assert.Equal(0, (await fixture.Redis.StreamPendingAsync(stream, GroupEventsConsumer.GroupName)).PendingMessageCount);
 
         var removal = await NextNotificationAsync(memberHub, "RoomMemberLeft");
-        Assert.Equal("The leader removed you from Room 01: Never came", removal.GetProperty("body").GetString());
+        Assert.Equal("Trưởng phòng đã xóa bạn khỏi Room 01. Lý do: Không tham gia buổi họp nào", removal.GetProperty("body").GetString());
         var change = await leaderHub.NextAsync(RealtimeHub.RoomChanged);
         Assert.Equal(room, change.GetProperty("roomId").GetGuid());
         await leaderHub.InvokeAsync("sendMessage", room, "Welcome");
