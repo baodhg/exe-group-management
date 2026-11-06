@@ -1,11 +1,52 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Lock } from "lucide-react";
 import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useAuth } from "../../shared/auth/useAuth";
+import { errorText } from "../common/messages";
 import type { CatalogItem, StudentProfile } from "../common/types";
-import { ErrorNote, Loading } from "../common/ui";
+import { Badge, ErrorNote, Loading, PageHeader, Section } from "../common/ui";
+import { MajorTag } from "../rooms/seats";
 
-const levels = [0, 1, 2, 3, 4, 5] as const;
+const levels = [
+  { value: 1, label: "Mới biết" },
+  { value: 2, label: "Cơ bản" },
+  { value: 3, label: "Khá" },
+  { value: 4, label: "Tốt" },
+  { value: 5, label: "Thành thạo" },
+] as const;
+
+function LevelPicker({ skill, value, disabled, onChange }: { skill: CatalogItem; value: number; disabled: boolean; onChange: (level: number) => void }) {
+  return (
+    <div role="radiogroup" aria-label={`Mức ${skill.code}`} className="inline-flex rounded-lg border bg-muted/50 p-0.5">
+      {levels.map((level) => {
+        const active = value === level.value;
+        return (
+          <button
+            key={level.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={`${level.value}, ${level.label}`}
+            title={level.label}
+            disabled={disabled}
+            onClick={() => onChange(active ? 0 : level.value)}
+            className={cn(
+              "tabular size-9 rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60",
+              level.value <= value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-card hover:text-foreground",
+              active && "shadow-sm",
+            )}
+          >
+            {level.value}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function SkillsPage() {
   const { semesterId = "" } = useParams();
@@ -32,12 +73,14 @@ export function SkillsPage() {
       ),
     onSuccess: async () => {
       setDraft(null);
+      toast.success("Đã lưu skill");
       await queryClient.invalidateQueries({ queryKey: ["profile", semesterId] });
     },
+    onError: (error) => toast.error(errorText(error)),
   });
 
   if (profile.isLoading || skills.isLoading) {
-    return <Loading when />;
+    return <Loading when rows={5} />;
   }
 
   if (!profile.data) {
@@ -45,55 +88,67 @@ export function SkillsPage() {
   }
 
   const me = profile.data.data;
+  const rated = Object.values(current).filter((level) => level > 0).length;
+
   return (
-    <section className="card">
-      <p className="muted">
-        <Link to="/student">Course của tôi</Link> / Skill của tôi
-      </p>
-      <h1>Hồ sơ học kỳ</h1>
-      <p>
-        {me.studentCode} · {me.fullName} · Ngành {me.majorName} ({me.majorCode})
-      </p>
-      <p className="muted">Tự chấm điểm mạnh từ 1 (mới biết) đến 5 (thành thạo). Skill chỉ dùng để gợi ý phòng, không chặn thao tác nào.</p>
-      {me.skillsLocked && <p className="error">Skill đã khóa vì có course của học kỳ đã hết hạn.</p>}
-      <ErrorNote error={skills.error ?? save.error} />
-      <table>
-        <thead>
-          <tr>
-            <th>Skill</th>
-            <th>Mức</th>
-          </tr>
-        </thead>
-        <tbody>
-          {skills.data?.data.map((skill) => (
-            <tr key={skill.id}>
-              <td>
-                {skill.code} – {skill.name}
-              </td>
-              <td>
-                <select
-                  aria-label={`Mức ${skill.code}`}
-                  value={current[skill.id] ?? 0}
-                  disabled={me.skillsLocked}
-                  onChange={(event) => setDraft({ ...current, [skill.id]: Number(event.target.value) })}
-                >
-                  {levels.map((level) => (
-                    <option key={level} value={level}>
-                      {level === 0 ? "Chưa chấm" : level}
-                    </option>
-                  ))}
-                </select>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {!me.skillsLocked && (
-        <button type="button" disabled={draft === null || save.isPending} onClick={() => save.mutate()}>
-          Lưu skill
-        </button>
+    <div className="space-y-6 pb-20">
+      <PageHeader
+        crumbs={[{ label: "Course của tôi", to: "/student" }, { label: "Skill của tôi" }]}
+        title="Skill của tôi"
+        description="Tự chấm từ 1 (mới biết) đến 5 (thành thạo). Skill chỉ dùng để gợi ý phòng hợp với bạn, không chặn thao tác nào."
+        meta={
+          <>
+            <span className="text-sm font-medium">{me.fullName}</span>
+            <span className="text-sm text-muted-foreground">{me.studentCode}</span>
+            <MajorTag majorId={me.majorId} code={me.majorCode} />
+            <span className="text-sm text-muted-foreground">{me.majorName}</span>
+          </>
+        }
+      />
+
+      {me.skillsLocked && (
+        <div className="flex items-start gap-3 rounded-xl border border-deadline/30 bg-deadline-soft p-4 text-sm text-deadline-ink">
+          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
+          Skill đã khóa vì một course của học kỳ này đã hết hạn tìm nhóm.
+        </div>
       )}
-      {save.isSuccess && draft === null && <p className="muted">Đã lưu.</p>}
-    </section>
+      <ErrorNote error={skills.error} />
+
+      <Section title="Mức skill" actions={<Badge>{rated} skill đã chấm</Badge>}>
+        <ul className="divide-y">
+          {skills.data?.data.map((skill) => {
+            const value = current[skill.id] ?? 0;
+            return (
+              <li key={skill.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{skill.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {skill.code}
+                    {value > 0 ? `, mức ${value}: ${levels[value - 1]?.label}` : ", chưa chấm"}
+                  </p>
+                </div>
+                <LevelPicker skill={skill} value={value} disabled={me.skillsLocked} onChange={(level) => setDraft({ ...current, [skill.id]: level })} />
+              </li>
+            );
+          })}
+        </ul>
+      </Section>
+
+      {draft !== null && !me.skillsLocked && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 backdrop-blur-sm lg:left-64">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+            <p className="text-sm text-muted-foreground">Bạn có thay đổi chưa lưu.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setDraft(null)} disabled={save.isPending}>
+                Hoàn tác
+              </Button>
+              <Button onClick={() => save.mutate()} disabled={save.isPending}>
+                Lưu skill
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

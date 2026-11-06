@@ -1,181 +1,248 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Crown, Lock, LockOpen, MoreHorizontal, UserMinus } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "../../shared/auth/useAuth";
-import { formatDateTime } from "../common/messages";
+import { initialsOf } from "../../shared/layout/navigation";
+import { useDialogs } from "../common/dialogsContext";
+import { errorText, formatRelative } from "../common/messages";
 import type { JoinRequest, RoomDetail } from "../common/types";
-import { ErrorNote } from "../common/ui";
+import { Badge, ErrorNote, Section } from "../common/ui";
 import { decisionNote } from "./leader";
+import { SkillTags } from "./seats";
 
-export function LeaderPanel({ room }: { room: RoomDetail }) {
-  const { api } = useAuth();
+function useRoomRefresh(room: Pick<RoomDetail, "id" | "courseId">) {
   const queryClient = useQueryClient();
-  const [topic, setTopic] = useState(room.topic ?? "");
-  const [note, setNote] = useState<string | null>(null);
-
-  const applications = useQuery({
-    queryKey: ["joinRequests", "room", room.id],
-    queryFn: () => api.get<JoinRequest[]>("/api/v1/join-requests", { roomId: room.id, status: "Pending", sort: "createdAt", pageSize: 100 }),
-  });
-
-  const refresh = () =>
+  return () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["room", room.id] }),
       queryClient.invalidateQueries({ queryKey: ["rooms", room.courseId] }),
       queryClient.invalidateQueries({ queryKey: ["joinRequests"] }),
     ]);
+}
+
+export function LeaderPanel({ room }: { room: RoomDetail }) {
+  const { api } = useAuth();
+  const { confirm, askText } = useDialogs();
+  const refresh = useRoomRefresh(room);
+  const [topic, setTopic] = useState(room.topic ?? "");
+
+  const applications = useQuery({
+    queryKey: ["joinRequests", "room", room.id],
+    queryFn: () => api.get<JoinRequest[]>("/api/v1/join-requests", { roomId: room.id, status: "Pending", sort: "createdAt", pageSize: 100 }),
+  });
+  const pending = applications.data?.data ?? [];
 
   const saveTopic = useMutation({
     mutationFn: () => api.put(`/api/v1/rooms/${room.id}`, { topic }),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      toast.success("Đã lưu đề tài");
+      await refresh();
+    },
+    onError: (error) => toast.error(errorText(error)),
   });
   const toggleLock = useMutation({
     mutationFn: () => api.post(`/api/v1/rooms/${room.id}/${room.status === "Locked" ? "unlock" : "lock"}`),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      toast.success(room.status === "Locked" ? "Đã mở khóa phòng" : "Đã khóa phòng");
+      await refresh();
+    },
+    onError: (error) => toast.error(errorText(error)),
   });
   const decide = useMutation({
     mutationFn: ({ id, approve, reasonText }: { id: string; approve: boolean; reasonText?: string }) =>
       approve ? api.post<JoinRequest>(`/api/v1/join-requests/${id}/approve`) : api.post<JoinRequest>(`/api/v1/join-requests/${id}/reject`, { reasonText }),
     onSuccess: async (result) => {
-      setNote(decisionNote(result.data));
+      const note = decisionNote(result.data);
+      if (result.data.status === "Approved") {
+        toast.success(note);
+      } else {
+        toast(note);
+      }
+
       await refresh();
     },
+    onError: (error) => toast.error(errorText(error)),
   });
 
-  const error = saveTopic.error ?? toggleLock.error ?? decide.error ?? applications.error;
-  return (
-    <section className="card">
-      <h2>Quản lý phòng (trưởng phòng)</h2>
-      <form
-        className="inline-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          saveTopic.mutate();
-        }}
-      >
-        <input placeholder="Đề tài của nhóm" maxLength={200} value={topic} onChange={(event) => setTopic(event.target.value)} aria-label="Đề tài" />
-        <button type="submit" disabled={saveTopic.isPending || topic === (room.topic ?? "")}>
-          Lưu đề tài
-        </button>
-      </form>
-      <p>
-        {room.status === "Locked" ? "Phòng đang khóa: người khác phải gửi đơn. " : "Phòng đang mở: ai còn chỗ hợp lệ đều vào thẳng. "}
-        <button type="button" disabled={toggleLock.isPending} onClick={() => toggleLock.mutate()}>
-          {room.status === "Locked" ? "Mở khóa (hủy các đơn đang chờ)" : "Khóa phòng"}
-        </button>
-      </p>
-      <ErrorNote error={error} />
-      {note && <p className="notice">{note}</p>}
+  async function changeLock() {
+    if (room.status === "Locked" && pending.length > 0) {
+      const accepted = await confirm({
+        title: "Mở khóa phòng?",
+        description: `${pending.length} đơn đang chờ sẽ bị hủy. Sau khi mở, ai còn chỗ hợp lệ đều vào thẳng được.`,
+        confirmLabel: "Mở khóa",
+      });
+      if (!accepted) {
+        return;
+      }
+    }
 
-      <h3>Đơn xin vào đang chờ</h3>
-      {applications.data?.data.length === 0 && <p className="muted">Không có đơn nào.</p>}
-      {applications.data && applications.data.data.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Sinh viên</th>
-              <th>Ngành</th>
-              <th>Skill</th>
-              <th>Lời nhắn</th>
-              <th>Gửi lúc</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {applications.data.data.map((request) => (
-              <tr key={request.id}>
-                <td>
-                  {request.studentCode} · {request.studentName}
-                </td>
-                <td>{request.majorCode ?? "—"}</td>
-                <td>{request.skills.map((skill) => `${skill.skillCode} ${skill.level}`).join(", ") || <span className="muted">—</span>}</td>
-                <td>{request.message ?? <span className="muted">—</span>}</td>
-                <td>{formatDateTime(request.createdAt)}</td>
-                <td className="actions">
-                  <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ id: request.id, approve: true })}>
-                    Duyệt
-                  </button>
-                  <button
-                    type="button"
-                    disabled={decide.isPending}
-                    onClick={() => {
-                      const reasonText = window.prompt("Lý do từ chối (không bắt buộc):");
-                      if (reasonText !== null) {
-                        decide.mutate({ id: request.id, approve: false, reasonText: reasonText.trim() || undefined });
-                      }
-                    }}
-                  >
-                    Từ chối
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
-  );
-}
-
-export function MemberActions({ room, studentId }: { room: RoomDetail; studentId: string }) {
-  const { api } = useAuth();
-  const queryClient = useQueryClient();
-  const [removing, setRemoving] = useState(false);
-  const [reason, setReason] = useState("");
-
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["room", room.id] }),
-      queryClient.invalidateQueries({ queryKey: ["rooms", room.courseId] }),
-    ]);
-  const remove = useMutation({
-    mutationFn: () => api.post(`/api/v1/rooms/${room.id}/members/${studentId}/remove`, { reason: reason.trim() }),
-    onSuccess: refresh,
-  });
-  const handOver = useMutation({
-    mutationFn: () => api.post(`/api/v1/rooms/${room.id}/leader`, { studentId }),
-    onSuccess: refresh,
-  });
-
-  if (removing) {
-    return (
-      <form
-        className="inline-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (window.confirm("Xóa thành viên này? Người bị xóa không vào lại phòng này được.")) {
-            remove.mutate();
-          }
-        }}
-      >
-        <input required maxLength={300} placeholder="Lý do (bắt buộc)" value={reason} onChange={(event) => setReason(event.target.value)} aria-label="Lý do xóa" />
-        <button type="submit" disabled={remove.isPending || reason.trim().length === 0}>
-          Xác nhận xóa
-        </button>
-        <button type="button" onClick={() => setRemoving(false)}>
-          Thôi
-        </button>
-        <ErrorNote error={remove.error} />
-      </form>
-    );
+    toggleLock.mutate();
   }
 
   return (
-    <span className="actions">
-      <button type="button" onClick={() => setRemoving(true)}>
-        Xóa
-      </button>
-      <button
-        type="button"
-        disabled={handOver.isPending}
-        onClick={() => {
-          if (window.confirm("Chuyển quyền trưởng phòng cho thành viên này?")) {
-            handOver.mutate();
-          }
-        }}
+    <>
+      <Section
+        title={
+          <span className="flex items-center gap-2">
+            Đơn xin vào
+            {pending.length > 0 && <Badge tone="info">{pending.length} đang chờ</Badge>}
+          </span>
+        }
+        description={room.status === "Locked" ? "Phòng đang khóa nên người muốn vào phải gửi đơn cho bạn." : "Phòng đang mở, ai còn chỗ hợp lệ đều vào thẳng. Khóa phòng để duyệt từng người."}
       >
-        Chuyển trưởng phòng
-      </button>
-      <ErrorNote error={handOver.error} />
-    </span>
+        <ErrorNote error={applications.error} />
+        {applications.isSuccess && pending.length === 0 && <p className="text-sm text-muted-foreground">Không có đơn nào đang chờ.</p>}
+        <ul className="divide-y">
+          {pending.map((request) => (
+            <li key={request.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start">
+              <Avatar>
+                <AvatarFallback className="text-xs font-medium">{initialsOf(request.studentName ?? request.studentCode)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <p className="text-sm">
+                  <span className="font-medium">{request.studentName ?? "Sinh viên"}</span>
+                  <span className="text-muted-foreground"> {request.studentCode}</span>
+                  {request.majorCode && <Badge className="ml-2">{request.majorCode}</Badge>}
+                </p>
+                <SkillTags skills={request.skills} />
+                {request.message && <p className="rounded-lg bg-muted px-3 py-2 text-sm">{request.message}</p>}
+                <p className="text-xs text-muted-foreground">Gửi {formatRelative(request.createdAt)}</p>
+              </div>
+              <div className="flex gap-2 sm:flex-col">
+                <Button size="sm" disabled={decide.isPending} onClick={() => decide.mutate({ id: request.id, approve: true })}>
+                  Duyệt
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={decide.isPending}
+                  onClick={async () => {
+                    const reasonText = await askText({
+                      title: `Từ chối đơn của ${request.studentName ?? "sinh viên này"}?`,
+                      label: "Lý do (không bắt buộc)",
+                      required: false,
+                      maxLength: 300,
+                      confirmLabel: "Từ chối",
+                      destructive: true,
+                    });
+                    if (reasonText !== null) {
+                      decide.mutate({ id: request.id, approve: false, reasonText: reasonText || undefined });
+                    }
+                  }}
+                >
+                  Từ chối
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Cài đặt phòng">
+        <div className="space-y-5">
+          <form
+            className="grid gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveTopic.mutate();
+            }}
+          >
+            <label htmlFor="room-topic" className="text-sm font-medium">
+              Đề tài
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input id="room-topic" className="h-9" placeholder="Nhóm định làm gì?" maxLength={200} value={topic} onChange={(event) => setTopic(event.target.value)} />
+              <Button type="submit" variant="outline" className="h-9" disabled={saveTopic.isPending || topic === (room.topic ?? "")}>
+                Lưu đề tài
+              </Button>
+            </div>
+          </form>
+          <div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              {room.status === "Locked" ? <Lock className="mt-0.5 size-4 text-deadline-ink" aria-hidden /> : <LockOpen className="mt-0.5 size-4 text-success-ink" aria-hidden />}
+              <div>
+                <p className="text-sm font-medium">{room.status === "Locked" ? "Phòng đang khóa" : "Phòng đang mở"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {room.status === "Locked" ? "Mở khóa sẽ hủy các đơn đang chờ." : "Khóa để chỉ nhận người qua đơn xin vào."}
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" className="h-9" disabled={toggleLock.isPending} onClick={changeLock}>
+              {room.status === "Locked" ? "Mở khóa phòng" : "Khóa phòng"}
+            </Button>
+          </div>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+export function MemberActions({ room, studentId, name }: { room: RoomDetail; studentId: string; name: string }) {
+  const { api } = useAuth();
+  const { confirm, askText } = useDialogs();
+  const refresh = useRoomRefresh(room);
+
+  const remove = useMutation({
+    mutationFn: (reason: string) => api.post(`/api/v1/rooms/${room.id}/members/${studentId}/remove`, { reason }),
+    onSuccess: async () => {
+      toast.success(`Đã xóa ${name} khỏi phòng`);
+      await refresh();
+    },
+    onError: (error) => toast.error(errorText(error)),
+  });
+  const handOver = useMutation({
+    mutationFn: () => api.post(`/api/v1/rooms/${room.id}/leader`, { studentId }),
+    onSuccess: async () => {
+      toast.success(`${name} là trưởng phòng mới`);
+      await refresh();
+    },
+    onError: (error) => toast.error(errorText(error)),
+  });
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Thao tác với ${name}`} />}>
+        <MoreHorizontal />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuItem
+          disabled={handOver.isPending}
+          onClick={async () => {
+            if (await confirm({ title: `Chuyển trưởng phòng cho ${name}?`, description: "Bạn sẽ thành thành viên thường và không duyệt đơn được nữa.", confirmLabel: "Chuyển" })) {
+              handOver.mutate();
+            }
+          }}
+        >
+          <Crown />
+          Chuyển trưởng phòng
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={remove.isPending}
+          onClick={async () => {
+            const reason = await askText({
+              title: `Xóa ${name} khỏi phòng?`,
+              description: "Người bị xóa không vào lại phòng này được. Lý do sẽ được gửi cho họ.",
+              label: "Lý do",
+              maxLength: 300,
+              confirmLabel: "Xóa khỏi phòng",
+              destructive: true,
+            });
+            if (reason) {
+              remove.mutate(reason);
+            }
+          }}
+        >
+          <UserMinus />
+          Xóa khỏi phòng
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

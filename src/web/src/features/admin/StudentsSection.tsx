@@ -1,34 +1,32 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FileUp, UserMinus, UsersRound } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "../../shared/api/apiClient";
 import { useAuth } from "../../shared/auth/useAuth";
+import { useDialogs } from "../common/dialogsContext";
+import { errorText } from "../common/messages";
 import type { CatalogItem, Course, RosterEntry } from "../common/types";
-import { ErrorNote, Pager } from "../common/ui";
+import { Choice, EmptyState, ErrorNote, Field, Loading, Notice, Pager, SearchField, Section, Toolbar } from "../common/ui";
 import { importStudents, parseStudentCsv, type ImportSummary } from "./studentImport";
 
-export function StudentsSection({ course }: { course: Course }) {
+const previewRows = 6;
+
+function importErrorText(error: unknown): string {
+  return error instanceof Error && !(error instanceof ApiError) ? error.message : errorText(error);
+}
+
+function ImportDialog({ course, open, onOpenChange, onImported }: { course: Course; open: boolean; onOpenChange: (open: boolean) => void; onImported: () => Promise<unknown> }) {
   const { api } = useAuth();
-  const queryClient = useQueryClient();
   const [csv, setCsv] = useState("");
   const [password, setPassword] = useState("");
   const [summary, setSummary] = useState<ImportSummary | null>(null);
-  const [hasRoom, setHasRoom] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const parsed = csv.trim() ? parseStudentCsv(csv) : null;
-  const editable = course.phase !== "Finalized";
-
-  const roster = useQuery({
-    queryKey: ["roster", course.id, hasRoom, search, page],
-    queryFn: () => api.get<RosterEntry[]>(`/api/v1/courses/${course.id}/students`, { hasRoom: hasRoom || undefined, search, page, pageSize: 20 }),
-    placeholderData: keepPreviousData,
-  });
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["roster", course.id] }),
-      queryClient.invalidateQueries({ queryKey: ["course", course.id] }),
-      queryClient.invalidateQueries({ queryKey: ["overview", course.id] }),
-    ]);
 
   const runImport = useMutation({
     mutationFn: async () => {
@@ -38,126 +36,238 @@ export function StudentsSection({ course }: { course: Course }) {
     onSuccess: async (result) => {
       setSummary(result);
       setCsv("");
-      await refresh();
+      toast.success(`Đã ghi danh ${result.enrolled} sinh viên`);
+      await onImported();
     },
-  });
-  const remove = useMutation({
-    mutationFn: (studentId: string) => api.delete(`/api/v1/courses/${course.id}/students/${studentId}`),
-    onSuccess: refresh,
   });
 
   return (
-    <section className="card">
-      <h2>Sinh viên ({course.studentCount})</h2>
-      {editable && (
-        <details>
-          <summary>Import danh sách lớp (CSV)</summary>
-          <p className="muted">
-            Cột: <code>email,fullName,userCode,majorCode</code>. Mỗi dòng tạo (hoặc dùng lại) tài khoản sinh viên, thêm vào học kỳ {course.semesterCode} với ngành
-            đó rồi ghi danh vào course.
-          </p>
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            aria-label="Tệp CSV"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                setCsv(await file.text());
-              }
-            }}
-          />
-          <textarea rows={6} placeholder={"email,fullName,userCode,majorCode\nan@fpt.edu.vn,Nguyen Van An,SE180001,SE"} value={csv} onChange={(event) => setCsv(event.target.value)} />
-          {parsed && (
-            <p>
-              {parsed.rows.length} sinh viên hợp lệ
-              {parsed.problems.length > 0 && <span className="error"> · {parsed.problems.join(" ")}</span>}
-            </p>
-          )}
-          <div className="inline-form">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Import danh sách lớp</DialogTitle>
+          <DialogDescription>
+            Mỗi dòng tạo hoặc dùng lại tài khoản sinh viên, thêm vào học kỳ {course.semesterCode} với ngành đã ghi rồi ghi danh vào course.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors hover:border-primary/50 hover:bg-accent/40">
+            <FileUp className="size-6 text-muted-foreground" aria-hidden />
+            <span className="text-sm font-medium">Chọn tệp CSV</span>
+            <span className="text-xs text-muted-foreground">
+              Cột bắt buộc: <code className="rounded bg-muted px-1">email,fullName,userCode,majorCode</code>
+            </span>
             <input
-              type="password"
-              autoComplete="new-password"
-              placeholder="Mật khẩu mặc định cho tài khoản mới"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              aria-label="Mật khẩu mặc định"
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  setSummary(null);
+                  setCsv(await file.text());
+                }
+              }}
             />
-            <button type="button" disabled={!parsed || parsed.rows.length === 0 || password.length === 0 || runImport.isPending} onClick={() => runImport.mutate()}>
-              {runImport.isPending ? "Đang import…" : "Import"}
-            </button>
-          </div>
-          {runImport.error && !(runImport.error instanceof ApiError) ? <p className="error">{runImport.error.message}</p> : <ErrorNote error={runImport.error} />}
-          {summary && (
-            <p className="notice">
-              Tài khoản mới {summary.accountsCreated}, đã có {summary.accountsExisting} · Thêm vào học kỳ {summary.addedToSemester}, cập nhật {summary.updatedInSemester} · Ghi
-              danh {summary.enrolled}, đã ghi danh trước {summary.alreadyEnrolled}.
-            </p>
+          </label>
+          <Field label="Hoặc dán nội dung CSV">
+            <Textarea
+              rows={5}
+              className="font-mono text-xs"
+              placeholder={"email,fullName,userCode,majorCode\nan@fpt.edu.vn,Nguyễn Văn An,SE180001,SE"}
+              value={csv}
+              onChange={(event) => {
+                setSummary(null);
+                setCsv(event.target.value);
+              }}
+            />
+          </Field>
+
+          {parsed && parsed.rows.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{parsed.rows.length} sinh viên hợp lệ</p>
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>MSSV</TableHead>
+                      <TableHead>Họ tên</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Ngành</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsed.rows.slice(0, previewRows).map((row) => (
+                      <TableRow key={row.email}>
+                        <TableCell>{row.userCode}</TableCell>
+                        <TableCell>{row.fullName}</TableCell>
+                        <TableCell className="text-muted-foreground">{row.email}</TableCell>
+                        <TableCell>{row.majorCode}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {parsed.rows.length > previewRows && <p className="text-xs text-muted-foreground">và {parsed.rows.length - previewRows} dòng nữa.</p>}
+            </div>
           )}
-        </details>
-      )}
-      <div className="toolbar">
-        <input
-          placeholder="Tìm theo MSSV, tên hoặc email"
+          {parsed && parsed.problems.length > 0 && (
+            <Notice tone="warn" title={`${parsed.problems.length} dòng bị bỏ qua`}>
+              <ul className="list-disc pl-4">
+                {parsed.problems.slice(0, 8).map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            </Notice>
+          )}
+
+          <Field label="Mật khẩu mặc định cho tài khoản mới" hint="Chỉ dùng cho tài khoản chưa có. Sinh viên đổi lại sau khi đăng nhập.">
+            <Input type="password" className="h-9" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          </Field>
+
+          {runImport.error && <Notice tone="bad">{importErrorText(runImport.error)}</Notice>}
+          {summary && (
+            <Notice tone="good" title="Import xong">
+              Tài khoản mới {summary.accountsCreated}, đã có sẵn {summary.accountsExisting}. Thêm vào học kỳ {summary.addedToSemester}, cập nhật {summary.updatedInSemester}. Ghi danh{" "}
+              {summary.enrolled}, đã ghi danh trước đó {summary.alreadyEnrolled}.
+            </Notice>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Đóng
+          </Button>
+          <Button disabled={!parsed || parsed.rows.length === 0 || password.length === 0 || runImport.isPending} onClick={() => runImport.mutate()}>
+            {runImport.isPending ? "Đang import" : `Import ${parsed?.rows.length ?? 0} sinh viên`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function StudentsSection({ course }: { course: Course }) {
+  const { api } = useAuth();
+  const { confirm } = useDialogs();
+  const queryClient = useQueryClient();
+  const [importing, setImporting] = useState(false);
+  const [hasRoom, setHasRoom] = useState("all");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const editable = course.phase !== "Finalized";
+
+  const roster = useQuery({
+    queryKey: ["roster", course.id, hasRoom, search, page],
+    queryFn: () => api.get<RosterEntry[]>(`/api/v1/courses/${course.id}/students`, { hasRoom: hasRoom === "all" ? undefined : hasRoom, search, page, pageSize: 20 }),
+    placeholderData: keepPreviousData,
+  });
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["roster", course.id] }),
+      queryClient.invalidateQueries({ queryKey: ["course", course.id] }),
+      queryClient.invalidateQueries({ queryKey: ["overview", course.id] }),
+    ]);
+  const remove = useMutation({
+    mutationFn: (studentId: string) => api.delete(`/api/v1/courses/${course.id}/students/${studentId}`),
+    onSuccess: async () => {
+      toast.success("Đã gỡ sinh viên khỏi course");
+      await refresh();
+    },
+    onError: (error) => toast.error(errorText(error)),
+  });
+  const items = roster.data?.data ?? [];
+
+  return (
+    <Section
+      title={`Sinh viên (${course.studentCount})`}
+      actions={
+        editable && (
+          <Button variant="outline" onClick={() => setImporting(true)}>
+            <FileUp />
+            Import danh sách lớp
+          </Button>
+        )
+      }
+    >
+      <Toolbar>
+        <SearchField
           value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
+          placeholder="Tìm theo MSSV, tên hoặc email"
+          onChange={(value) => {
+            setSearch(value);
             setPage(1);
           }}
         />
-        <select
+        <Choice
+          label="Lọc theo phòng"
           value={hasRoom}
-          onChange={(event) => {
-            setHasRoom(event.target.value);
+          options={[
+            { value: "all", label: "Tất cả" },
+            { value: "true", label: "Đã có phòng" },
+            { value: "false", label: "Chưa có phòng" },
+          ]}
+          onChange={(value) => {
+            setHasRoom(value);
             setPage(1);
           }}
-          aria-label="Lọc theo phòng"
-        >
-          <option value="">Tất cả</option>
-          <option value="true">Đã có phòng</option>
-          <option value="false">Chưa có phòng</option>
-        </select>
-      </div>
-      <ErrorNote error={roster.error ?? remove.error} />
-      <table>
-        <thead>
-          <tr>
-            <th>MSSV</th>
-            <th>Họ tên</th>
-            <th>Email</th>
-            <th>Ngành</th>
-            <th>Phòng</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {roster.data?.data.map((student) => (
-            <tr key={student.studentId}>
-              <td>{student.studentCode}</td>
-              <td>{student.fullName}</td>
-              <td>{student.email}</td>
-              <td>{student.majorCode}</td>
-              <td>{student.roomName ?? <span className="muted">—</span>}</td>
-              <td>
-                {editable && student.roomId === null && (
-                  <button
-                    type="button"
-                    disabled={remove.isPending}
-                    onClick={() => {
-                      if (window.confirm(`Gỡ ${student.studentCode} khỏi course?`)) {
-                        remove.mutate(student.studentId);
-                      }
-                    }}
-                  >
-                    Gỡ
-                  </button>
+        />
+      </Toolbar>
+      <ErrorNote error={roster.error} />
+      <Loading when={roster.isLoading} rows={5} />
+      {roster.isSuccess && items.length === 0 && (
+        <EmptyState
+          icon={UsersRound}
+          title={search || hasRoom !== "all" ? "Không có sinh viên khớp bộ lọc" : "Course chưa có sinh viên"}
+          action={editable && !search && hasRoom === "all" ? <Button onClick={() => setImporting(true)}>Import danh sách lớp</Button> : undefined}
+        />
+      )}
+      {items.length > 0 && (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Sinh viên</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Ngành</TableHead>
+              <TableHead>Phòng</TableHead>
+              {editable && <TableHead className="w-12" />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((student) => (
+              <TableRow key={student.studentId}>
+                <TableCell>
+                  <span className="font-medium">{student.fullName}</span>
+                  <span className="block text-xs text-muted-foreground">{student.studentCode}</span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">{student.email}</TableCell>
+                <TableCell>{student.majorCode}</TableCell>
+                <TableCell>{student.roomName ?? <span className="text-deadline-ink">Chưa có phòng</span>}</TableCell>
+                {editable && (
+                  <TableCell>
+                    {student.roomId === null && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Gỡ ${student.fullName} khỏi course`}
+                        disabled={remove.isPending}
+                        onClick={async () => {
+                          if (await confirm({ title: `Gỡ ${student.fullName} khỏi course?`, description: "Tài khoản và hồ sơ học kỳ vẫn giữ nguyên.", confirmLabel: "Gỡ", destructive: true })) {
+                            remove.mutate(student.studentId);
+                          }
+                        }}
+                      >
+                        <UserMinus />
+                      </Button>
+                    )}
+                  </TableCell>
                 )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
       <Pager pagination={roster.data?.pagination} page={page} onPage={setPage} unit="sinh viên" />
-    </section>
+      {editable && <ImportDialog course={course} open={importing} onOpenChange={setImporting} onImported={refresh} />}
+    </Section>
   );
 }

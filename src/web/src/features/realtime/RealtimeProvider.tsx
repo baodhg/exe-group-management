@@ -1,9 +1,10 @@
 import { HubConnectionBuilder, HubConnectionState, LogLevel, type HubConnection } from "@microsoft/signalr";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { browserSessionStore, decodeUser } from "../../shared/auth/sessionStore";
 import { useAuth } from "../../shared/auth/useAuth";
-import { tokenExpired, type ChatMessage, type RoomChange } from "./chat";
+import { tokenExpired, type ChatMessage, type Notification, type RoomChange } from "./chat";
 import { RealtimeContext, type ConnectionState, type RealtimeState } from "./realtimeContext";
 
 const hubPath = "/hubs/realtime";
@@ -40,8 +41,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const rewatch = () => Promise.all([...watched.current.keys()].map((courseId) => hub.invoke("watchCourse", courseId).catch(() => undefined)));
 
-    hub.on("notificationReceived", () => {
+    hub.on("notificationReceived", (notification: Notification) => {
       void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast(notification.title, { description: notification.body });
     });
     hub.on("messageReceived", (message: ChatMessage) => {
       listeners.current.get(message.conversationId)?.forEach((listener) => listener(message));

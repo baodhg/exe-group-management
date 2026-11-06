@@ -110,5 +110,86 @@ export function suggestionReasonText(code: string, detail: string): string {
 }
 
 export function formatDateTime(value: string | null): string {
-  return value ? new Date(value).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—";
+  return value ? new Date(value).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+}
+
+const relative = new Intl.RelativeTimeFormat("vi-VN", { numeric: "auto" });
+
+export function formatRelative(value: string | null, now: number = Date.now()): string {
+  if (!value) {
+    return "—";
+  }
+
+  const seconds = Math.round((new Date(value).getTime() - now) / 1000);
+  const distance = Math.abs(seconds);
+  if (distance < 45) {
+    return "vừa xong";
+  }
+
+  if (distance < 3600) {
+    return relative.format(Math.round(seconds / 60), "minute");
+  }
+
+  if (distance < 86_400) {
+    return relative.format(Math.round(seconds / 3600), "hour");
+  }
+
+  if (distance < 7 * 86_400) {
+    return relative.format(Math.round(seconds / 86_400), "day");
+  }
+
+  return formatDateTime(value);
+}
+
+export function formatDate(value: string | null): string {
+  return value ? new Date(value).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+}
+
+export function signInErrorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return "Email hoặc mật khẩu không đúng.";
+    }
+
+    if (error.status === 403) {
+      return "Tài khoản đang bị khóa, hãy liên hệ quản trị viên.";
+    }
+  }
+
+  return errorText(error);
+}
+
+export const phaseTones: Record<CoursePhase, "neutral" | "good" | "warn" | "info"> = {
+  Setup: "neutral",
+  Published: "good",
+  Expired: "warn",
+  Finalized: "info",
+};
+
+export interface DeadlineInfo {
+  text: string;
+  urgent: boolean;
+  passed: boolean;
+}
+
+export function deadlineInfo(expireAt: string | null, now: number = Date.now()): DeadlineInfo | null {
+  if (!expireAt) {
+    return null;
+  }
+
+  const left = new Date(expireAt).getTime() - now;
+  if (left <= 0) {
+    return { text: "Đã hết hạn", urgent: false, passed: true };
+  }
+
+  const hours = Math.floor(left / 3_600_000);
+  if (hours < 1) {
+    return { text: `Còn ${Math.max(Math.ceil(left / 60_000), 1)} phút`, urgent: true, passed: false };
+  }
+
+  if (hours < 48) {
+    return { text: `Còn ${hours} giờ`, urgent: true, passed: false };
+  }
+
+  return { text: `Còn ${Math.floor(hours / 24)} ngày`, urgent: hours < 72, passed: false };
 }

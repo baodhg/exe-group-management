@@ -35,6 +35,8 @@ export interface RoomSummary {
   leaderId: string | null;
   leaderName: string | null;
   groupNo: number | null;
+  majors?: MajorCount[];
+  missingMajorSeats?: number;
 }
 
 export interface RoomSkill {
