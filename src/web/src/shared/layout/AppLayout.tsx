@@ -30,11 +30,11 @@ function useCourseSection(): NavSection | null {
   const courseId = match?.params.courseId;
   const course = useQuery({
     queryKey: ["course", courseId],
-    queryFn: async () => (await api.get<{ phase: CoursePhaseName; classCode: string }>(`/api/v1/courses/${courseId}`)).data,
+    queryFn: () => api.get<{ phase: CoursePhaseName; classCode: string }>(`/api/v1/courses/${courseId}`),
     enabled: Boolean(courseId) && Boolean(user?.roles.includes("Administrator")),
   });
 
-  return courseId && course.data ? adminCourseSection(courseId, course.data.phase, course.data.classCode) : null;
+  return courseId && course.data ? adminCourseSection(courseId, course.data.data.phase, course.data.data.classCode) : null;
 }
 
 function SideNav({ roles, collapsed, onNavigate }: { roles: Role[]; collapsed: boolean; onNavigate?: () => void }) {
