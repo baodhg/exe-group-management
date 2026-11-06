@@ -35,4 +35,5 @@ public static class GroupErrorCodes
     public const string ApplicationPending = "APPLICATION_PENDING";
     public const string RequestNotPending = "REQUEST_NOT_PENDING";
     public const string CourseNotExpired = "COURSE_NOT_EXPIRED";
+    public const string FinalizeBlocked = "FINALIZE_BLOCKED";
 }

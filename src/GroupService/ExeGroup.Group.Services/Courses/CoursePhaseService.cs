@@ -10,6 +10,8 @@ namespace ExeGroup.Group.Services.Courses;
 
 public sealed record DuePhaseChanges(IReadOnlyList<Guid> ToPublish, IReadOnlyList<Guid> ToExpire);
 
+public sealed record FinalizeResultModel(CourseModel Course, int Groups, int DeletedRooms);
+
 public interface ICoursePhaseService
 {
     Task<DuePhaseChanges> ListDueAsync(CancellationToken cancellationToken);
@@ -17,12 +19,15 @@ public interface ICoursePhaseService
     Task<CourseModel> PublishAsync(Guid courseId, CancellationToken cancellationToken);
 
     Task<CourseModel> ExpireAsync(Guid courseId, CancellationToken cancellationToken);
+
+    Task<FinalizeResultModel> FinalizeAsync(Guid courseId, bool acceptExceptions, CancellationToken cancellationToken);
 }
 
 public sealed class CoursePhaseService(
     ICourseRepository courses,
     IRoomRepository rooms,
     RequestCloser requests,
+    RoomSeating seating,
     IOutbox outbox,
     ITransactionRunner transactions,
     IClock clock) : ICoursePhaseService
@@ -72,6 +77,44 @@ public sealed class CoursePhaseService(
             },
             cancellationToken);
         return await GetAsync(courseId, cancellationToken);
+    }
+
+    public async Task<FinalizeResultModel> FinalizeAsync(Guid courseId, bool acceptExceptions, CancellationToken cancellationToken)
+    {
+        var (groups, deleted) = (0, 0);
+        await ChangePhaseAsync(
+            courseId,
+            async (course, token) =>
+            {
+                (groups, deleted) = (0, 0);
+                CourseProgressService.EnsureExpired(course);
+                var overview = await CourseProgressService.BuildAsync(rooms, course, token);
+                if (overview.Unplaced.Count > 0 || (overview.IneligibleRooms.Count > 0 && !acceptExceptions))
+                {
+                    throw new ConflictException(
+                        GroupErrorCodes.FinalizeBlocked,
+                        $"{overview.Unplaced.Count} students have no room and {overview.IneligibleRooms.Count} rooms are not eligible; place every student, and accept exceptions for the rooms.");
+                }
+
+                foreach (var room in await rooms.ListRoomsForUpdateAsync(course.CourseId, token))
+                {
+                    if (room.MemberCount == 0)
+                    {
+                        await rooms.RemoveWithHistoryAsync(room, token);
+                        deleted++;
+                        continue;
+                    }
+
+                    room.GroupNo = ++groups;
+                    room.Status = RoomStatuses.Finalized;
+                    seating.StatusChanged(room);
+                }
+
+                course.Phase = CoursePhases.Finalized;
+                course.FinalizedAt = clock.UtcNow;
+            },
+            cancellationToken);
+        return new FinalizeResultModel(await GetAsync(courseId, cancellationToken), groups, deleted);
     }
 
     private async Task ChangePhaseAsync(Guid courseId, Func<Course, CancellationToken, Task> change, CancellationToken cancellationToken) =>

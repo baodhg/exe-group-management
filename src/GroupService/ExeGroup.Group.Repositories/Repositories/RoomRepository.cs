@@ -139,6 +139,19 @@ public sealed class RoomRepository(GroupDbContext context) : IRoomRepository
     public Task<List<RoomMember>> ListActiveMembersAsync(Guid roomId, CancellationToken cancellationToken) =>
         context.RoomMembers.Where(member => member.RoomId == roomId && member.EndedAt == null).OrderBy(member => member.JoinedAt).ToListAsync(cancellationToken);
 
+    public Task<List<Room>> ListRoomsForUpdateAsync(Guid courseId, CancellationToken cancellationToken) =>
+        context.Rooms.Where(room => room.CourseId == courseId).OrderBy(room => room.Name).ToListAsync(cancellationToken);
+
+    public Task<List<RoomMember>> ListCourseMembershipsAsync(Guid courseId, CancellationToken cancellationToken) =>
+        context.RoomMembers.Where(member => member.CourseId == courseId && member.EndedAt == null).OrderBy(member => member.JoinedAt).ToListAsync(cancellationToken);
+
+    public async Task RemoveWithHistoryAsync(Room room, CancellationToken cancellationToken)
+    {
+        context.JoinRequests.RemoveRange(await context.JoinRequests.Where(request => request.RoomId == room.RoomId).ToListAsync(cancellationToken));
+        context.RoomMembers.RemoveRange(await context.RoomMembers.Where(member => member.RoomId == room.RoomId).ToListAsync(cancellationToken));
+        context.Rooms.Remove(room);
+    }
+
     public Task<RoomMember?> FindActiveMembershipAsync(Guid courseId, Guid studentId, CancellationToken cancellationToken) =>
         context.RoomMembers.SingleOrDefaultAsync(member => member.CourseId == courseId && member.StudentId == studentId && member.EndedAt == null, cancellationToken);
 
