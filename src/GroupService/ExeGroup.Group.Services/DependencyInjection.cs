@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IStudentProfileService, StudentProfileService>();
         services.AddScoped<RequestCloser>();
         services.AddScoped<RoomSeating>();
+        services.AddScoped<RoomSummaries>();
         services.AddScoped<IRoomService, RoomService>();
         services.AddScoped<IRoomMembershipService, RoomMembershipService>();
         services.AddScoped<IJoinRequestService, JoinRequestService>();

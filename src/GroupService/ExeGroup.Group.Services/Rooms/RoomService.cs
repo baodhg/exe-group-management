@@ -23,6 +23,10 @@ public sealed record RoomSummaryModel(
     int? GroupNo)
 {
     public int FreeSeats => Math.Max(0, Capacity - MemberCount);
+
+    public IReadOnlyList<MajorCountModel> Majors { get; init; } = [];
+
+    public int MissingMajorSeats { get; init; }
 }
 
 public sealed record RoomSkillModel(string SkillCode, byte Level);
@@ -68,7 +72,7 @@ public interface IRoomService
     Task DeleteAsync(Guid roomId, CancellationToken cancellationToken);
 }
 
-public sealed class RoomService(IRoomRepository rooms, ITransactionRunner transactions, ICurrentUser currentUser) : IRoomService
+public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, ITransactionRunner transactions, ICurrentUser currentUser) : IRoomService
 {
     private static readonly string[] Statuses = [RoomStatuses.Open, RoomStatuses.Locked, RoomStatuses.Finalized];
 
@@ -84,7 +88,8 @@ public sealed class RoomService(IRoomRepository rooms, ITransactionRunner transa
         }
 
         var memberId = filter.Mine ? currentUser.RequireUserId() : (Guid?)null;
-        return (await rooms.GetPageAsync(courseId, new RoomFilter(status, filter.HasSeat, filter.GroupTypeId, memberId), query, cancellationToken)).Map(ToSummary);
+        var page = await rooms.GetPageAsync(courseId, new RoomFilter(status, filter.HasSeat, filter.GroupTypeId, memberId), query, cancellationToken);
+        return new PagedResult<RoomSummaryModel>(await summaries.BuildAsync(page.Items, cancellationToken), page.Page, page.PageSize, page.TotalItems);
     }
 
     public async Task<RoomDetailModel> GetAsync(Guid roomId, CancellationToken cancellationToken)

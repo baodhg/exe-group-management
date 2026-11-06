@@ -33,6 +33,12 @@ public sealed class RoomsEndpointTests(GroupApiFixture fixture) : IClassFixture<
         Assert.Equal(4, detail.GetProperty("members")[0].GetProperty("skills")[0].GetProperty("level").GetInt32());
         Assert.Contains(detail.GetProperty("majors").EnumerateArray(), major => major.GetProperty("required").GetInt32() == 1 && major.GetProperty("members").GetInt32() == 1);
         Assert.Equal(new[] { room, scenario.Rooms[1] }, withSeat.EnumerateArray().Select(item => item.GetProperty("id").GetGuid()));
+        var card = withSeat.EnumerateArray().First();
+        Assert.Equal(0, card.GetProperty("missingMajorSeats").GetInt32());
+        Assert.Contains(card.GetProperty("majors").EnumerateArray(), major => major.GetProperty("required").GetInt32() == 1 && major.GetProperty("members").GetInt32() == 1);
+        var empty = withSeat.EnumerateArray().Last();
+        Assert.Equal(2, empty.GetProperty("missingMajorSeats").GetInt32());
+        Assert.All(empty.GetProperty("majors").EnumerateArray(), major => Assert.Equal(0, major.GetProperty("members").GetInt32()));
         Assert.Equal(HttpStatusCode.Forbidden, outsiderList.StatusCode);
     }
 

@@ -178,6 +178,15 @@ public sealed class RoomRepository(GroupDbContext context) : IRoomRepository
          join student in context.SemesterStudents on new { room.SemesterId, member.StudentId } equals new { student.SemesterId, student.StudentId }
          select student.MajorId).ToListAsync(cancellationToken);
 
+    public Task<List<RoomMemberMajor>> ListMemberMajorsAsync(IReadOnlyCollection<Guid> roomIds, CancellationToken cancellationToken) =>
+        (from member in context.RoomMembers.AsNoTracking()
+         where roomIds.Contains(member.RoomId) && member.EndedAt == null
+         join room in context.Rooms on member.RoomId equals room.RoomId
+         join student in context.SemesterStudents on new { room.SemesterId, member.StudentId } equals new { student.SemesterId, student.StudentId }
+         join major in context.Majors on student.MajorId equals major.MajorId
+         select new RoomMemberMajor(member.RoomId, major.MajorId, major.Code))
+            .ToListAsync(cancellationToken);
+
     public async Task<GroupTypeRules> GetRulesAsync(Guid groupTypeId, CancellationToken cancellationToken)
     {
         var groupType = await context.GroupTypes.AsNoTracking().Include(type => type.Majors).SingleAsync(type => type.GroupTypeId == groupTypeId, cancellationToken);
