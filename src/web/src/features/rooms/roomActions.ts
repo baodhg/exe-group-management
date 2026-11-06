@@ -1,5 +1,6 @@
 import { ApiError } from "../../shared/api/apiClient";
 import type { CoursePhase, RoomDetail, RoomSummary } from "../common/types";
+import { countdownText } from "../courses/deadline";
 
 export type StudentRoomAction = "join" | "apply" | "leave" | "none";
 
@@ -137,31 +138,6 @@ export function unmetConditions(room: Pick<RoomDetail, "memberCount" | "minGroup
   ];
 }
 
-export function timeLeftText(expireAt: string | null, now: number = Date.now()): string | null {
-  if (!expireAt) {
-    return null;
-  }
-
-  const left = new Date(expireAt).getTime() - now;
-  if (left <= 0) {
-    return null;
-  }
-
-  const minutes = Math.ceil(left / 60_000);
-  const days = Math.floor(minutes / 1_440);
-  const hours = Math.floor((minutes % 1_440) / 60);
-  const rest = minutes % 60;
-  if (days > 0) {
-    return hours > 0 ? `${days} ngày ${hours} giờ` : `${days} ngày`;
-  }
-
-  if (hours > 0) {
-    return rest > 0 ? `${hours} giờ ${rest} phút` : `${hours} giờ`;
-  }
-
-  return `${rest} phút`;
-}
-
 function twoDigits(value: number): string {
   return String(value).padStart(2, "0");
 }
@@ -187,7 +163,7 @@ export function deadlineCard(viewer: RoomViewer, phase: CoursePhase, expireAt: s
 
   return {
     label: viewer === "leader" ? "Hạn chọn phòng" : "Còn được đổi phòng trong",
-    value: timeLeftText(expireAt, now) ?? dayTime(expireAt),
+    value: countdownText(expireAt, now) ?? dayTime(expireAt),
     note: `Hạn ${dayTime(expireAt)}`,
   };
 }

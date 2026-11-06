@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "../../shared/auth/useAuth";
 import { errorText } from "../common/messages";
 import type { CatalogItem, GroupType, Semester } from "../common/types";
+import { useMajors } from "../courses/courseData";
 import { Criteria, Criterion, EmptyState, Failure, Field, NativeSelect, Notice, PageHeader, Section } from "../common/ui";
 import { MajorTag } from "../rooms/seats";
 import { DeleteDialog, FormDialog, PageFailure } from "./CatalogFrame";
@@ -37,7 +38,7 @@ export function GroupTypesPage() {
   const [deleting, setDeleting] = useState<GroupType | null>(null);
 
   const groupTypes = useQuery({ queryKey: ["groupTypes"], queryFn: () => api.get<GroupType[]>("/api/v1/group-types", { pageSize: 100, sort: "code" }) });
-  const majors = useQuery({ queryKey: ["majors", "all"], queryFn: () => api.get<CatalogItem[]>("/api/v1/majors", { pageSize: 100, sort: "code" }) });
+  const majors = useMajors();
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["groupTypes"] });
 
   const items = groupTypes.data?.data ?? [];
@@ -153,7 +154,7 @@ export function GroupTypesPage() {
           }}
         />
       )}
-      {current && <GroupTypeEditor key={current.id} groupType={current} majors={majors.data?.data ?? []} majorsLoading={majors.isLoading} majorsError={majors.error} onRetryMajors={() => void majors.refetch()} onClose={() => setSelected(null)} onChanged={refresh} />}
+      {current && <GroupTypeEditor key={current.id} groupType={current} majors={majors.data ?? []} majorsLoading={majors.isLoading} majorsError={majors.error} onRetryMajors={() => void majors.refetch()} onClose={() => setSelected(null)} onChanged={refresh} />}
       {deleting && (
         <DeleteDialog
           key={deleting.id}

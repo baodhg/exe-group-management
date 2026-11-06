@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../shared/api/apiClient";
 import type { MajorCount, RoomDetail, RoomMember } from "../common/types";
-import { capabilitiesOf, dayTime, deadlineCard, isBlockedRoom, leaveOutcome, leftRoomText, roomChecks, studentActionFor, timeLeftText, unmetConditions, viewerOf, visitorNote, type StudentRoomState } from "./roomActions";
+import { countdownText } from "../courses/deadline";
+import { capabilitiesOf, dayTime, deadlineCard, isBlockedRoom, leaveOutcome, leftRoomText, roomChecks, studentActionFor, unmetConditions, viewerOf, visitorNote, type StudentRoomState } from "./roomActions";
 
 const base: StudentRoomState = {
   phase: "Published",
@@ -181,19 +182,19 @@ describe("unmetConditions", () => {
   });
 });
 
-describe("timeLeftText", () => {
+describe("countdownText", () => {
   const now = new Date("2026-11-13T00:00:00Z").getTime();
 
   it("counts down in the two largest units", () => {
-    expect(timeLeftText("2026-11-15T04:00:00Z", now)).toBe("2 ngày 4 giờ");
-    expect(timeLeftText("2026-11-15T00:00:00Z", now)).toBe("2 ngày");
-    expect(timeLeftText("2026-11-13T05:12:00Z", now)).toBe("5 giờ 12 phút");
-    expect(timeLeftText("2026-11-13T00:09:00Z", now)).toBe("9 phút");
+    expect(countdownText("2026-11-15T04:00:00Z", now)).toBe("2 ngày 4 giờ");
+    expect(countdownText("2026-11-15T00:00:00Z", now)).toBe("2 ngày");
+    expect(countdownText("2026-11-13T05:12:00Z", now)).toBe("5 giờ 12 phút");
+    expect(countdownText("2026-11-13T00:09:00Z", now)).toBe("9 phút");
   });
 
   it("has no countdown once the deadline passed or when there is none", () => {
-    expect(timeLeftText("2026-11-12T00:00:00Z", now)).toBeNull();
-    expect(timeLeftText(null, now)).toBeNull();
+    expect(countdownText("2026-11-12T00:00:00Z", now)).toBeNull();
+    expect(countdownText(null, now)).toBeNull();
   });
 });
 

@@ -17,7 +17,7 @@ public sealed class CourseRoomsController(IRoomService rooms, ISuggestionService
 {
     [HttpPost("generate")]
     [Authorize(Roles = Roles.Administrator)]
-    [EndpointSummary("Setup: create rooms up to ceil(students / MaxGroupSize x RoomFactor), named Room 01..n (BR-03)")]
+    [EndpointSummary("Setup: create rooms up to ceil(students / MaxGroupSize x RoomFactor), named Phòng 01..n (BR-03)")]
     [ProducesResponseType<ApiResponse<RoomGenerationResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]

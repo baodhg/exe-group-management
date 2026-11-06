@@ -149,6 +149,17 @@ export function unreadLabel(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
 
+export function notificationQueryKeys(notification: Pick<Notification, "courseId" | "roomId">): string[][] {
+  const { courseId, roomId } = notification;
+  return [
+    ["notifications"],
+    ["joinRequests"],
+    ["courses"],
+    ...(courseId ? [["course", courseId], ["rooms", courseId], ["overview", courseId], ["suggestions", courseId], ["roster", courseId]] : []),
+    ...(roomId ? [["room", roomId]] : []),
+  ];
+}
+
 export function notificationTarget(notification: Pick<Notification, "courseId" | "roomId">, roles: readonly string[]): string {
   if (notification.roomId) {
     return `/rooms/${notification.roomId}`;

@@ -58,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (renewed) {
       setUser(renewed);
     }
+
+    return Boolean(renewed);
   }, [api]);
 
   const value = useMemo<AuthState>(

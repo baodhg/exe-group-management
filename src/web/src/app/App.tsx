@@ -74,7 +74,7 @@ export function App() {
                   <Route path="/admin/users" element={<RequireRole roles={["Administrator"]}><UsersPage /></RequireRole>} />
                   <Route path="/admin/courses" element={<RequireRole roles={["Administrator"]}><CoursesPage /></RequireRole>} />
                   <Route path="/admin/courses/:courseId/:section?" element={<RequireRole roles={["Administrator"]}><AdminCoursePage /></RequireRole>} />
-                  <Route path="*" element={<NotFoundPage />} />
+                  <Route path="*" element={<RequireRole roles={["Student", "Lecturer", "Administrator"]}><NotFoundPage /></RequireRole>} />
                 </Route>
               </Routes>
               <AppToaster />

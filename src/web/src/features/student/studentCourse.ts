@@ -1,5 +1,6 @@
 import { ApiError } from "../../shared/api/apiClient";
 import { requestReasonText } from "../common/messages";
+import { countdownText as remainingText } from "../courses/deadline";
 import type { Course, CoursePhase, JoinRequest, RoomSummary } from "../common/types";
 
 const phaseSteps: Record<CoursePhase, number> = { Setup: 0, Published: 1, Expired: 2, Finalized: 3 };
@@ -9,23 +10,7 @@ export function phaseStep(phase: CoursePhase): number {
 }
 
 export function countdownText(target: string, now: number = Date.now()): string {
-  const minutes = Math.ceil((new Date(target).getTime() - now) / 60_000);
-  if (minutes <= 0) {
-    return "Đã hết hạn";
-  }
-
-  const days = Math.floor(minutes / 1440);
-  const hours = Math.floor((minutes % 1440) / 60);
-  const rest = minutes % 60;
-  if (days > 0) {
-    return hours > 0 ? `${days} ngày ${hours} giờ` : `${days} ngày`;
-  }
-
-  if (hours > 0) {
-    return rest > 0 ? `${hours} giờ ${rest} phút` : `${hours} giờ`;
-  }
-
-  return `${rest} phút`;
+  return remainingText(target, now) ?? "Đã hết hạn";
 }
 
 export function isPhaseStale(phase: CoursePhase, { deadlineReached, refused }: { deadlineReached: boolean; refused: boolean }): boolean {

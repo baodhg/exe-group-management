@@ -9,7 +9,8 @@ import { ClearFilters, DeleteDialog, PageFailure, TableSkeleton } from "../admin
 import { isAccessFailure, isNotFound } from "../admin/catalogRules";
 import { useClampedPage } from "../admin/useClampedPage";
 import { formatDate } from "../common/messages";
-import type { CatalogItem, Semester } from "../common/types";
+import type { Semester } from "../common/types";
+import { useMajors } from "../courses/courseData";
 import { Choice, EmptyState, Failure, PageHeader, PageLoading, Pager, SearchField, Section, Toolbar } from "../common/ui";
 import { MajorTag } from "../rooms/seats";
 import { dateText, type SemesterStudent } from "./semesterRules";
@@ -26,7 +27,7 @@ export function SemesterStudentsPage() {
   const [target, setTarget] = useState<SemesterStudent | null>(null);
 
   const semester = useQuery({ queryKey: ["semester", semesterId], queryFn: () => api.get<Semester>(`/api/v1/semesters/${semesterId}`) });
-  const majors = useQuery({ queryKey: ["majors", "all"], queryFn: () => api.get<CatalogItem[]>("/api/v1/majors", { pageSize: 100, sort: "code" }) });
+  const majors = useMajors();
   const students = useQuery({
     queryKey: ["semesterStudents", semesterId, search, majorId, page],
     queryFn: () =>
@@ -90,7 +91,7 @@ export function SemesterStudentsPage() {
             label="Lọc theo ngành"
             icon={BookMarked}
             value={majorId}
-            options={[{ value: "all", label: "Mọi ngành" }, ...(majors.data?.data ?? []).map((major) => ({ value: major.id, label: major.code }))]}
+            options={[{ value: "all", label: "Mọi ngành" }, ...(majors.data ?? []).map((major) => ({ value: major.id, label: major.code }))]}
             onChange={(value) => {
               setMajorId(value);
               setPage(1);

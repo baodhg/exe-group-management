@@ -141,7 +141,10 @@ function NameSection({ savedName }: { savedName: string }) {
     mutationFn: () => api.put("/api/v1/auth/me", { fullName: name.trim() }),
     onSuccess: async () => {
       toast.success("Đã lưu họ tên");
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["account", "me"] }), reloadUser()]);
+      const [, renewed] = await Promise.all([queryClient.invalidateQueries({ queryKey: ["account", "me"] }), reloadUser()]);
+      if (!renewed) {
+        toast.info("Tên mới sẽ hiện ở thanh bên từ lần đăng nhập tới.");
+      }
     },
     onError: (error) => toast.error(errorText(error)),
   });

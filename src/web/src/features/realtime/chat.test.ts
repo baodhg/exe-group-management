@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../shared/api/apiClient";
-import { canSendDraft, chatRows, chatViewState, connectionLook, dayLabel, draftCounter, mergeMessages, notificationTarget, stillSyncing, timeLabel, tokenExpired, unreadLabel, type ChatMessage } from "./chat";
+import { notificationQueryKeys, canSendDraft, chatRows, chatViewState, connectionLook, dayLabel, draftCounter, mergeMessages, notificationTarget, stillSyncing, timeLabel, tokenExpired, unreadLabel, type ChatMessage } from "./chat";
 
 function message(id: string, sentAt: string, content = "hi"): ChatMessage {
   return { id, conversationId: "c1", senderId: "u1", senderName: "An", content, sentAt, deleted: false };
@@ -140,5 +140,23 @@ describe("notificationTarget", () => {
 
   it("falls back to the list for old notifications with no target", () => {
     expect(notificationTarget({ courseId: null, roomId: null }, ["Student"])).toBe("/notifications");
+  });
+});
+
+describe("notificationQueryKeys", () => {
+  it("refreshes what a push can change for its course and room", () => {
+    const keys = notificationQueryKeys({ courseId: "c1", roomId: "r1" });
+
+    expect(keys).toContainEqual(["notifications"]);
+    expect(keys).toContainEqual(["joinRequests"]);
+    expect(keys).toContainEqual(["courses"]);
+    expect(keys).toContainEqual(["course", "c1"]);
+    expect(keys).toContainEqual(["rooms", "c1"]);
+    expect(keys).toContainEqual(["overview", "c1"]);
+    expect(keys).toContainEqual(["room", "r1"]);
+  });
+
+  it("refreshes only shared lists when a push has no target", () => {
+    expect(notificationQueryKeys({ courseId: null, roomId: null })).toEqual([["notifications"], ["joinRequests"], ["courses"]]);
   });
 });

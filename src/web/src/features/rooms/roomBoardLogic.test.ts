@@ -8,7 +8,7 @@ import {
   lacksMajor,
   pageRooms,
   rankedRoomIds,
-  roomChecks,
+  briefRoomChecks,
   roomHint,
   roomPanelFor,
   sortByFit,
@@ -260,7 +260,7 @@ describe("roomPanelFor", () => {
   });
 });
 
-describe("roomChecks", () => {
+describe("briefRoomChecks", () => {
   const detail = (overrides: Partial<RoomDetail>): Pick<RoomDetail, "memberCount" | "minGroupSize" | "minDistinctMajors" | "majors"> => ({
     memberCount: 4,
     minGroupSize: 4,
@@ -270,7 +270,7 @@ describe("roomChecks", () => {
   });
 
   it("lists required majors, variety and size as met", () => {
-    expect(roomChecks(detail({}))).toEqual([
+    expect(briefRoomChecks(detail({}))).toEqual([
       { label: "Có SE", ok: true },
       { label: "Từ 2 ngành", ok: true },
       { label: "Từ 4 người", ok: true },
@@ -278,7 +278,7 @@ describe("roomChecks", () => {
   });
 
   it("flags what is still missing", () => {
-    expect(roomChecks(detail({ memberCount: 1, majors: [major("se", 1, 1), major("mkt", 0, 1)] }))).toEqual([
+    expect(briefRoomChecks(detail({ memberCount: 1, majors: [major("se", 1, 1), major("mkt", 0, 1)] }))).toEqual([
       { label: "Có SE", ok: true },
       { label: "Có MKT", ok: false },
       { label: "Từ 2 ngành", ok: false },
@@ -287,6 +287,6 @@ describe("roomChecks", () => {
   });
 
   it("shows the count when a major needs more than one person", () => {
-    expect(roomChecks(detail({ majors: [major("se", 1, 2)] }))[0]).toEqual({ label: "Có 2 SE", ok: false });
+    expect(briefRoomChecks(detail({ majors: [major("se", 1, 2)] }))[0]).toEqual({ label: "Có 2 SE", ok: false });
   });
 });

@@ -76,13 +76,13 @@ export function defaultCourseSection(phase: CoursePhaseName): string {
   return sectionsByPhase[phase][0] ?? "settings";
 }
 
-export function adminCourseSection(courseId: string, phase: CoursePhaseName, classCode: string, waiting?: number): NavSection {
+export function adminCourseSection(courseId: string, phase: CoursePhaseName, classCode: string): NavSection {
   return {
     title: `Lớp ${classCode}`,
     roles: ["Administrator"],
     items: sectionsByPhase[phase].map((key) => {
       const section = courseSections[key] ?? { label: key, icon: Shapes };
-      return { to: `/admin/courses/${courseId}/${key}`, label: section.label, icon: section.icon, count: key === "overview" ? waiting : undefined };
+      return { to: `/admin/courses/${courseId}/${key}`, label: section.label, icon: section.icon };
     }),
   };
 }

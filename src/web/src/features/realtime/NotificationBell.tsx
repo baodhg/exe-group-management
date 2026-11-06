@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Bell, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../../shared/auth/useAuth";
 import { EmptyState } from "../common/ui";
-import { formatRelative } from "../common/messages";
+import { errorText, formatRelative } from "../common/messages";
 import { notificationTarget, unreadLabel, type Notification } from "./chat";
 import { NotificationIcon } from "./NotificationIcon";
 
@@ -25,8 +26,9 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
     enabled: user !== null,
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["notifications"] });
-  const read = useMutation({ mutationFn: (id: string) => api.post(`/api/v1/notifications/${id}/read`), onSuccess: refresh });
-  const readAll = useMutation({ mutationFn: () => api.post("/api/v1/notifications/read-all"), onSuccess: refresh });
+  const failed = (error: unknown) => toast.error(errorText(error));
+  const read = useMutation({ mutationFn: (id: string) => api.post(`/api/v1/notifications/${id}/read`), onSuccess: refresh, onError: failed });
+  const readAll = useMutation({ mutationFn: () => api.post("/api/v1/notifications/read-all"), onSuccess: refresh, onError: failed });
   const count = unread.data?.pagination?.totalItems ?? 0;
   const items = latest.data?.data ?? [];
   const roles = user?.roles ?? [];

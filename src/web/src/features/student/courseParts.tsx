@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { requestStatusLabels } from "../common/messages";
 import type { Course, CoursePhase, JoinRequest, RoomDetail, RoomMember } from "../common/types";
 import { Badge, CheckItem, Checks, LinkButton, Steps, type Tone } from "../common/ui";
-import { roomChecks } from "../rooms/roomBoardLogic";
+import { briefRoomChecks } from "../rooms/roomBoardLogic";
 import { phaseStep } from "./studentCourse";
 
 const phaseStepLabels = [{ label: "Chuẩn bị" }, { label: "Chọn phòng" }, { label: "Xếp lại" }, { label: "Chốt nhóm" }];
@@ -121,7 +121,7 @@ export function RequestStatusBadge({ status }: { status: JoinRequest["status"] }
 export function RoomCheckList({ room }: { room: Pick<RoomDetail, "memberCount" | "minGroupSize" | "minDistinctMajors" | "majors"> }) {
   return (
     <Checks>
-      {roomChecks(room).map((check) => (
+      {briefRoomChecks(room).map((check) => (
         <CheckItem key={check.label} ok={check.ok} label={check.label} value={check.ok ? "Đủ" : "Thiếu"} />
       ))}
     </Checks>

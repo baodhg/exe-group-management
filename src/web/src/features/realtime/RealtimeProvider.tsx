@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { toast } from "sonner";
 import { browserSessionStore, decodeUser } from "../../shared/auth/sessionStore";
 import { useAuth } from "../../shared/auth/useAuth";
-import { notificationTarget, tokenExpired, type ChatMessage, type Notification, type RoomChange } from "./chat";
+import { notificationQueryKeys, notificationTarget, tokenExpired, type ChatMessage, type Notification, type RoomChange } from "./chat";
 import { PushCard } from "./PushCard";
 import { RealtimeContext, type ConnectionState, type RealtimeState } from "./realtimeContext";
 
@@ -48,7 +48,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const rewatch = () => Promise.all([...watched.current.keys()].map((courseId) => hub.invoke("watchCourse", courseId).catch(() => undefined)));
 
     hub.on("notificationReceived", (notification: Notification) => {
-      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      for (const queryKey of notificationQueryKeys(notification)) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+
       toast.custom((id) => <PushCard notification={notification} target={notificationTarget(notification, rolesRef.current)} onClose={() => toast.dismiss(id)} />, { position: "bottom-right", duration: 7_000 });
     });
     hub.on("messageReceived", (message: ChatMessage) => {

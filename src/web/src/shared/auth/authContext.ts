@@ -8,7 +8,7 @@ export interface AuthState {
   sessionEnded: boolean;
   signIn(email: string, password: string): Promise<SessionUser>;
   signOut(): void;
-  reloadUser(): Promise<void>;
+  reloadUser(): Promise<boolean>;
   hasRole(role: Role): boolean;
 }
 

@@ -18,12 +18,19 @@ export function countdownText(expireAt: string | null, now: number = Date.now())
     return null;
   }
 
-  const hours = Math.floor(left / 3_600_000);
-  if (hours < 1) {
-    return `${Math.max(Math.ceil(left / 60_000), 1)} phút`;
+  const minutes = Math.ceil(left / 60_000);
+  const days = Math.floor(minutes / 1_440);
+  const hours = Math.floor((minutes % 1_440) / 60);
+  const rest = minutes % 60;
+  if (days > 0) {
+    return hours > 0 ? `${days} ngày ${hours} giờ` : `${days} ngày`;
   }
 
-  return hours < 24 ? `${hours} giờ` : `${Math.floor(hours / 24)} ngày ${hours % 24} giờ`;
+  if (hours > 0) {
+    return rest > 0 ? `${hours} giờ ${rest} phút` : `${hours} giờ`;
+  }
+
+  return `${rest} phút`;
 }
 
 function pad(value: number): string {

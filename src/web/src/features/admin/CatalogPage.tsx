@@ -32,7 +32,7 @@ export function CatalogPage({ config }: { config: CatalogConfig }) {
     queryFn: () => api.get<CatalogItem[]>(path, { search, page, pageSize: 20, sort: "code" }),
     placeholderData: keepPreviousData,
   });
-  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: [config.resource] }), queryClient.invalidateQueries({ queryKey: ["majors", "palette"] })]);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: [config.resource] });
   const rows = items.data?.data ?? [];
   const pagination = items.data?.pagination;
   const filtered = search.trim() !== "";

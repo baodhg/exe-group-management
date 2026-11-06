@@ -223,7 +223,7 @@ export interface RoomCheck {
   ok: boolean;
 }
 
-export function roomChecks(room: Pick<RoomDetail, "memberCount" | "minGroupSize" | "minDistinctMajors" | "majors">): RoomCheck[] {
+export function briefRoomChecks(room: Pick<RoomDetail, "memberCount" | "minGroupSize" | "minDistinctMajors" | "majors">): RoomCheck[] {
   const required = room.majors
     .filter((major) => major.required > 0)
     .map((major) => ({ label: major.required > 1 ? `Có ${major.required} ${major.majorCode}` : `Có ${major.majorCode}`, ok: major.members >= major.required }));
