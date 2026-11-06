@@ -8,7 +8,7 @@ import { useAuth } from "../../shared/auth/useAuth";
 import { useDialogs } from "../common/dialogsContext";
 import { errorText, formatRelative, requestReasonText, requestStatusLabels, suggestionReasonText } from "../common/messages";
 import type { Course, JoinRequest, RoomSuggestions, RoomSummary } from "../common/types";
-import { Badge, ErrorNote, Loading, PageHeader, Section, type Tone } from "../common/ui";
+import { Badge, ErrorNote, LinkButton, Loading, PageHeader, Section, type Tone } from "../common/ui";
 import { DeadlineText, PhaseBadge } from "../courses/CourseCard";
 import { RoomBoard } from "../rooms/RoomBoard";
 import { RoomCard } from "../rooms/RoomCard";
@@ -22,7 +22,12 @@ function MyRoomPanel({ course, mine, loaded }: { course: Course; mine: RoomSumma
 
   if (mine) {
     return (
-      <Section title="Phòng của bạn" actions={<Button render={<Link to={`/rooms/${mine.id}`} />}>Vào phòng <ArrowRight /></Button>}>
+      <Section title="Phòng của bạn" actions={
+          <LinkButton to={`/rooms/${mine.id}`}>
+            Vào phòng
+            <ArrowRight />
+          </LinkButton>
+        }>
         <div className="max-w-xl">
           <RoomCard room={mine} mine />
         </div>
@@ -115,10 +120,10 @@ export function StudentCoursePage() {
           </>
         }
         actions={
-          <Button variant="outline" render={<Link to={`/student/semesters/${current.semesterId}/skills`} />}>
+          <LinkButton variant="outline" to={`/student/semesters/${current.semesterId}/skills`}>
             <Sparkles />
             Skill của tôi
-          </Button>
+          </LinkButton>
         }
       />
 

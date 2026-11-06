@@ -2,6 +2,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Info,
 import type { ComponentProps, ReactNode } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -241,5 +242,23 @@ export function Notice({ tone = "info", title, children, className }: { tone?: E
         {children}
       </div>
     </div>
+  );
+}
+
+export function LinkButton({
+  to,
+  variant = "default",
+  className,
+  children,
+}: {
+  to: string;
+  variant?: "default" | "outline" | "secondary" | "ghost";
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link to={to} className={cn(buttonVariants({ variant }), className)}>
+      {children}
+    </Link>
   );
 }

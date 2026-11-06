@@ -16,7 +16,7 @@ export function DeadlineText({ expireAt, phase, className }: { expireAt: string 
     <span className={cn("flex items-center gap-1.5", className)}>
       <CalendarClock className="size-4 shrink-0" aria-hidden />
       <span>
-        Hạn tìm nhóm {formatDateTime(expireAt)}
+        {expireAt ? `Hạn tìm nhóm ${formatDateTime(expireAt)}` : "Chưa đặt hạn tìm nhóm"}
         {info && <span className={cn("ml-1.5 font-medium", info.urgent ? "text-deadline-ink" : "text-foreground")}>({info.text})</span>}
       </span>
     </span>

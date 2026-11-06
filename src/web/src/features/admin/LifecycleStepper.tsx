@@ -5,7 +5,7 @@ import type { Course, CoursePhase } from "../common/types";
 
 const steps: { phase: CoursePhase; label: string; hint: (course: Course) => string }[] = [
   { phase: "Setup", label: "Chuẩn bị", hint: (course) => `${course.studentCount} sinh viên, ${course.roomCount} phòng` },
-  { phase: "Published", label: "Tìm nhóm", hint: (course) => (course.publishAt ? `Mở ${formatDateTime(course.publishAt)}` : "Chưa hẹn giờ mở") },
+  { phase: "Published", label: "Tìm nhóm", hint: (course) => (course.publishAt ? `Mở ${formatDateTime(course.publishAt)}` : course.phase === "Setup" ? "Chưa hẹn giờ mở" : "Đã mở thủ công") },
   { phase: "Expired", label: "Hết hạn, xếp người", hint: (course) => `Hạn ${formatDateTime(course.expireAt)}` },
   { phase: "Finalized", label: "Đã chốt nhóm", hint: (course) => (course.finalizedAt ? formatDateTime(course.finalizedAt) : "Danh sách chính thức") },
 ];

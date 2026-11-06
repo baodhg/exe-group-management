@@ -108,7 +108,7 @@ export function CourseForm({
             onChange={(event) => setDraft({ ...draft, roomFactor: Number(event.target.value) })}
           />
         </Field>
-        <Field label="Tự mở tìm nhóm lúc" hint="Để trống nếu muốn tự bấm Publish.">
+        <Field label="Tự mở tìm nhóm lúc" hint="Để trống nếu muốn tự bấm Mở tìm nhóm.">
           <Input type="datetime-local" className="h-9" disabled={locked} value={draft.publishAt} onChange={(event) => setDraft({ ...draft, publishAt: event.target.value })} />
         </Field>
         <Field label="Hạn tìm nhóm">

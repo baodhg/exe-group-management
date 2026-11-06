@@ -60,7 +60,7 @@ export function App() {
                 <Route path="*" element={<Navigate to="/login" replace />} />
               </Routes>
             </BrowserRouter>
-            <Toaster position="top-right" closeButton />
+            <Toaster position="bottom-right" closeButton />
           </DialogsProvider>
         </RealtimeProvider>
       </AuthProvider>

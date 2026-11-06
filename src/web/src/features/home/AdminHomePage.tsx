@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Blocks, CalendarRange, CircleCheck, Library, Shapes, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
 import { Link } from "react-router";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../../shared/auth/useAuth";
 import type { Course, CoursePhase } from "../common/types";
-import { ErrorNote, PageHeader, Section, StatTile } from "../common/ui";
+import { ErrorNote, LinkButton, PageHeader, Section, StatTile } from "../common/ui";
 import { PhaseBadge } from "../courses/CourseCard";
 import { adminTodos } from "./adminTodos";
 
@@ -42,10 +41,10 @@ export function AdminHomePage() {
         title={firstName ? `Chào ${firstName}` : "Tổng quan"}
         description="Theo dõi các course đang lập nhóm và việc cần làm tiếp theo."
         actions={
-          <Button render={<Link to="/admin/courses" />}>
+          <LinkButton to="/admin/courses">
             Quản lý course
             <ArrowRight />
-          </Button>
+          </LinkButton>
         }
       />
 
@@ -54,7 +53,7 @@ export function AdminHomePage() {
         {courses.isLoading
           ? Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-24 rounded-xl" />)
           : counted.map((item) => (
-              <StatTile key={item.phase} label={item.label} value={all.filter((course) => course.phase === item.phase).length} hint="course" tone={item.tone} />
+              <StatTile key={item.phase} label={`Course ${item.label.toLowerCase()}`} value={all.filter((course) => course.phase === item.phase).length} tone={item.tone} />
             ))}
       </div>
 
