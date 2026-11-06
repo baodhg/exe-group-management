@@ -1,6 +1,6 @@
 # Hướng dẫn đóng góp — EXE Group Management
 
-Tài liệu này là **chuẩn chung** của nhóm. Hạ tầng, khuôn mẫu và các tệp nền do PM (Người 1) giữ; mỗi thành viên chỉ viết tính năng / nghiệp vụ trong phần của mình. Đọc hết một lần trước khi mở PR đầu tiên.
+Tài liệu này là **chuẩn chung** của nhóm. PM (Người 1) phụ trách hạ tầng và duyệt thay đổi DevOps; mỗi thành viên viết tính năng / nghiệp vụ trong phần của mình. Đọc hết một lần trước khi mở PR đầu tiên.
 
 ## 1. Chuẩn bị máy
 
@@ -52,20 +52,21 @@ Token để thử API khi chưa có đăng nhập thật: `node scripts/dev-toke
 
 ```text
 src/
-  BuildingBlocks/        nền dùng chung (PM) — envelope, lỗi, phân trang, JWT, Swagger, health, job nền
+  BuildingBlocks/        nền dùng chung — envelope, lỗi, phân trang, JWT, Swagger, health, job nền
   Contracts/             recommendation.proto (gRPC Group → Recommendation, sinh cả client và server)
-  ApiGateway/            YARP — cổng vào duy nhất (PM)
+  ApiGateway/            YARP — cổng vào duy nhất
   IdentityService/       ExeGroup.Identity.API / .Services / .Repositories
   GroupService/          ExeGroup.Group.API / .Services / .Repositories   ← có golden path Semesters
-  RecommendationService/ ExeGroup.Recommendation.API / .Services / .Repositories   (chỉ gRPC, không DB — PM)
+  RecommendationService/ ExeGroup.Recommendation.API / .Services / .Repositories   (chỉ gRPC, không DB)
   RealtimeService/       ExeGroup.Realtime.API / .Services / .Repositories   (ChatDb, SignalR /hubs/realtime)
   web/                   React 19 + Vite (khung: PM, màn hình: Người 5)
 tests/                   ExeGroup.Testing (dùng chung), ArchitectureTests, *.IntegrationTests
-docker/ docker-compose.yml scripts/   hạ tầng (PM)
+docker/ docker-compose.yml   hạ tầng (PM duyệt)
+scripts/                 công cụ và dữ liệu mẫu; script CI, deploy cần PM duyệt
 docs/                    đề bài, Lab, thiết kế PRN232_v3 (v3.2), sơ đồ C4
 ```
 
-**Ai sở hữu gì:** vùng làm việc của thành viên ghi ở `.github/member-paths.txt`; mọi tệp ngoài danh sách này là tệp nền. PR chạm tệp nền (`BuildingBlocks`, gateway, Docker, CI, `Directory.*.props`, `global.json`, `scripts/`, `tests/ExeGroup.Testing`, `tests/ExeGroup.ArchitectureTests`) cần PM duyệt.
+**Ai sở hữu gì:** chỉ tệp DevOps mới cần PM duyệt: `.github/`, `deploy/`, `docker/`, compose, Dockerfile, `.dockerignore`, `.gitattributes`, `.env.example`, `nginx.conf`, `global.json`, `nuget.config`, `dotnet-tools.json`, `Directory.Build.*`, cấu hình gitleaks, mọi `scripts/*.test.mjs` và các script CI, deploy ghi trong `.github/devops-paths.txt`. Mọi tệp còn lại, kể cả `BuildingBlocks`, gateway, `*.csproj`, `package.json` và script dữ liệu, chỉ cần CI xanh.
 
 ## 3. Luật kiến trúc (máy kiểm, không chỉ dặn)
 
@@ -93,8 +94,8 @@ docs/                    đề bài, Lab, thiết kế PRN232_v3 (v3.2), sơ đ�
 5. **Route có version**: `[ApiVersion(1.0)]` + `[Route("api/v{version:apiVersion}/<tài-nguyên-số-nhiều>")]`.
 6. **Mặc định phải đăng nhập** (fallback policy). Endpoint công khai phải ghi `[AllowAnonymous]` rõ ràng. Quyền theo vai trò: `[Authorize(Roles = Roles.Administrator)]`; quyền nghiệp vụ (leader của nhóm, lecturer của lớp) kiểm trong Services bằng `ICurrentUser`.
 7. **Services không dùng EF Core** (test kiến trúc chặn). Mở transaction bằng `ITransactionRunner.ExecuteAsync(...)` inject vào service; đọc và sửa entity qua repository **bên trong** lambda (helper từ chối nếu context đang track entity từ trước). Bắt trùng unique trong repository bằng `TrySaveChangesAsync` rồi ném `ConflictException` có mã riêng ở service.
-8. **Không chép helper**: cần thứ dùng ≥ 2 service ⇒ đề xuất đưa vào `BuildingBlocks` (PR riêng, PM duyệt).
-9. **Không thêm package** trong csproj kèm `Version=`: phiên bản chỉ nằm ở `Directory.Packages.props` (PM).
+8. **Không chép helper**: cần thứ dùng ≥ 2 service ⇒ đưa vào `BuildingBlocks` bằng PR riêng.
+9. **Không thêm package** trong csproj kèm `Version=`: phiên bản chỉ nằm ở `Directory.Packages.props`.
 
 ## 4. Thêm một endpoint mới — làm theo golden path `Semesters`
 
@@ -125,7 +126,7 @@ Danh sách nhận sẵn: `search`, `sort=title,-createdAt` (nhiều trường, `
 - Nhánh: `feat/<số-issue>-<mô-tả-ngắn>` (ví dụ `feat/20-exe-classes`), `fix/...`, cắt từ `main` mới nhất. **Không push thẳng `main`** (đã bật branch protection).
 - Commit: Conventional Commits **tiếng Anh**, ≤ 72 ký tự, nói điều thay đổi cho người đọc — `feat: let leaders approve join requests`, `fix: reject joins after the class deadline`.
 - PR: tiêu đề dạng `feat(group): thêm tìm kiếm môn học` (đây sẽ là commit trên `main`). PR `feat` và `fix` phải có `Closes #20`.
-- **Merge khi và chỉ khi CI xanh, không ai có ngoại lệ, kể cả PM.** Không cần chờ review. Bấm **Enable auto-merge** là xong, nhánh cũ thì bấm **Update branch**.
+- **Merge khi và chỉ khi CI xanh, không ai có ngoại lệ, kể cả PM.** Không cần chờ review. Bấm **Enable auto-merge** là xong, nhánh không cần cập nhật theo `main` trừ khi có xung đột. CI chạy lại trên `main` sau mỗi lần merge và demo chỉ tự deploy khi lượt đó xanh (deploy tay từ tab Actions thì không kiểm điều kiện này); `main` đỏ thì ưu tiên sửa ngay.
 
 | Check | Máy kiểm gì |
 |---|---|
@@ -134,7 +135,7 @@ Danh sách nhận sẵn: `search`, `sort=title,-createdAt` (nhiều trường, `
 | `docker` | Compose hợp lệ, build được mọi image |
 | `architecture` | Sơ đồ C4 hợp lệ |
 | `conventions` | Tiêu đề PR, có issue, có test, không thêm chú thích, controller dùng envelope, không chép version package, migration chỉ tạo bảng, cột, index, khóa đã khai báo trong `schema.sql` (đổi, xóa cấu trúc hoặc SQL tay thì sửa `schema.sql` cùng PR), không đổi số field proto (bỏ cả file contract thì được), web không viết cứng địa chỉ server, quét secret |
-| `infra-guard` | PR của thành viên sửa tệp ngoài `.github/member-paths.txt`, hoặc bất kỳ tệp build nào (`*.csproj`, `Directory.*`, Dockerfile...), phải được PM duyệt đúng commit mới nhất, rồi bấm Re-run job này |
+| `infra-guard` | PR của thành viên sửa tệp DevOps (xem "Ai sở hữu gì") phải được PM duyệt đúng commit mới nhất, rồi bấm Re-run job này. PR không chạm tệp DevOps thì tự qua |
 - Mã: tên định danh, message lỗi, log bằng **tiếng Anh**; chuỗi hiển thị trên web bằng tiếng Việt có dấu.
 
 ## 7. Web (`src/web`)

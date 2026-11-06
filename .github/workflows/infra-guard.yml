@@ -21,13 +21,13 @@ jobs:
             const { owner, repo } = context.repo;
             const pull = context.payload.pull_request;
             const pull_number = pull.number;
-            const buildFiles = /(^|\/)(Directory\.[^/]*|nuget\.config|\.editorconfig|Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|global\.json)$|\.(csproj|csproj\.user|props|targets|rsp|sln|slnx)$/i;
+            const devOpsFiles = /(^|\/)(Dockerfile(\.[^/]*)?|[^/]*\.Dockerfile|\.dockerignore|(docker-)?compose(\.[^/]*)?\.ya?ml|global\.json|nuget\.config|Directory\.Build\.[^/]*|\.gitleaks[^/]*|\.gitattributes|dotnet-tools\.json|nginx\.conf)$|^scripts\/[^/]*\.test\.mjs$/i;
 
-            const { data: memberFile } = await github.rest.repos.getContent({ owner, repo, path: ".github/member-paths.txt", ref: pull.base.sha });
-            const memberPaths = Buffer.from(memberFile.content, "base64").toString("utf8")
-              .split("\n").map((line) => line.trim()).filter(Boolean);
-            const isMemberPath = (path) => !buildFiles.test(path)
-              && memberPaths.some((allowed) => allowed.endsWith("/") ? path.startsWith(allowed) : path === allowed);
+            const { data: listFile } = await github.rest.repos.getContent({ owner, repo, path: ".github/devops-paths.txt", ref: context.sha });
+            const devOpsPaths = Buffer.from(listFile.content, "base64").toString("utf8")
+              .split("\n").map((line) => line.trim().toLowerCase()).filter(Boolean);
+            const isDevOpsPath = (path) => devOpsFiles.test(path)
+              || devOpsPaths.some((entry) => entry.endsWith("/") ? path.toLowerCase().startsWith(entry) : path.toLowerCase() === entry);
 
             const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number, per_page: 100 });
             if (files.length !== pull.changed_files) {
@@ -37,14 +37,14 @@ jobs:
 
             const touched = files
               .flatMap((file) => [file.filename, file.previous_filename].filter(Boolean))
-              .filter((path) => !isMemberPath(path));
+              .filter(isDevOpsPath);
 
             if (touched.length === 0) {
-              core.info("Every change is inside the areas members work on.");
+              core.info("No DevOps files changed.");
               return;
             }
 
-            core.info(`Infrastructure files changed:\n${touched.join("\n")}`);
+            core.info(`DevOps files changed:\n${touched.join("\n")}`);
             const { data: activity } = await github.request("GET /repos/{owner}/{repo}/activity", { owner, repo, ref: `refs/heads/${pull.head.ref}`, per_page: 100 });
             const sameRepository = pull.head.repo?.full_name === `${owner}/${repo}`;
             const onlyOwnerPushed = activity.length > 0
@@ -58,5 +58,5 @@ jobs:
             const reviews = await github.paginate(github.rest.pulls.listReviews, { owner, repo, pull_number, per_page: 100 });
             const latest = reviews.filter((review) => review.user?.login === owner && review.state !== "COMMENTED").at(-1);
             if (latest?.state !== "APPROVED" || latest.commit_id !== pull.head.sha) {
-              core.setFailed(`${owner} must approve the latest commit because it changes infrastructure files. After approving, re-run this job.`);
+              core.setFailed(`${owner} must approve the latest commit because it changes DevOps files. After approving, re-run this job.`);
             }

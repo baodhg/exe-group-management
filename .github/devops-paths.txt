@@ -1,0 +1,8 @@
+.github/
+deploy/
+docker/
+.env.example
+scripts/check-conventions.mjs
+scripts/check-demo-compose.mjs
+scripts/demo-deploy.sh
+scripts/demo-deploy-entry.sh
