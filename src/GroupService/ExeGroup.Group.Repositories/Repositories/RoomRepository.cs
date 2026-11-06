@@ -35,6 +35,11 @@ public sealed class RoomRepository(GroupDbContext context) : IRoomRepository
             rooms = rooms.Where(room => room.GroupTypeId == groupTypeId);
         }
 
+        if (filter.MemberId is { } memberId)
+        {
+            rooms = rooms.Where(room => context.RoomMembers.Any(member => member.RoomId == room.RoomId && member.StudentId == memberId && member.EndedAt == null));
+        }
+
         if (query.Search is { } search)
         {
             rooms = rooms.Where(room => room.Name.Contains(search) || (room.Topic != null && room.Topic.Contains(search)));
