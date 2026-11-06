@@ -15,6 +15,10 @@ public sealed class Notification
     public DateTime CreatedAt { get; set; }
 
     public DateTime? ReadAt { get; set; }
+
+    public Guid? CourseId { get; set; }
+
+    public Guid? RoomId { get; set; }
 }
 
 public sealed class ProcessedEvent

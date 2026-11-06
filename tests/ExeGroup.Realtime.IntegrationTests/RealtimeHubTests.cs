@@ -69,7 +69,7 @@ public sealed class RealtimeHubTests(RealtimeApiFixture fixture) : IClassFixture
         await using var otherHub = await fixture.HubFor(other);
         await otherHub.InvokeAsync("watchCourse", course);
 
-        await Push.NotificationAsync(owner, new NotificationModel(Guid.NewGuid(), "JoinRequestDecided", "Approved", "You joined Room 01", DateTime.UtcNow, null), Ct);
+        await Push.NotificationAsync(owner, new NotificationModel(Guid.NewGuid(), "JoinRequestDecided", "Approved", "You joined Room 01", DateTime.UtcNow, null, null, null), Ct);
         await Push.RoomChangedAsync(new RoomChangeModel(course, Guid.NewGuid(), "Room 01", "RoomMemberJoined"), Ct);
 
         var notification = await ownerHub.NextAsync(RealtimeHub.NotificationReceived);

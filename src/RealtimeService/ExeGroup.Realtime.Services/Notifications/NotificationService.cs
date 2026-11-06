@@ -6,7 +6,7 @@ using ExeGroup.Realtime.Repositories.Interfaces;
 
 namespace ExeGroup.Realtime.Services.Notifications;
 
-public sealed record NotificationModel(Guid Id, string Type, string Title, string Body, DateTime CreatedAt, DateTime? ReadAt);
+public sealed record NotificationModel(Guid Id, string Type, string Title, string Body, DateTime CreatedAt, DateTime? ReadAt, Guid? CourseId, Guid? RoomId);
 
 public interface INotificationService
 {
@@ -43,5 +43,5 @@ public sealed class NotificationService(INotificationRepository notifications, I
         notifications.MarkAllReadAsync(currentUser.RequireUserId(), clock.UtcNow, cancellationToken);
 
     private static NotificationModel ToModel(Notification notification) =>
-        new(notification.NotificationId, notification.Type, notification.Title, notification.Body, notification.CreatedAt, notification.ReadAt);
+        new(notification.NotificationId, notification.Type, notification.Title, notification.Body, notification.CreatedAt, notification.ReadAt, notification.CourseId, notification.RoomId);
 }

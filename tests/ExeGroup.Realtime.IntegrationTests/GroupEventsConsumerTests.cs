@@ -84,11 +84,83 @@ public sealed class GroupEventsConsumerTests(ConsumerFixture fixture) : IClassFi
         Assert.Equal(0, (await fixture.Redis.StreamPendingAsync(stream, GroupEventsConsumer.GroupName)).PendingMessageCount);
 
         var removal = await NextNotificationAsync(memberHub, "RoomMemberLeft");
-        Assert.Equal("Trưởng phòng đã xóa bạn khỏi Room 01. Lý do: Không tham gia buổi họp nào", removal.GetProperty("body").GetString());
+        Assert.Equal("Trưởng nhóm đã xóa bạn khỏi Room 01. Lý do: Không tham gia buổi họp nào", removal.GetProperty("body").GetString());
         var change = await leaderHub.NextAsync(RealtimeHub.RoomChanged);
         Assert.Equal(room, change.GetProperty("roomId").GetGuid());
         await leaderHub.InvokeAsync("sendMessage", room, "Welcome");
         Assert.Equal("Welcome", (await leaderHub.NextAsync(RealtimeHub.MessageReceived)).GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task A_decided_application_targets_its_course_and_room_and_names_the_group_leader()
+    {
+        var stream = NewStream();
+        var (course, room, applicant) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        await using var applicantHub = await fixture.HubFor(applicant);
+        await fixture.AppendAsync(stream, Guid.NewGuid(), "JoinRequestDecided", new { requestId = Guid.NewGuid(), courseId = course, roomId = room, roomName = "Room 06", studentId = applicant, status = "Rejected", reasonCode = "REJECTED_BY_LEADER" });
+
+        await fixture.Consumer(stream).CatchUpAsync(Ct);
+
+        var pushed = await NextNotificationAsync(applicantHub, "JoinRequestDecided");
+        var stored = await StoredNoticeAsync(applicant);
+        foreach (var notice in new[] { pushed, stored })
+        {
+            Assert.Equal("Trưởng nhóm Room 06 đã từ chối đơn của bạn.", notice.GetProperty("body").GetString());
+            Assert.Equal(course, notice.GetProperty("courseId").GetGuid());
+            Assert.Equal(room, notice.GetProperty("roomId").GetGuid());
+        }
+    }
+
+    [Fact]
+    public async Task A_phase_change_targets_only_its_course_and_names_the_academic_office()
+    {
+        var stream = NewStream();
+        var (course, student) = (Guid.NewGuid(), Guid.NewGuid());
+        await using var studentHub = await fixture.HubFor(student);
+        await fixture.AppendAsync(stream, Guid.NewGuid(), "CoursePhaseChanged", new { courseId = course, courseName = "PRN232 SE1802", phase = "Expired", lecturerId = Guid.NewGuid(), studentIds = new[] { student } });
+
+        await fixture.Consumer(stream).CatchUpAsync(Ct);
+
+        var pushed = await NextNotificationAsync(studentHub, "CoursePhaseChanged");
+        var stored = await StoredNoticeAsync(student);
+        foreach (var notice in new[] { pushed, stored })
+        {
+            Assert.Equal("PRN232 SE1802: đã hết hạn. Giáo vụ sẽ xếp các bạn chưa có phòng.", notice.GetProperty("body").GetString());
+            Assert.Equal(course, notice.GetProperty("courseId").GetGuid());
+            Assert.Equal(JsonValueKind.Null, notice.GetProperty("roomId").ValueKind);
+        }
+    }
+
+    [Fact]
+    public async Task Room_events_target_their_course_and_room_and_use_the_product_terms()
+    {
+        var stream = NewStream();
+        var (course, room) = (Guid.NewGuid(), Guid.NewGuid());
+        var (placed, greeter, reviewer, removed, moved, promoted) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        await fixture.AppendAsync(stream, Guid.NewGuid(), "RoomMemberJoined", new { courseId = course, roomId = room, roomName = "Room 07", studentId = placed, joinedVia = "Admin", leaderId = greeter });
+        await fixture.AppendAsync(stream, Guid.NewGuid(), "JoinRequestSubmitted", new { requestId = Guid.NewGuid(), courseId = course, roomId = room, roomName = "Room 07", studentId = Guid.NewGuid(), leaderId = reviewer });
+        await fixture.AppendAsync(stream, Guid.NewGuid(), "RoomMemberLeft", new { courseId = course, roomId = room, roomName = "Room 07", studentId = removed, endReason = "Removed", endNote = (string?)null });
+        await fixture.AppendAsync(stream, Guid.NewGuid(), "RoomMemberLeft", new { courseId = course, roomId = room, roomName = "Room 07", studentId = moved, endReason = "Moved", endNote = (string?)null });
+        await fixture.AppendAsync(stream, Guid.NewGuid(), "RoomLeaderChanged", new { courseId = course, roomId = room, roomName = "Room 07", leaderId = promoted });
+
+        await fixture.Consumer(stream).CatchUpAsync(Ct);
+
+        var expected = new Dictionary<Guid, string>
+        {
+            [placed] = "Giáo vụ đã xếp bạn vào Room 07.",
+            [greeter] = "Một sinh viên vừa vào Room 07.",
+            [reviewer] = "Một sinh viên vừa xin vào Room 07.",
+            [removed] = "Trưởng nhóm đã xóa bạn khỏi Room 07.",
+            [moved] = "Giáo vụ đã chuyển bạn khỏi Room 07.",
+            [promoted] = "Bạn vừa trở thành trưởng nhóm Room 07.",
+        };
+        foreach (var (user, body) in expected)
+        {
+            var notice = await StoredNoticeAsync(user);
+            Assert.Equal(body, notice.GetProperty("body").GetString());
+            Assert.Equal(course, notice.GetProperty("courseId").GetGuid());
+            Assert.Equal(room, notice.GetProperty("roomId").GetGuid());
+        }
     }
 
     [Fact]
@@ -153,6 +225,14 @@ public sealed class GroupEventsConsumerTests(ConsumerFixture fixture) : IClassFi
             .Select(item => new { item.UserId, item.Type })
             .ToListAsync(Ct));
         return users.ToDictionary(user => user, user => rows.Where(row => row.UserId == user).Select(row => row.Type).ToList());
+    }
+
+    private async Task<JsonElement> StoredNoticeAsync(Guid user)
+    {
+        using var response = await fixture.ClientFor(user).GetAsync("/api/v1/notifications", Ct);
+        response.EnsureSuccessStatusCode();
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+        return Assert.Single(body.RootElement.GetProperty("data").EnumerateArray()).Clone();
     }
 
     private static async Task<JsonElement> NextNotificationAsync(HubTestClient hub, string type)
