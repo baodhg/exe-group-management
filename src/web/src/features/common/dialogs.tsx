@@ -97,7 +97,7 @@ export function DialogsProvider({ children }: { children: ReactNode }) {
                 </div>
               )}
               <AlertDialogFooter>
-                <AlertDialogCancel type="button">Hủy</AlertDialogCancel>
+                <AlertDialogCancel type="button">Huỷ</AlertDialogCancel>
                 <Button type="submit" variant={options.destructive ? "destructive" : "default"} disabled={blocked}>
                   {options.confirmLabel ?? "Đồng ý"}
                 </Button>

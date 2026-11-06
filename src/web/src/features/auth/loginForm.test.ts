@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../shared/api/apiClient";
 import { signInErrorText } from "../common/messages";
-import { cameFromGuardedRoute, loginFailureOf, missingFieldsOf, nothingMissing, sessionEndedText } from "./loginForm";
+import { sessionEndedFrom, loginFailureOf, missingFieldsOf, nothingMissing, sessionEndedText } from "./loginForm";
 
 function apiError(status: number, code: string): ApiError {
   return new ApiError(status, "Server wording", [{ code, field: null, message: "Server wording" }], null);
@@ -45,17 +45,17 @@ describe("missingFieldsOf", () => {
   });
 });
 
-describe("cameFromGuardedRoute", () => {
+describe("sessionEndedFrom", () => {
   it("đúng khi route được bảo vệ gửi kèm đường dẫn cũ", () => {
-    expect(cameFromGuardedRoute({ from: "/student" })).toBe(true);
+    expect(sessionEndedFrom({ from: "/student", sessionEnded: true })).toBe(true);
   });
 
   it("sai khi vào thẳng trang đăng nhập", () => {
-    expect(cameFromGuardedRoute(null)).toBe(false);
-    expect(cameFromGuardedRoute(undefined)).toBe(false);
-    expect(cameFromGuardedRoute({})).toBe(false);
-    expect(cameFromGuardedRoute({ from: "" })).toBe(false);
-    expect(cameFromGuardedRoute("/student")).toBe(false);
+    expect(sessionEndedFrom(null)).toBe(false);
+    expect(sessionEndedFrom(undefined)).toBe(false);
+    expect(sessionEndedFrom({})).toBe(false);
+    expect(sessionEndedFrom({ from: "/student", sessionEnded: false })).toBe(false);
+    expect(sessionEndedFrom("/student")).toBe(false);
   });
 });
 

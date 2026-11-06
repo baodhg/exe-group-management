@@ -30,7 +30,7 @@ describe("leader", () => {
   });
 
   it("reports the server's reason when an approval comes back cancelled", () => {
-    expect(decisionNote({ studentName: "Khoa", studentCode: "SE3", status: "Cancelled", reasonCode: "JOINED_ANOTHER_ROOM" })).toBe("Khoa: Đã hủy – Bạn đã vào phòng khác");
+    expect(decisionNote({ studentName: "Khoa", studentCode: "SE3", status: "Cancelled", reasonCode: "JOINED_ANOTHER_ROOM" })).toBe("Khoa: Đã huỷ – Bạn đã vào phòng khác");
   });
 
   it("notices that an approval took the last seat and closed the other applications", () => {

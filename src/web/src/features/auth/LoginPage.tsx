@@ -9,7 +9,7 @@ import { Brand } from "../../shared/layout/Brand";
 import { Field, Notice } from "../common/ui";
 import { Glow, HeroTitle } from "../landing/parts";
 import { ThemeToggle } from "../landing/ThemeToggle";
-import { cameFromGuardedRoute, loginFailureOf, missingFieldsOf, nothingMissing, sessionEndedText, type LoginFailure, type LoginFieldErrors } from "./loginForm";
+import { sessionEndedFrom, loginFailureOf, missingFieldsOf, nothingMissing, sessionEndedText, type LoginFailure, type LoginFieldErrors } from "./loginForm";
 
 const emailLimit = 255;
 const passwordLimit = 100;
@@ -102,7 +102,7 @@ export function LoginPage() {
           </div>
           <ThemeToggle />
         </div>
-        {cameFromGuardedRoute(location.state) && !attempted && (
+        {sessionEndedFrom(location.state) && !attempted && (
           <Notice tone="warn" icon={Clock}>
             {sessionEndedText}
           </Notice>

@@ -23,10 +23,10 @@ export function missingFieldsOf(email: string, password: string): LoginFieldErro
   return { email: email.trim() ? null : "Hãy nhập email.", password: password ? null : "Hãy nhập mật khẩu." };
 }
 
-export function cameFromGuardedRoute(state: unknown): boolean {
-  if (typeof state !== "object" || state === null || !("from" in state)) {
+export function sessionEndedFrom(state: unknown): boolean {
+  if (typeof state !== "object" || state === null || !("sessionEnded" in state)) {
     return false;
   }
 
-  return typeof state.from === "string" && state.from.length > 0;
+  return state.sessionEnded === true;
 }

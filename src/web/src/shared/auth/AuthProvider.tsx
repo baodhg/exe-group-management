@@ -12,6 +12,7 @@ function currentUser(): SessionUser | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<SessionUser | null>(currentUser);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   const forgetUser = useCallback(() => {
     queryClient.clear();
@@ -19,11 +20,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const api = useMemo(
-    () => createApiClient({ store: browserSessionStore, onSignedOut: forgetUser }),
+    () => createApiClient({
+        store: browserSessionStore,
+        onSignedOut: () => {
+          setSessionEnded(true);
+          forgetUser();
+        },
+      }),
     [forgetUser],
   );
 
   const signOut = useCallback(() => {
+    setSessionEnded(false);
     void api.signOut();
     forgetUser();
   }, [api, forgetUser]);
@@ -37,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("The access token could not be read.");
       }
 
+      setSessionEnded(false);
       setUser(signedIn);
       return signedIn;
     },
@@ -44,8 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AuthState>(
-    () => ({ api, user, signIn, signOut, hasRole: (role) => user?.roles.includes(role) ?? false }),
-    [api, user, signIn, signOut],
+    () => ({ api, user, sessionEnded, signIn, signOut, hasRole: (role) => user?.roles.includes(role) ?? false }),
+    [api, user, sessionEnded, signIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
