@@ -42,6 +42,8 @@ export interface SessionUser {
   userId: string;
   roles: Role[];
   expiresAt: number;
+  name: string | null;
+  email: string | null;
 }
 
 export function decodeUser(accessToken: string): SessionUser | null {
@@ -51,13 +53,16 @@ export function decodeUser(accessToken: string): SessionUser | null {
       return null;
     }
 
-    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as {
+    const bytes = Uint8Array.from(atob(payload.replace(/-/g, "+").replace(/_/g, "/")), (character) => character.charCodeAt(0));
+    const json = JSON.parse(new TextDecoder().decode(bytes)) as {
       sub?: string;
       role?: string | string[];
       exp?: number;
+      name?: string;
+      email?: string;
     };
     const roles = (Array.isArray(json.role) ? json.role : json.role ? [json.role] : []) as Role[];
-    return json.sub && json.exp ? { userId: json.sub, roles, expiresAt: json.exp * 1000 } : null;
+    return json.sub && json.exp ? { userId: json.sub, roles, expiresAt: json.exp * 1000, name: json.name ?? null, email: json.email ?? null } : null;
   } catch {
     return null;
   }

@@ -1,14 +1,63 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, Check, Hourglass, Inbox, Sparkles, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "../../shared/auth/useAuth";
-import { formatDateTime, phaseLabels, requestReasonText, requestStatusLabels, suggestionReasonText } from "../common/messages";
+import { useDialogs } from "../common/dialogsContext";
+import { errorText, formatRelative, requestReasonText, requestStatusLabels, suggestionReasonText } from "../common/messages";
 import type { Course, JoinRequest, RoomSuggestions, RoomSummary } from "../common/types";
-import { Badge, ErrorNote, Loading } from "../common/ui";
+import { Badge, ErrorNote, Loading, PageHeader, Section, type Tone } from "../common/ui";
+import { DeadlineText, PhaseBadge } from "../courses/CourseCard";
 import { RoomBoard } from "../rooms/RoomBoard";
+import { RoomCard } from "../rooms/RoomCard";
+
+const requestTones: Record<JoinRequest["status"], Tone> = { Pending: "info", Approved: "good", Rejected: "bad", Cancelled: "neutral" };
+
+function MyRoomPanel({ course, mine, loaded }: { course: Course; mine: RoomSummary | null; loaded: boolean }) {
+  if (!loaded) {
+    return <Skeleton className="h-40 rounded-xl" />;
+  }
+
+  if (mine) {
+    return (
+      <Section title="Phòng của bạn" actions={<Button render={<Link to={`/rooms/${mine.id}`} />}>Vào phòng <ArrowRight /></Button>}>
+        <div className="max-w-xl">
+          <RoomCard room={mine} mine />
+        </div>
+      </Section>
+    );
+  }
+
+  const message =
+    course.phase === "Published"
+      ? { title: "Bạn chưa có phòng", body: "Chọn một phòng gợi ý bên dưới hoặc tìm trên bảng phòng. Phòng mở thì vào thẳng, phòng khóa thì gửi đơn cho trưởng phòng." }
+      : course.phase === "Expired"
+        ? { title: "Đã hết hạn tìm nhóm", body: "Bạn chưa có phòng. Phòng đào tạo sẽ xếp bạn vào một phòng còn chỗ trước khi chốt nhóm." }
+        : course.phase === "Setup"
+          ? { title: "Course chưa mở tìm nhóm", body: "Khi course mở, bạn sẽ nhận thông báo và có thể chọn phòng." }
+          : null;
+
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-deadline/30 bg-deadline-soft p-4 text-deadline-ink">
+      <Hourglass className="mt-0.5 size-5 shrink-0" aria-hidden />
+      <div className="space-y-1">
+        <p className="font-semibold">{message.title}</p>
+        <p className="text-sm">{message.body}</p>
+      </div>
+    </div>
+  );
+}
 
 export function StudentCoursePage() {
   const { courseId = "" } = useParams();
   const { api } = useAuth();
+  const { confirm } = useDialogs();
   const queryClient = useQueryClient();
 
   const course = useQuery({ queryKey: ["course", courseId], queryFn: () => api.get<Course>(`/api/v1/courses/${courseId}`) });
@@ -31,11 +80,15 @@ export function StudentCoursePage() {
 
   const withdraw = useMutation({
     mutationFn: (requestId: string) => api.post<JoinRequest>(`/api/v1/join-requests/${requestId}/withdraw`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["joinRequests"] }),
+    onSuccess: async () => {
+      toast.success("Đã rút đơn");
+      await queryClient.invalidateQueries({ queryKey: ["joinRequests"] });
+    },
+    onError: (error) => toast.error(errorText(error)),
   });
 
   if (course.isLoading) {
-    return <Loading when />;
+    return <Loading when rows={4} />;
   }
 
   if (!course.data) {
@@ -43,99 +96,102 @@ export function StudentCoursePage() {
   }
 
   const current = course.data.data;
+  const requests = applications.data?.data ?? [];
+
   return (
-    <div className="stack">
-      <section className="card">
-        <p className="muted">
-          <Link to="/student">Course của tôi</Link> / {current.subjectCode} {current.classCode}
-        </p>
-        <h1>
-          {current.subjectCode} – {current.subjectName} · {current.classCode}
-        </h1>
-        <p>
-          <Badge tone={current.phase === "Published" ? "good" : "warn"}>{phaseLabels[current.phase]}</Badge> Hạn tìm nhóm: {formatDateTime(current.expireAt)} · Nhóm{" "}
-          {current.minGroupSize}–{current.maxGroupSize} người · <Link to={`/student/semesters/${current.semesterId}/skills`}>Skill của tôi</Link>
-        </p>
-        {mine ? (
-          <p>
-            Phòng của tôi: <Link to={`/rooms/${mine.id}`}>{mine.name}</Link> ({mine.memberCount}/{mine.capacity} người)
-          </p>
-        ) : (
-          myRoom.isSuccess && <p className="muted">Bạn chưa có phòng.</p>
-        )}
-      </section>
+    <div className="space-y-6">
+      <PageHeader
+        crumbs={[{ label: "Course của tôi", to: "/student" }, { label: `${current.subjectCode} ${current.classCode}` }]}
+        title={`${current.subjectCode}: ${current.subjectName}`}
+        meta={
+          <>
+            <PhaseBadge phase={current.phase} />
+            <Badge>Lớp {current.classCode}</Badge>
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <UsersRound className="size-4" aria-hidden />
+              Nhóm {current.minGroupSize} đến {current.maxGroupSize} người
+            </span>
+            <DeadlineText expireAt={current.expireAt} phase={current.phase} className="text-sm text-muted-foreground" />
+          </>
+        }
+        actions={
+          <Button variant="outline" render={<Link to={`/student/semesters/${current.semesterId}/skills`} />}>
+            <Sparkles />
+            Skill của tôi
+          </Button>
+        }
+      />
+
+      <MyRoomPanel course={current} mine={mine} loaded={myRoom.isSuccess} />
 
       {phase === "Published" && mine === null && (
-        <section className="card">
-          <h2>Phòng gợi ý</h2>
+        <Section title="Phòng hợp với bạn" description="Xếp theo ngành phòng còn thiếu và skill bạn bổ sung được cho phòng.">
           <Loading when={suggestions.isLoading} />
           <ErrorNote error={suggestions.error} />
           {suggestions.data && !suggestions.data.data.ranked && (
-            <p className="muted">Chưa xếp hạng được lúc này; đây là các phòng bạn vào được.</p>
+            <p className="mb-3 text-sm text-muted-foreground">Chưa xếp hạng được lúc này, đây là các phòng bạn vào được.</p>
           )}
-          {suggestions.data?.data.rooms.length === 0 && <p className="muted">Không còn phòng nào bạn vào được.</p>}
-          <ul className="suggestions">
+          {suggestions.data?.data.rooms.length === 0 && <p className="text-sm text-muted-foreground">Không còn phòng nào bạn vào được.</p>}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {suggestions.data?.data.rooms.map((item) => (
-              <li key={item.room.id}>
-                <Link to={`/rooms/${item.room.id}`}>{item.room.name}</Link> · {item.room.memberCount}/{item.room.capacity} người
-                {item.score !== null && <span className="muted"> · điểm {item.score}</span>}
+              <RoomCard key={item.room.id} room={item.room}>
                 {item.reasons.length > 0 && (
-                  <ul>
+                  <ul className="space-y-1 rounded-lg bg-accent/60 p-2.5 text-xs text-accent-foreground">
                     {item.reasons.map((reason) => (
-                      <li key={`${reason.code}-${reason.detail}`}>{suggestionReasonText(reason.code, reason.detail)}</li>
+                      <li key={`${reason.code}-${reason.detail}`} className="flex items-start gap-1.5">
+                        <Check className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                        {suggestionReasonText(reason.code, reason.detail)}
+                      </li>
                     ))}
                   </ul>
+                )}
+              </RoomCard>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {requests.length > 0 && (
+        <Section title="Đơn xin vào phòng">
+          <ErrorNote error={applications.error} />
+          <ul className="divide-y">
+            {requests.map((request) => (
+              <li key={request.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+                <Inbox className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <Link to={`/rooms/${request.roomId}`} className="font-medium hover:underline">
+                    {request.roomName}
+                  </Link>
+                  <p className="text-xs text-muted-foreground">
+                    Gửi {formatRelative(request.createdAt)}
+                    {request.reasonCode && `. ${requestReasonText(request.reasonCode)}`}
+                    {request.reasonText && `: ${request.reasonText}`}
+                  </p>
+                </div>
+                <Badge tone={requestTones[request.status]}>{requestStatusLabels[request.status]}</Badge>
+                {request.status === "Pending" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={withdraw.isPending}
+                    onClick={async () => {
+                      if (await confirm({ title: `Rút đơn vào ${request.roomName}?`, description: "Bạn có thể gửi lại đơn sau nếu phòng vẫn còn chỗ.", confirmLabel: "Rút đơn", destructive: true })) {
+                        withdraw.mutate(request.id);
+                      }
+                    }}
+                  >
+                    Rút đơn
+                  </Button>
                 )}
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
       )}
 
-      {applications.data && applications.data.data.length > 0 && (
-        <section className="card">
-          <h2>Đơn xin vào phòng của tôi</h2>
-          <ErrorNote error={withdraw.error ?? applications.error} />
-          <table>
-            <thead>
-              <tr>
-                <th>Phòng</th>
-                <th>Gửi lúc</th>
-                <th>Trạng thái</th>
-                <th>Lý do</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {applications.data.data.map((request) => (
-                <tr key={request.id}>
-                  <td>
-                    <Link to={`/rooms/${request.roomId}`}>{request.roomName}</Link>
-                  </td>
-                  <td>{formatDateTime(request.createdAt)}</td>
-                  <td>{requestStatusLabels[request.status]}</td>
-                  <td>
-                    {requestReasonText(request.reasonCode)}
-                    {request.reasonText && <span className="muted"> – {request.reasonText}</span>}
-                  </td>
-                  <td>
-                    {request.status === "Pending" && (
-                      <button type="button" disabled={withdraw.isPending} onClick={() => withdraw.mutate(request.id)}>
-                        Rút đơn
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      <section className="card">
-        <h2>{current.phase === "Finalized" ? "Danh sách nhóm chính thức" : "Bảng phòng"}</h2>
+      <Section title={current.phase === "Finalized" ? "Danh sách nhóm chính thức" : "Bảng phòng"}>
         <RoomBoard courseId={courseId} finalized={current.phase === "Finalized"} myRoomId={mine?.id ?? null} />
-      </section>
+      </Section>
     </div>
   );
 }
