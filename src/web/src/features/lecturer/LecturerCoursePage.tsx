@@ -106,17 +106,17 @@ export function LecturerCoursePage() {
             <TabsTrigger value="progress">
               <UsersRound />
               Tiến độ
-              {data && <Count>{`${data.placedCount}/${data.studentCount}`}</Count>}
+              {data && <Count muted>{`${data.placedCount}/${data.studentCount}`}</Count>}
             </TabsTrigger>
             <TabsTrigger value="rooms">
               {finalized ? <Award /> : <LayoutGrid />}
               {finalized ? "Nhóm chính thức" : "Bảng phòng"}
-              <Count>{current.roomCount}</Count>
+              <Count muted>{current.roomCount}</Count>
             </TabsTrigger>
             <TabsTrigger value="roster">
               <GraduationCap />
               Sinh viên
-              <Count>{current.studentCount}</Count>
+              <Count muted>{current.studentCount}</Count>
             </TabsTrigger>
           </TabsList>
 

@@ -132,7 +132,7 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function NameSection({ savedName }: { savedName: string }) {
-  const { api } = useAuth();
+  const { api, reloadUser } = useAuth();
   const queryClient = useQueryClient();
   const [name, setName] = useState(savedName);
   const empty = name.trim() === "";
@@ -141,7 +141,7 @@ function NameSection({ savedName }: { savedName: string }) {
     mutationFn: () => api.put("/api/v1/auth/me", { fullName: name.trim() }),
     onSuccess: async () => {
       toast.success("Đã lưu họ tên");
-      await queryClient.invalidateQueries({ queryKey: ["account", "me"] });
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["account", "me"] }), reloadUser()]);
     },
     onError: (error) => toast.error(errorText(error)),
   });

@@ -409,8 +409,7 @@ export function ApplicationHistory({ roomId }: { roomId: string }) {
               <TableHead>Ngành</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead>Lý do</TableHead>
-              <TableHead>Gửi lúc</TableHead>
-              <TableHead>Xử lý lúc</TableHead>
+              <TableHead>Thời gian</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -419,7 +418,7 @@ export function ApplicationHistory({ roomId }: { roomId: string }) {
               return (
                 <TableRow key={row.id}>
                   <TableCell>
-                    <span className="block font-semibold">{row.studentName ?? "Sinh viên"}</span>
+                    <span className="block font-semibold whitespace-nowrap">{row.studentName ?? "Sinh viên"}</span>
                     <span className="block text-xs text-muted-foreground">{row.studentCode}</span>
                   </TableCell>
                   <TableCell>{row.majorCode && <MajorTag code={row.majorCode} />}</TableCell>
@@ -432,8 +431,10 @@ export function ApplicationHistory({ roomId }: { roomId: string }) {
                     <span className="block font-semibold">{requestReasonText(row.reasonCode)}</span>
                     <span className="block text-xs text-muted-foreground">{row.reasonText}</span>
                   </TableCell>
-                  <TableCell className="tabular whitespace-nowrap">{dayTime(row.createdAt)}</TableCell>
-                  <TableCell className="tabular whitespace-nowrap">{dayTime(row.decidedAt)}</TableCell>
+                  <TableCell className="tabular whitespace-nowrap">
+                    <span className="block">Gửi {dayTime(row.createdAt)}</span>
+                    {row.decidedAt && <span className="block text-xs text-muted-foreground">Xử lý {dayTime(row.decidedAt)}</span>}
+                  </TableCell>
                 </TableRow>
               );
             })}

@@ -204,7 +204,7 @@ export function StudentBoardView({
         }
       />
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
+      <div className="grid items-start gap-4 xl:has-[>aside]:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
         <section className="flex min-w-0 flex-col gap-3.5" aria-label="Danh sách phòng">
           {stale && (
             <Notice tone="warn" icon={Clock} title="Lớp vừa chuyển giai đoạn">

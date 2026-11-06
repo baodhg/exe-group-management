@@ -90,11 +90,11 @@ export function IneligibleRooms({ data }: { data: CourseOverview }) {
                   {item.room.name}
                 </Link>
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <Badge icon={UsersRound}>Thiếu người: {missingMembersText(item, data.minGroupSize)}</Badge>
-                  <Badge icon={DoorOpen}>Thiếu ngành: {missingMajorsText(item)}</Badge>
+                  {item.missingMembers > 0 && <Badge icon={UsersRound}>Thiếu {missingMembersText(item, data.minGroupSize)}</Badge>}
+                  {item.missingMajorSeats > 0 && <Badge icon={DoorOpen}>Thiếu ngành: {missingMajorsText(item)}</Badge>}
                 </span>
               </div>
-              <SeatStrip capacity={item.room.capacity} memberCount={item.room.memberCount} majors={item.majors} missingMajorSeats={item.missingMajorSeats} />
+              <SeatStrip capacity={item.room.capacity} memberCount={item.room.memberCount} majors={item.room.majors} missingMajorSeats={item.missingMajorSeats} />
             </li>
           ))}
         </ul>

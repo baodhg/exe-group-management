@@ -29,8 +29,8 @@ export function Badge({ tone = "neutral", icon: Icon, children, className }: { t
   );
 }
 
-export function Count({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={cn("tabular inline-flex min-w-[18px] justify-center rounded-full bg-primary px-1.5 text-xs/[18px] font-bold text-primary-foreground", className)}>{children}</span>;
+export function Count({ muted = false, children, className }: { muted?: boolean; children: ReactNode; className?: string }) {
+  return <span className={cn("tabular inline-flex min-w-[18px] justify-center rounded-full px-1.5 text-xs/[18px] font-bold", muted ? "bg-muted text-foreground" : "bg-primary text-primary-foreground", className)}>{children}</span>;
 }
 
 export function ErrorNote({ error, className }: { error: unknown; className?: string }) {

@@ -428,7 +428,7 @@ export function SettingsSection({ course }: { course: Course }) {
                   <DoorOpen className="size-3.5" aria-hidden />
                   Mở chọn phòng
                 </span>
-                <strong>{course.publishAt ? shortDateTime(course.publishAt) : "Chưa hẹn giờ"}</strong>
+                <strong>{course.publishAt ? shortDateTime(course.publishAt) : course.phase === "Setup" ? "Chưa hẹn giờ" : "Đã mở thủ công"}</strong>
               </li>
               <li className="flex items-center justify-between gap-3 py-2 last:pb-0">
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">

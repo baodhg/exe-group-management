@@ -52,9 +52,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [api],
   );
 
+  const reloadUser = useCallback(async () => {
+    const session = await api.renewSession();
+    const renewed = session && decodeUser(session.accessToken);
+    if (renewed) {
+      setUser(renewed);
+    }
+  }, [api]);
+
   const value = useMemo<AuthState>(
-    () => ({ api, user, sessionEnded, signIn, signOut, hasRole: (role) => user?.roles.includes(role) ?? false }),
-    [api, user, sessionEnded, signIn, signOut],
+    () => ({ api, user, sessionEnded, signIn, signOut, reloadUser, hasRole: (role) => user?.roles.includes(role) ?? false }),
+    [api, user, sessionEnded, signIn, signOut, reloadUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
