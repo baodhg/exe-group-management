@@ -63,6 +63,20 @@ public sealed class CourseRepository(GroupDbContext context) : ICourseRepository
     public Task<Course?> FindAsync(Guid courseId, CancellationToken cancellationToken) =>
         context.Courses.SingleOrDefaultAsync(course => course.CourseId == courseId, cancellationToken);
 
+    public Task<List<Guid>> ListDueToPublishAsync(DateTime now, CancellationToken cancellationToken) =>
+        context.Courses
+            .Where(course => course.Phase == CoursePhases.Setup && course.PublishAt <= now && (course.ExpireAt == null || course.ExpireAt > now))
+            .OrderBy(course => course.PublishAt)
+            .Select(course => course.CourseId)
+            .ToListAsync(cancellationToken);
+
+    public Task<List<Guid>> ListDueToExpireAsync(DateTime now, CancellationToken cancellationToken) =>
+        context.Courses
+            .Where(course => course.Phase == CoursePhases.Published && course.ExpireAt <= now)
+            .OrderBy(course => course.ExpireAt)
+            .Select(course => course.CourseId)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> ClassCodeExistsAsync(Guid semesterId, Guid subjectId, string classCode, Guid? exceptCourseId, CancellationToken cancellationToken) =>
         context.Courses.AnyAsync(
             course => course.SemesterId == semesterId && course.SubjectId == subjectId && course.ClassCode == classCode && course.CourseId != exceptCourseId,
