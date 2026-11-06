@@ -1,17 +1,43 @@
-import { Crown, Shapes } from "lucide-react";
+import { Award, CircleAlert, Crown, DoorOpen, Inbox, Info, Layers, Lock, UsersRound, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 import { roomStatusLabels } from "../common/messages";
 import type { RoomSummary } from "../common/types";
 import { Badge, type Tone } from "../common/ui";
-import { missingMajors } from "./seatLayout";
-import { MajorChips, SeatStrip } from "./seats";
+import { roomHint, type RoomHint } from "./roomBoardLogic";
+import { SeatStrip } from "./seats";
 
-const statusTones: Record<RoomSummary["status"], Tone> = { Open: "good", Locked: "warn", Finalized: "info" };
+const statusStyles: Record<RoomSummary["status"], { tone: Tone; icon: LucideIcon }> = {
+  Open: { tone: "good", icon: DoorOpen },
+  Locked: { tone: "warn", icon: Lock },
+  Finalized: { tone: "good", icon: Award },
+};
 
 export function RoomStatusBadge({ status }: { status: RoomSummary["status"] }) {
-  return <Badge tone={statusTones[status]}>{roomStatusLabels[status]}</Badge>;
+  const style = statusStyles[status];
+  return (
+    <Badge tone={style.tone} icon={style.icon}>
+      {roomStatusLabels[status]}
+    </Badge>
+  );
+}
+
+const hintStyles: Record<RoomHint["tone"], { className: string; icon: LucideIcon }> = {
+  bad: { className: "text-danger-ink", icon: CircleAlert },
+  muted: { className: "text-muted-foreground", icon: UsersRound },
+  ink: { className: "text-ink", icon: Info },
+};
+
+function HintLine({ hint }: { hint: RoomHint }) {
+  const style = hintStyles[hint.tone];
+  const Icon = style.icon;
+  return (
+    <p className={cn("flex items-center gap-1.5 text-[13px] md:col-start-1", style.className)}>
+      <Icon className="size-3.5 shrink-0" aria-hidden />
+      {hint.text}
+    </p>
+  );
 }
 
 export function RoomCard({
@@ -20,68 +46,86 @@ export function RoomCard({
   showGroupNo = false,
   footer,
   children,
+  selected = false,
+  onSelect,
+  pending = false,
+  hint,
+  exception = null,
+  compact = false,
 }: {
   room: RoomSummary;
   mine?: boolean;
   showGroupNo?: boolean;
   footer?: ReactNode;
   children?: ReactNode;
+  selected?: boolean;
+  onSelect?: () => void;
+  pending?: boolean;
+  hint?: RoomHint | null;
+  exception?: string | null;
+  compact?: boolean;
 }) {
-  const missing = missingMajors(room.majors);
-  const reserved = room.missingMajorSeats ?? 0;
+  const title = showGroupNo && room.groupNo !== null ? `Nhóm ${room.groupNo}: ${room.name}` : room.name;
+  const line = hint === undefined ? roomHint(room) : hint;
+  const stretched = "text-left outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset";
 
   return (
-    <article
-      className={cn(
-        "group relative flex flex-col gap-3 rounded-xl border bg-card p-4 transition-shadow hover:shadow-md focus-within:ring-3 focus-within:ring-ring/40",
-        mine && "border-primary/50 ring-1 ring-primary/30",
-      )}
-    >
-      <header className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          {showGroupNo && room.groupNo !== null && <p className="text-xs font-medium text-muted-foreground">Nhóm {room.groupNo}</p>}
-          <h3 className="truncate text-base font-semibold">
-            <Link to={`/rooms/${room.id}`} className="outline-none after:absolute after:inset-0 after:rounded-xl">
-              {room.name}
+    <article className={cn("relative grid grid-cols-1 items-center gap-x-5 gap-y-1 border-t px-4 py-3 transition-colors first:border-t-0 hover:bg-muted md:grid-cols-[minmax(0,1fr)_250px]", (selected || (mine && !onSelect)) && "bg-primary/10 hover:bg-primary/10")}>
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 md:col-start-1">
+        <h3 className="text-[15px] font-bold">
+          {onSelect ? (
+            <button type="button" aria-pressed={selected} onClick={onSelect} className={stretched}>
+              {title}
+            </button>
+          ) : (
+            <Link to={`/rooms/${room.id}`} className={stretched}>
+              {title}
             </Link>
-          </h3>
-          <p className={cn("line-clamp-2 text-sm", room.topic ? "text-foreground/80" : "text-muted-foreground italic")}>{room.topic ?? "Chưa có đề tài"}</p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <RoomStatusBadge status={room.status} />
-          {mine && <Badge tone="info">Phòng của bạn</Badge>}
-        </div>
-      </header>
-
-      <div className="flex items-center justify-between gap-3">
-        <SeatStrip capacity={room.capacity} memberCount={room.memberCount} majors={room.majors} missingMajorSeats={reserved} />
-        <span className="tabular shrink-0 text-sm font-medium">
-          {room.memberCount}/{room.capacity}
-        </span>
+          )}
+        </h3>
+        <RoomStatusBadge status={room.status} />
+        {exception && (
+          <Badge tone="warn" icon={CircleAlert}>
+            Ngoại lệ
+          </Badge>
+        )}
+        {mine && (
+          <Badge tone="info" icon={DoorOpen}>
+            Phòng của bạn
+          </Badge>
+        )}
+        {pending && (
+          <Badge tone="info" icon={Inbox}>
+            Đơn đang chờ
+          </Badge>
+        )}
       </div>
-
-      <MajorChips majors={room.majors} />
-
-      {missing.length > 0 && room.status !== "Finalized" && (
-        <p className="text-xs text-deadline-ink">
-          Còn thiếu ngành {missing.map((major) => major.majorCode).join(", ")}
-          {reserved > 0 && `, ${reserved} chỗ được giữ cho các ngành này`}
-        </p>
+      <p className="text-[13px] text-muted-foreground md:col-start-1">{room.topic ?? "Chưa có đề tài"}</p>
+      <SeatStrip capacity={room.capacity} memberCount={room.memberCount} majors={room.majors} missingMajorSeats={room.missingMajorSeats ?? 0} className="my-1 md:col-start-2 md:row-span-3 md:row-start-1 md:my-0" />
+      {!compact && (
+        <div className="flex flex-wrap items-center gap-1.5 md:col-start-1">
+          <Badge icon={UsersRound}>
+            <span className="tabular">
+              {room.memberCount}/{room.capacity}
+            </span>
+          </Badge>
+          <Badge icon={Layers}>{room.groupTypeCode}</Badge>
+          <span className={cn("inline-flex items-center gap-1.5 text-[13px] text-muted-foreground", !room.leaderName && "font-semibold")}>
+            <Crown className="size-3.5 shrink-0" aria-hidden />
+            {room.leaderName ? `Trưởng nhóm: ${room.leaderName}` : "Chưa có trưởng nhóm"}
+          </span>
+          {footer && <span className="relative z-10 ml-auto">{footer}</span>}
+        </div>
       )}
-
-      {children}
-
-      <footer className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <Crown className="size-3.5" aria-hidden />
-          {room.leaderName ?? "Chưa có trưởng phòng"}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Shapes className="size-3.5" aria-hidden />
-          {room.groupTypeCode}
-        </span>
-        {footer && <span className="relative z-10 ml-auto">{footer}</span>}
-      </footer>
+      {exception ? (
+        <p className="flex items-center gap-1.5 text-[13px] text-ink md:col-start-1">
+          <CircleAlert className="size-3.5 shrink-0" aria-hidden />
+          {exception}
+        </p>
+      ) : (
+        line && <HintLine hint={line} />
+      )}
+      {children && <div className="md:col-start-1">{children}</div>}
     </article>
   );
 }
