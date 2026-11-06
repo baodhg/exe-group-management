@@ -46,7 +46,7 @@ docker compose up -d sqlserver redis
 
 Không dùng Visual Studio: `dotnet run --project src/GroupService/ExeGroup.Group.API --launch-profile group-service`, các service khác tương tự.
 
-Token để thử API khi chưa có đăng nhập thật: `node scripts/dev-token.mjs Administrator` (hoặc `Student`, `Lecturer`) → dán vào nút **Authorize** trên Swagger.
+Đăng nhập trên web hoặc `POST /api/v1/auth/login` trên Swagger, bằng `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` (có trong `.env` và `.env.local`). Dữ liệu demo (học kỳ FA26, 30 SV, course EXE101 – SE1919): `node scripts/seed-demo.mjs`. Cần token thử nhanh mà không cần tài khoản thì dùng `node scripts/dev-token.mjs Administrator` (hoặc `Student`, `Lecturer`) → dán vào nút **Authorize** trên Swagger.
 
 ## 2. Cấu trúc repo
 

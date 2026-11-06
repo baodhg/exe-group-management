@@ -220,7 +220,11 @@ version if anything fails. Follow it in the **Actions** tab; a failed deployment
 - The deploy key can only run `scripts/demo-deploy-entry.sh` for a commit that is on `main`. It lives in the `demo`
   GitHub environment, which only `main` can use, so pull requests cannot read it.
 - Secrets stay in `demo.env` on the server (`SA_PASSWORD`, `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`,
-  `ASPNETCORE_ENVIRONMENT=Production`), never in the repository. Do not store real student data on this demo.
+  `ASPNETCORE_ENVIRONMENT=Production`, and `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` for the first Administrator: without
+  them nobody can sign in), never in the repository. Do not store real student data on this demo.
+- Load the demo data from a laptop through the public site:
+  `SEED_GATEWAY_URL=https://exe.qizhub.com SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=... SEED_DEMO_PASSWORD=... node scripts/seed-demo.mjs`.
+  Do not run `scripts/smoke-e2e.mjs` there: it adds a throwaway course.
 - Each successful deployment keeps the running and the last good images, and removes build cache unused for 7 days.
 - The server hosts other projects: never run `docker system prune` or `docker compose down -v` there.
 
