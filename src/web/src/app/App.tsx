@@ -1,8 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { BrowserRouter, Route, Routes } from "react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { useTheme } from "../shared/theme/theme";
 import { LoginPage } from "../features/auth/LoginPage";
+import { LandingPage } from "../features/landing/LandingPage";
+import { NotFoundPage } from "../features/system/SystemPage";
 import { catalogs } from "../features/admin/catalogs";
 import { DialogsProvider } from "../features/common/dialogs";
 import { ConnectionStatus } from "../features/realtime/ConnectionStatus";
@@ -26,6 +29,16 @@ const SkillsPage = lazy(() => import("../features/student/SkillsPage").then((mod
 const StudentCoursePage = lazy(() => import("../features/student/StudentCoursePage").then((module) => ({ default: module.StudentCoursePage })));
 const MyCoursesPage = lazy(() => import("../features/home/MyCoursesPage").then((module) => ({ default: module.MyCoursesPage })));
 
+const AccountPage = lazy(() => import("../features/account/AccountPage").then((module) => ({ default: module.AccountPage })));
+const ApplicationsPage = lazy(() => import("../features/student/ApplicationsPage").then((module) => ({ default: module.ApplicationsPage })));
+const ConversationsPage = lazy(() => import("../features/conversations/ConversationsPage").then((module) => ({ default: module.ConversationsPage })));
+const SemesterStudentsPage = lazy(() => import("../features/semesters/SemesterStudentsPage").then((module) => ({ default: module.SemesterStudentsPage })));
+
+function AppToaster() {
+  const { theme } = useTheme();
+  return <Toaster position="top-right" closeButton theme={theme} />;
+}
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
@@ -38,11 +51,16 @@ export function App() {
           <DialogsProvider>
             <BrowserRouter>
               <Routes>
+                <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
-                <Route element={<AppLayout actions={<NotificationBell />} status={<ConnectionStatus />} />}>
+                <Route element={<AppLayout bell={(collapsed) => <NotificationBell compact={collapsed} />} status={<ConnectionStatus />} />}>
                   <Route path="/student" element={<RequireRole roles={["Student"]}><MyCoursesPage area="student" /></RequireRole>} />
                   <Route path="/student/courses/:courseId" element={<RequireRole roles={["Student"]}><StudentCoursePage /></RequireRole>} />
                   <Route path="/student/semesters/:semesterId/skills" element={<RequireRole roles={["Student"]}><SkillsPage /></RequireRole>} />
+                  <Route path="/student/applications" element={<RequireRole roles={["Student"]}><ApplicationsPage /></RequireRole>} />
+                  <Route path="/conversations" element={<RequireRole roles={["Student"]}><ConversationsPage /></RequireRole>} />
+                  <Route path="/account" element={<RequireRole roles={["Student", "Lecturer", "Administrator"]}><AccountPage /></RequireRole>} />
+                  <Route path="/admin/semesters/:semesterId/students" element={<RequireRole roles={["Administrator"]}><SemesterStudentsPage /></RequireRole>} />
                   <Route path="/notifications" element={<RequireRole roles={["Student", "Lecturer", "Administrator"]}><NotificationsPage /></RequireRole>} />
                   <Route path="/rooms/:roomId" element={<RequireRole roles={["Student", "Lecturer", "Administrator"]}><RoomPage /></RequireRole>} />
                   <Route path="/lecturer" element={<RequireRole roles={["Lecturer"]}><MyCoursesPage area="lecturer" /></RequireRole>} />
@@ -55,12 +73,12 @@ export function App() {
                   <Route path="/admin/group-types" element={<RequireRole roles={["Administrator"]}><GroupTypesPage /></RequireRole>} />
                   <Route path="/admin/users" element={<RequireRole roles={["Administrator"]}><UsersPage /></RequireRole>} />
                   <Route path="/admin/courses" element={<RequireRole roles={["Administrator"]}><CoursesPage /></RequireRole>} />
-                  <Route path="/admin/courses/:courseId" element={<RequireRole roles={["Administrator"]}><AdminCoursePage /></RequireRole>} />
+                  <Route path="/admin/courses/:courseId/:section?" element={<RequireRole roles={["Administrator"]}><AdminCoursePage /></RequireRole>} />
+                  <Route path="*" element={<RequireRole roles={["Student", "Lecturer", "Administrator"]}><NotFoundPage /></RequireRole>} />
                 </Route>
-                <Route path="*" element={<Navigate to="/login" replace />} />
               </Routes>
+              <AppToaster />
             </BrowserRouter>
-            <Toaster position="bottom-right" closeButton />
           </DialogsProvider>
         </RealtimeProvider>
       </AuthProvider>

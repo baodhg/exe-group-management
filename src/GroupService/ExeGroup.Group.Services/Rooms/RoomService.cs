@@ -159,7 +159,7 @@ public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, 
                     do
                     {
                         number++;
-                        name = $"Room {number.ToString(CultureInfo.InvariantCulture).PadLeft(width, '0')}";
+                        name = $"Phòng {number.ToString(CultureInfo.InvariantCulture).PadLeft(width, '0')}";
                     }
                     while (names.Contains(name));
 

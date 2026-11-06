@@ -123,6 +123,9 @@ namespace ExeGroup.Realtime.Repositories.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid?>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -130,6 +133,9 @@ namespace ExeGroup.Realtime.Repositories.Data.Migrations
 
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RoomId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Title")
                         .IsRequired()

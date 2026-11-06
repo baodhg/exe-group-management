@@ -89,7 +89,7 @@ public sealed class GroupEventHandler(
                 var submitted = Read<JoinRequestSubmitted>(message);
                 if (submitted.LeaderId is { } leaderId)
                 {
-                    Notify(leaderId, message.Type, $"Đơn mới vào {submitted.RoomName}", $"Một sinh viên vừa xin vào {submitted.RoomName}.", pushes);
+                    Notify(leaderId, message.Type, $"Đơn mới vào {submitted.RoomName}", $"Một sinh viên vừa xin vào {submitted.RoomName}.", submitted.CourseId, submitted.RoomId, pushes);
                 }
 
                 break;
@@ -136,12 +136,12 @@ public sealed class GroupEventHandler(
         pushes.Add(token => push.JoinConversationAsync(joined.StudentId, joined.RoomId, token));
         if (joined.LeaderId is { } leaderId && leaderId != joined.StudentId)
         {
-            Notify(leaderId, type, $"Thành viên mới ở {joined.RoomName}", $"Một sinh viên vừa vào {joined.RoomName}.", pushes);
+            Notify(leaderId, type, $"Thành viên mới ở {joined.RoomName}", $"Một sinh viên vừa vào {joined.RoomName}.", joined.CourseId, joined.RoomId, pushes);
         }
 
         if (joined.JoinedVia == "Admin")
         {
-            Notify(joined.StudentId, type, $"Bạn được xếp vào {joined.RoomName}", $"Quản trị viên đã xếp bạn vào {joined.RoomName}.", pushes);
+            Notify(joined.StudentId, type, $"Bạn được xếp vào {joined.RoomName}", $"Giáo vụ đã xếp bạn vào {joined.RoomName}.", joined.CourseId, joined.RoomId, pushes);
         }
 
         Board(joined.CourseId, joined.RoomId, joined.RoomName, type, pushes);
@@ -159,10 +159,10 @@ public sealed class GroupEventHandler(
         {
             case "Removed":
                 var reason = string.IsNullOrWhiteSpace(left.EndNote) ? "." : $". Lý do: {left.EndNote}";
-                Notify(left.StudentId, type, $"Bạn không còn ở {left.RoomName}", $"Trưởng phòng đã xóa bạn khỏi {left.RoomName}{reason}", pushes);
+                Notify(left.StudentId, type, $"Bạn không còn ở {left.RoomName}", $"Trưởng nhóm đã xoá bạn khỏi {left.RoomName}{reason}", left.CourseId, left.RoomId, pushes);
                 break;
             case "Moved":
-                Notify(left.StudentId, type, $"Bạn được chuyển khỏi {left.RoomName}", $"Quản trị viên đã chuyển bạn khỏi {left.RoomName}.", pushes);
+                Notify(left.StudentId, type, $"Bạn được chuyển khỏi {left.RoomName}", $"Giáo vụ đã chuyển bạn khỏi {left.RoomName}.", left.CourseId, left.RoomId, pushes);
                 break;
         }
 
@@ -173,7 +173,7 @@ public sealed class GroupEventHandler(
     {
         if (changed.LeaderId is { } leaderId)
         {
-            Notify(leaderId, type, $"Bạn là trưởng {changed.RoomName}", $"Bạn vừa trở thành trưởng phòng {changed.RoomName}.", pushes);
+            Notify(leaderId, type, $"Bạn là trưởng {changed.RoomName}", $"Bạn vừa trở thành trưởng nhóm {changed.RoomName}.", changed.CourseId, changed.RoomId, pushes);
         }
 
         Board(changed.CourseId, changed.RoomId, changed.RoomName, type, pushes);
@@ -185,17 +185,17 @@ public sealed class GroupEventHandler(
         (string Title, string Body)? text = (decided.Status, decided.ReasonCode) switch
         {
             ("Approved", _) => ("Đơn được duyệt", $"Bạn đã vào {room}."),
-            (_, "REJECTED_BY_LEADER") => ("Đơn bị từ chối", $"Trưởng phòng {room} đã từ chối đơn của bạn."),
+            (_, "REJECTED_BY_LEADER") => ("Đơn bị từ chối", $"Trưởng nhóm {room} đã từ chối đơn của bạn."),
             (_, "ROOM_FULL") => ("Đơn bị từ chối", $"{room} đã đủ người."),
             (_, "COMPOSITION_RULE") => ("Đơn bị từ chối", $"Nhận bạn sẽ khiến {room} không còn đủ chỗ cho các ngành còn thiếu."),
             (_, "GROUPING_EXPIRED") => ("Đơn đã đóng", $"Đã hết hạn tìm nhóm trước khi {room} quyết định đơn của bạn."),
-            (_, "JOINED_ANOTHER_ROOM") => ("Đơn đã hủy", $"Đơn vào {room} được hủy vì bạn đã vào phòng khác."),
-            (_, "ROOM_REOPENED") => ("Đơn đã hủy", $"{room} đã mở lại, bạn có thể vào thẳng."),
+            (_, "JOINED_ANOTHER_ROOM") => ("Đơn đã huỷ", $"Đơn vào {room} được huỷ vì bạn đã vào phòng khác."),
+            (_, "ROOM_REOPENED") => ("Đơn đã huỷ", $"{room} đã mở lại, bạn có thể vào thẳng."),
             _ => null,
         };
         if (text is { } notice)
         {
-            Notify(decided.StudentId, type, notice.Title, notice.Body, pushes);
+            Notify(decided.StudentId, type, notice.Title, notice.Body, decided.CourseId, decided.RoomId, pushes);
         }
     }
 
@@ -203,8 +203,8 @@ public sealed class GroupEventHandler(
     {
         (string Title, string Body)? text = changed.Phase switch
         {
-            "Published" => ("Đã mở tìm nhóm", $"{changed.CourseName}: các phòng đã mở. Hãy vào một phòng hoặc gửi đơn vào phòng đang khóa."),
-            "Expired" => ("Đã hết hạn tìm nhóm", $"{changed.CourseName}: đã hết hạn. Quản trị viên sẽ xếp các bạn chưa có phòng."),
+            "Published" => ("Đã mở tìm nhóm", $"{changed.CourseName}: các phòng đã mở. Hãy vào một phòng hoặc gửi đơn vào phòng đang khoá."),
+            "Expired" => ("Đã hết hạn tìm nhóm", $"{changed.CourseName}: đã hết hạn. Giáo vụ sẽ xếp các bạn chưa có phòng."),
             "Finalized" => ("Đã chốt nhóm", $"{changed.CourseName}: danh sách nhóm đã chính thức."),
             _ => null,
         };
@@ -215,16 +215,16 @@ public sealed class GroupEventHandler(
 
         foreach (var studentId in (changed.StudentIds ?? []).Distinct())
         {
-            Notify(studentId, type, notice.Title, notice.Body, pushes);
+            Notify(studentId, type, notice.Title, notice.Body, changed.CourseId, null, pushes);
         }
 
         if (changed.Phase == "Finalized" && changed.LecturerId is { } lecturerId)
         {
-            Notify(lecturerId, type, notice.Title, notice.Body, pushes);
+            Notify(lecturerId, type, notice.Title, notice.Body, changed.CourseId, null, pushes);
         }
     }
 
-    private void Notify(Guid userId, string type, string title, string body, List<Func<CancellationToken, Task>> pushes)
+    private void Notify(Guid userId, string type, string title, string body, Guid courseId, Guid? roomId, List<Func<CancellationToken, Task>> pushes)
     {
         var notification = new Notification
         {
@@ -234,9 +234,11 @@ public sealed class GroupEventHandler(
             Title = Trim(title, MaxTitleLength),
             Body = Trim(body, MaxBodyLength),
             CreatedAt = clock.UtcNow,
+            CourseId = courseId,
+            RoomId = roomId,
         };
         events.Add(notification);
-        var model = new NotificationModel(notification.NotificationId, notification.Type, notification.Title, notification.Body, notification.CreatedAt, null);
+        var model = new NotificationModel(notification.NotificationId, notification.Type, notification.Title, notification.Body, notification.CreatedAt, null, notification.CourseId, notification.RoomId);
         pushes.Add(token => push.NotificationAsync(userId, model, token));
     }
 

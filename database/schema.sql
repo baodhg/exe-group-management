@@ -355,6 +355,8 @@ CREATE TABLE dbo.[Notifications] (
     [Body] nvarchar(500) NOT NULL,
     [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_Notifications_CreatedAt] DEFAULT (SYSUTCDATETIME()),
     [ReadAt] datetime2 NULL,
+    [CourseId] uniqueidentifier NULL,
+    [RoomId] uniqueidentifier NULL,
     CONSTRAINT [PK_Notifications] PRIMARY KEY CLUSTERED ([NotificationId])
 );
 CREATE INDEX [IX_Notifications_Unread] ON dbo.[Notifications] ([UserId], [CreatedAt]) WHERE [ReadAt] IS NULL;

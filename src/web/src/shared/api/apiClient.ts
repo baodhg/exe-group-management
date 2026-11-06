@@ -48,6 +48,7 @@ export interface ApiClient {
   patch<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>>;
   delete(path: string): Promise<void>;
   signOut(): Promise<void>;
+  renewSession(): Promise<StoredSession | null>;
 }
 
 export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSignedOut, refreshLock = acrossBrowserTabs }: ApiClientOptions): ApiClient {
@@ -131,6 +132,10 @@ export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSig
     patch: (path, body) => send("PATCH", path, body, true),
     delete: async (path) => {
       await send("DELETE", path, undefined, true);
+    },
+    renewSession: async () => {
+      const session = store.read();
+      return session ? refreshOnce(session) : null;
     },
     signOut: async () => {
       const session = store.read();

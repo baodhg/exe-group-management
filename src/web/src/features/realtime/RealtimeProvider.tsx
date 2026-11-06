@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { toast } from "sonner";
 import { browserSessionStore, decodeUser } from "../../shared/auth/sessionStore";
 import { useAuth } from "../../shared/auth/useAuth";
-import { tokenExpired, type ChatMessage, type Notification, type RoomChange } from "./chat";
+import { notificationQueryKeys, notificationTarget, roomChangeQueryKeys, tokenExpired, type ChatMessage, type Notification, type RoomChange } from "./chat";
+import { PushCard } from "./PushCard";
 import { RealtimeContext, type ConnectionState, type RealtimeState } from "./realtimeContext";
 
 const hubPath = "/hubs/realtime";
@@ -18,6 +19,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const watched = useRef(new Map<string, number>());
   const listeners = useRef(new Map<string, Set<(message: ChatMessage) => void>>());
   const userId = user?.userId;
+  const rolesRef = useRef<readonly string[]>([]);
+  const roles = user?.roles;
+  useEffect(() => {
+    rolesRef.current = roles ?? [];
+  }, [roles]);
 
   useEffect(() => {
     if (!userId) {
@@ -42,14 +48,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const rewatch = () => Promise.all([...watched.current.keys()].map((courseId) => hub.invoke("watchCourse", courseId).catch(() => undefined)));
 
     hub.on("notificationReceived", (notification: Notification) => {
-      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      toast(notification.title, { description: notification.body });
+      for (const queryKey of notificationQueryKeys(notification)) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+
+      toast.custom((id) => <PushCard notification={notification} target={notificationTarget(notification, rolesRef.current)} onClose={() => toast.dismiss(id)} />, { position: "bottom-right", duration: 7_000 });
     });
     hub.on("messageReceived", (message: ChatMessage) => {
       listeners.current.get(message.conversationId)?.forEach((listener) => listener(message));
     });
     hub.on("roomChanged", (change: RoomChange) => {
-      for (const queryKey of [["rooms", change.courseId], ["room", change.roomId], ["overview", change.courseId], ["suggestions", change.courseId], ["course", change.courseId]]) {
+      for (const queryKey of roomChangeQueryKeys(change)) {
         void queryClient.invalidateQueries({ queryKey });
       }
     });
@@ -57,12 +66,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     hub.onreconnected(() => {
       setState("connected");
       void rewatch();
-      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      void queryClient.invalidateQueries({ queryKey: ["chat"] });
+      void queryClient.invalidateQueries();
     });
-    hub.onclose(() => setState("disconnected"));
+    hub.onclose(() => {
+      setState("disconnected");
+      if (!run.stopped) {
+        run.dropped = true;
+        clearTimeout(run.retry);
+        run.retry = setTimeout(() => void start(), retryDelayMs);
+      }
+    });
 
-    const run: { stopped: boolean; retry?: ReturnType<typeof setTimeout> } = { stopped: false };
+    const run: { stopped: boolean; dropped: boolean; retry?: ReturnType<typeof setTimeout> } = { stopped: false, dropped: false };
     const start = async () => {
       setState("connecting");
       try {
@@ -70,6 +85,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         if (!run.stopped) {
           setState("connected");
           await rewatch();
+          if (run.dropped) {
+            run.dropped = false;
+            void queryClient.invalidateQueries();
+          }
         }
       } catch {
         if (!run.stopped) {

@@ -1,11 +1,15 @@
-import { Bell, BookOpen, CalendarRange, Blocks, GraduationCap, LayoutDashboard, Library, Shapes, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
+import { Award, Bell, Blocks, BookMarked, CalendarRange, DoorOpen, Flag, GraduationCap, House, Inbox, LayoutGrid, Library, MessageSquare, Shapes, SlidersHorizontal, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
 import type { Role } from "../auth/sessionStore";
+
+export type CoursePhaseName = "Setup" | "Published" | "Expired" | "Finalized";
 
 export interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  activeOn?: string[];
+  count?: number;
 }
 
 export interface NavSection {
@@ -15,14 +19,22 @@ export interface NavSection {
 }
 
 export const navSections: NavSection[] = [
-  { title: "Sinh viên", roles: ["Student"], items: [{ to: "/student", label: "Course của tôi", icon: BookOpen }] },
-  { title: "Giảng viên", roles: ["Lecturer"], items: [{ to: "/lecturer", label: "Course giảng dạy", icon: GraduationCap }] },
+  {
+    title: "Học tập",
+    roles: ["Student"],
+    items: [
+      { to: "/student", label: "Lớp của tôi", icon: GraduationCap, end: true, activeOn: ["/student/courses", "/student/semesters"] },
+      { to: "/student/applications", label: "Đơn của tôi", icon: Inbox },
+      { to: "/conversations", label: "Trò chuyện", icon: MessageSquare },
+    ],
+  },
+  { title: "Lớp tôi dạy", roles: ["Lecturer"], items: [{ to: "/lecturer", label: "Các lớp", icon: GraduationCap, end: true, activeOn: ["/lecturer/courses"] }] },
   {
     title: "Vận hành",
     roles: ["Administrator"],
     items: [
-      { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
-      { to: "/admin/courses", label: "Course", icon: BookOpen },
+      { to: "/admin", label: "Tổng quan", icon: House, end: true },
+      { to: "/admin/courses", label: "Các lớp", icon: GraduationCap, end: true },
     ],
   },
   {
@@ -31,19 +43,61 @@ export const navSections: NavSection[] = [
     items: [
       { to: "/admin/semesters", label: "Học kỳ", icon: CalendarRange },
       { to: "/admin/subjects", label: "Môn học", icon: Library },
-      { to: "/admin/majors", label: "Ngành", icon: Shapes },
-      { to: "/admin/skills", label: "Skill", icon: Sparkles },
+      { to: "/admin/majors", label: "Ngành", icon: BookMarked },
+      { to: "/admin/skills", label: "Kỹ năng", icon: Sparkles },
       { to: "/admin/group-types", label: "Loại nhóm", icon: Blocks },
     ],
   },
   { title: "Hệ thống", roles: ["Administrator"], items: [{ to: "/admin/users", label: "Tài khoản", icon: UsersRound }] },
-  { title: "Cá nhân", roles: ["Student", "Lecturer", "Administrator"], items: [{ to: "/notifications", label: "Thông báo", icon: Bell }] },
 ];
+
+export const notificationsItem: NavItem = { to: "/notifications", label: "Thông báo", icon: Bell };
+
+const courseSections: Record<string, { label: string; icon: LucideIcon }> = {
+  settings: { label: "Thiết lập lớp", icon: SlidersHorizontal },
+  roster: { label: "Sinh viên", icon: UsersRound },
+  rooms: { label: "Phòng", icon: DoorOpen },
+  overview: { label: "Điều phối", icon: LayoutGrid },
+  placement: { label: "Xếp và chốt nhóm", icon: Flag },
+  final: { label: "Nhóm chính thức", icon: Award },
+};
+
+const sectionsByPhase: Record<CoursePhaseName, string[]> = {
+  Setup: ["settings", "roster", "rooms"],
+  Published: ["overview", "settings", "roster", "rooms"],
+  Expired: ["overview", "placement", "settings", "roster", "rooms"],
+  Finalized: ["final", "overview", "roster"],
+};
+
+export function courseSectionsFor(phase: CoursePhaseName): string[] {
+  return sectionsByPhase[phase];
+}
+
+const defaultSections: Record<CoursePhaseName, string> = { Setup: "settings", Published: "overview", Expired: "placement", Finalized: "final" };
+
+export function defaultCourseSection(phase: CoursePhaseName): string {
+  return defaultSections[phase];
+}
+
+export function navItemActive(item: Pick<NavItem, "activeOn">, pathname: string): boolean {
+  return item.activeOn?.some((prefix) => pathname.startsWith(`${prefix}/`)) ?? false;
+}
+
+export function adminCourseSection(courseId: string, phase: CoursePhaseName, classCode: string): NavSection {
+  return {
+    title: `Lớp ${classCode}`,
+    roles: ["Administrator"],
+    items: sectionsByPhase[phase].map((key) => {
+      const section = courseSections[key] ?? { label: key, icon: Shapes };
+      return { to: `/admin/courses/${courseId}/${key}`, label: section.label, icon: section.icon };
+    }),
+  };
+}
 
 export const roleLabels: Record<Role, string> = {
   Student: "Sinh viên",
   Lecturer: "Giảng viên",
-  Administrator: "Quản trị viên",
+  Administrator: "Giáo vụ",
 };
 
 export function initialsOf(name: string | null | undefined, fallback = "?"): string {

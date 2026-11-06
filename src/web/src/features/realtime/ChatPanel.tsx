@@ -1,60 +1,79 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { LoaderCircle, MessagesSquare, SendHorizontal, Trash2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LoaderCircle, Lock, MessagesSquare, SendHorizontal, Trash2, Wifi, WifiOff, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { ApiError } from "../../shared/api/apiClient";
 import { useAuth } from "../../shared/auth/useAuth";
-import { useDialogs } from "../common/dialogsContext";
 import { errorText } from "../common/messages";
-import { ErrorNote } from "../common/ui";
-import { mergeMessages, type ChatMessage, type MessagePage } from "./chat";
+import { Badge, EmptyState, Failure, Notice } from "../common/ui";
+import { ActionDialog } from "../rooms/ActionDialog";
+import { canSendDraft, chatRows, chatViewState, connectionLook, draftCounter, mergeMessages, messageLimit, stillSyncing, type ChatMessage, type ConnectionLook, type MessagePage } from "./chat";
 import { useRealtime } from "./realtimeContext";
 
 const pageSize = 20;
 const syncAttempts = 15;
 const stickDistance = 120;
 
-function stillSyncing(error: unknown): boolean {
-  return error instanceof ApiError && (error.status === 404 || error.status === 403);
+const connectionIcons: Record<ConnectionLook["kind"], LucideIcon> = { live: Wifi, retry: LoaderCircle, offline: WifiOff, readOnly: Lock };
+
+function ChatLoading() {
+  return (
+    <div className="flex flex-col gap-2.5" aria-label="Đang tải">
+      <Skeleton className="h-3 w-32 rounded-full" />
+      <Skeleton className="h-11 w-full rounded-[10px]" />
+      <Skeleton className="h-3 w-32 self-end rounded-full" />
+      <Skeleton className="h-11 w-full rounded-[10px]" />
+      <Skeleton className="h-3 w-32 rounded-full" />
+      <Skeleton className="h-11 w-full rounded-[10px]" />
+    </div>
+  );
 }
 
-function timeOf(value: string): string {
-  return new Date(value).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-}
-
-function dayOf(value: string): string {
-  return new Date(value).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" });
-}
-
-export function ChatPanel({ conversationId, className }: { conversationId: string; className?: string }) {
+export function ChatPanel({ conversationId, title = "Chat của phòng", readOnly = false, className }: { conversationId: string; title?: string; readOnly?: boolean; className?: string }) {
   const { api, user } = useAuth();
   const { state, onMessage } = useRealtime();
-  const { confirm } = useDialogs();
+  const queryClient = useQueryClient();
   const [extra, setExtra] = useState<ChatMessage[]>([]);
   const [olderOverride, setOlderOverride] = useState<string | null | undefined>(undefined);
   const [text, setText] = useState("");
+  const [deleting, setDeleting] = useState<ChatMessage | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const lastSeen = useRef<string | null>(null);
+  const heightBeforeOlder = useRef<number | null>(null);
 
   const latest = useQuery({
     queryKey: ["chat", conversationId],
     queryFn: () => api.get<MessagePage>(`/api/v1/conversations/${conversationId}/messages`, { pageSize }),
-    retry: (count, error) => stillSyncing(error) && count < syncAttempts,
+    retry: (count, error) => !readOnly && stillSyncing(error) && count < syncAttempts,
     retryDelay: 2_000,
   });
 
   const messages = useMemo(() => mergeMessages(latest.data?.data.items ?? [], extra), [latest.data, extra]);
+  const rows = useMemo(() => chatRows(messages, user?.userId, readOnly), [messages, user?.userId, readOnly]);
   const olderCursor = olderOverride === undefined ? (latest.data?.data.nextBefore ?? null) : olderOverride;
+  const view = chatViewState({ hasData: latest.data !== undefined, error: latest.error, failureReason: latest.failureReason });
+  const look = connectionLook(state, readOnly);
+  const ConnectionIcon = connectionIcons[look.kind];
+  const counter = draftCounter(text);
 
   useEffect(() => onMessage(conversationId, (message) => setExtra((current) => mergeMessages(current, [message]))), [conversationId, onMessage]);
 
   useLayoutEffect(() => {
     const box = scroller.current;
+    if (!box) {
+      return;
+    }
+
+    if (heightBeforeOlder.current !== null) {
+      box.scrollTop += box.scrollHeight - heightBeforeOlder.current;
+      heightBeforeOlder.current = null;
+    }
+
     const last = messages.at(-1);
-    if (!box || !last || last.id === lastSeen.current) {
+    if (!last || last.id === lastSeen.current) {
       return;
     }
 
@@ -69,130 +88,165 @@ export function ChatPanel({ conversationId, className }: { conversationId: strin
   const older = useMutation({
     mutationFn: (before: string) => api.get<MessagePage>(`/api/v1/conversations/${conversationId}/messages`, { pageSize, before }),
     onSuccess: (result) => {
+      heightBeforeOlder.current = scroller.current?.scrollHeight ?? null;
       setExtra((current) => mergeMessages(current, result.data.items));
       setOlderOverride(result.data.nextBefore);
     },
     onError: (error) => toast.error(errorText(error)),
   });
   const send = useMutation({
-    mutationFn: () => api.post<ChatMessage>(`/api/v1/conversations/${conversationId}/messages`, { content: text.trim() }),
+    mutationFn: (content: string) => api.post<ChatMessage>(`/api/v1/conversations/${conversationId}/messages`, { content }),
     onSuccess: (result) => {
       setText("");
       setExtra((current) => mergeMessages(current, [result.data]));
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
-    onError: (error) => toast.error(errorText(error)),
+    onError: (error) => {
+      toast.error(errorText(error));
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
   });
   const remove = useMutation({
     mutationFn: (message: ChatMessage) => api.delete(`/api/v1/messages/${message.id}`).then(() => message),
-    onSuccess: (message) => setExtra((current) => mergeMessages(current, [{ ...message, content: null, deleted: true }])),
-    onError: (error) => toast.error(errorText(error)),
+    onSuccess: (message) => {
+      setExtra((current) => mergeMessages(current, [{ ...message, content: null, deleted: true }]));
+      setDeleting(null);
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onError: (error) => {
+      setDeleting(null);
+      toast.error(errorText(error));
+    },
   });
 
-  const notReady = stillSyncing(latest.error) || (latest.isFetching && latest.failureCount > 0);
-  const canSend = !send.isPending && text.trim().length > 0 && !notReady;
+  const canSend = canSendDraft(text, view, send.isPending);
+
+  function submit() {
+    if (canSend) {
+      send.mutate(text.trim());
+    }
+  }
 
   function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      if (canSend) {
-        send.mutate();
-      }
+      submit();
     }
   }
 
   return (
-    <section className={cn("flex h-[34rem] flex-col overflow-hidden rounded-xl border bg-card", className)}>
-      <header className="flex items-center justify-between gap-2 border-b px-4 py-3">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <MessagesSquare className="size-4 text-muted-foreground" aria-hidden />
-          Chat của phòng
+    <div className={cn("flex min-h-0 flex-col gap-2.5", className)}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-[-0.015em]">
+          <MessagesSquare className="size-5 shrink-0" aria-hidden />
+          {title}
         </h2>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className={cn("size-2 rounded-full", state === "connected" ? "bg-success" : state === "disconnected" ? "bg-muted-foreground" : "animate-pulse bg-deadline")} aria-hidden />
-          {state === "connected" ? "Trực tiếp" : state === "disconnected" ? "Mất kết nối" : "Đang kết nối"}
+        <span role="status">
+          <Badge tone={look.tone}>
+            <ConnectionIcon className={cn("size-3.5 shrink-0", look.kind === "retry" && "animate-spin")} aria-hidden />
+            {look.label}
+          </Badge>
         </span>
-      </header>
+      </div>
 
-      <div ref={scroller} className="flex-1 space-y-1 overflow-y-auto px-4 py-3" aria-live="polite" aria-label="Tin nhắn">
-        {olderCursor && (
-          <div className="flex justify-center pb-2">
-            <Button variant="ghost" size="sm" disabled={older.isPending} onClick={() => older.mutate(olderCursor)}>
-              {older.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
-              Xem tin cũ hơn
+      {look.offlineNotice && (
+        <Notice tone="warn" icon={WifiOff}>
+          Tin mới không tự hiện cho tới khi kết nối lại.
+        </Notice>
+      )}
+
+      <div ref={scroller} className="flex h-[280px] flex-col overflow-y-auto [overflow-anchor:none] lg:h-[440px]" aria-live="polite" aria-label="Tin nhắn" aria-busy={view === "loading"}>
+        <div className="mt-auto flex flex-col gap-1.5">
+          {view === "loading" && <ChatLoading />}
+          {view === "error" && <Failure error={latest.error} title="Không tải được tin nhắn" onRetry={() => void latest.refetch()} />}
+          {view === "syncing" && (
+            <div className="[&_svg]:animate-spin">
+              <EmptyState icon={LoaderCircle} title="Đang thêm bạn vào chat của phòng, chờ vài giây." />
+            </div>
+          )}
+          {view === "ready" && rows.length === 0 && <EmptyState icon={MessagesSquare} title="Chưa có tin nhắn nào" description={readOnly ? undefined : "Chào cả phòng đi!"} />}
+          {view === "ready" && olderCursor && (
+            <Button variant="ghost" size="sm" className="self-center" pending={older.isPending} onClick={() => older.mutate(olderCursor)}>
+              {older.isPending ? "Đang tải tin cũ" : "Xem tin cũ hơn"}
             </Button>
-          </div>
-        )}
-        {notReady && <p className="py-8 text-center text-sm text-muted-foreground">Đang thêm bạn vào chat của phòng, chờ vài giây.</p>}
-        {!notReady && <ErrorNote error={latest.error} />}
-        {messages.length === 0 && latest.isSuccess && <p className="py-8 text-center text-sm text-muted-foreground">Chưa có tin nhắn nào. Chào cả phòng đi!</p>}
-        {messages.map((message, index) => {
-          const own = message.senderId === user?.userId;
-          const previous = messages[index - 1];
-          const newDay = !previous || dayOf(previous.sentAt) !== dayOf(message.sentAt);
-          const newSender = newDay || previous?.senderId !== message.senderId;
-
-          return (
-            <div key={message.id}>
-              {newDay && <p className="py-2 text-center text-xs text-muted-foreground first-letter:uppercase">{dayOf(message.sentAt)}</p>}
-              <div className={cn("group flex flex-col", own ? "items-end" : "items-start", newSender && "pt-2")}>
-                {newSender && !own && <span className="px-1 pb-0.5 text-xs font-medium text-muted-foreground">{message.senderName || "Thành viên"}</span>}
-                <div className={cn("flex max-w-[85%] items-end gap-1.5", own && "flex-row-reverse")}>
+          )}
+          {rows.map((row) => (
+            <div key={row.id} className="contents">
+              {row.day && <span className="self-center rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">{row.day}</span>}
+              <div className={cn("flex max-w-[82%] flex-col items-start gap-0.5", row.mine && "items-end self-end")}>
+                {row.author && <span className="text-xs font-semibold text-muted-foreground">{row.author}</span>}
+                <div className={cn("flex items-center gap-1.5", row.mine && "flex-row-reverse")}>
                   <div
                     className={cn(
-                      "rounded-2xl px-3 py-2 text-sm break-words whitespace-pre-wrap",
-                      own ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground",
-                      message.deleted && "border border-dashed bg-transparent text-muted-foreground italic",
+                      "rounded-xl bg-muted px-3.5 py-2.5 text-[13px]/[1.45] wrap-anywhere whitespace-pre-wrap text-foreground",
+                      row.mine && "bg-primary text-primary-foreground",
+                      row.deleted && "border border-dashed border-input bg-transparent text-muted-foreground italic",
                     )}
                   >
-                    {message.deleted ? "Tin nhắn đã bị xóa" : message.content}
+                    {row.text}
                   </div>
-                  <span className="tabular shrink-0 pb-1 text-[11px] text-muted-foreground">{timeOf(message.sentAt)}</span>
-                  {own && !message.deleted && (
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                      aria-label="Xóa tin nhắn"
-                      disabled={remove.isPending}
-                      onClick={async () => {
-                        if (await confirm({ title: "Xóa tin nhắn này?", description: "Mọi người trong phòng sẽ thấy tin đã bị xóa.", confirmLabel: "Xóa", destructive: true })) {
-                          remove.mutate(message);
-                        }
-                      }}
-                    >
+                  <span className="tabular flex-none text-[11px] text-muted-foreground">{row.time}</span>
+                  {row.canDelete && (
+                    <Button variant="ghost" size="icon-sm" aria-label="Xoá tin nhắn" onClick={() => setDeleting(row.message)}>
                       <Trash2 />
                     </Button>
                   )}
                 </div>
               </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
-      <form
-        className="flex items-end gap-2 border-t p-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (canSend) {
-            send.mutate();
-          }
-        }}
-      >
-        <Textarea
-          rows={1}
-          maxLength={2000}
-          placeholder="Nhắn cho cả phòng"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={submitOnEnter}
-          aria-label="Tin nhắn"
-          className="max-h-32 min-h-9 resize-none py-2"
+      {readOnly ? (
+        <Notice tone="info" icon={Lock}>
+          Bạn không còn ở phòng này, chỉ xem được tin nhắn tới lúc rời.
+        </Notice>
+      ) : (
+        <form
+          className="flex flex-col gap-1.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit();
+          }}
+        >
+          <div className="flex items-end gap-2">
+            <Textarea
+              rows={1}
+              maxLength={messageLimit}
+              placeholder="Nhắn cho cả phòng"
+              value={text}
+              readOnly={send.isPending}
+              onChange={(event) => setText(event.target.value)}
+              onKeyDown={submitOnEnter}
+              aria-label="Tin nhắn"
+              className="max-h-[140px] min-h-11 flex-1 resize-none px-3.5 py-2.5"
+            />
+            <Button type="submit" pending={send.isPending} disabled={!canSend}>
+              {!send.isPending && <SendHorizontal aria-hidden />}
+              {send.isPending ? "Đang gửi" : "Gửi"}
+            </Button>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">Enter để gửi, Shift + Enter để xuống dòng</span>
+            <span className={cn("tabular text-xs text-muted-foreground", counter.atLimit && "text-danger-ink")}>{counter.label}</span>
+          </div>
+        </form>
+      )}
+
+      {deleting && (
+        <ActionDialog
+          title="Xoá tin nhắn này?"
+          description="Mọi người trong phòng sẽ thấy tin đã bị xoá."
+          icon={Trash2}
+          confirmLabel="Xoá"
+          pendingLabel="Đang xoá"
+          destructive
+          pending={remove.isPending}
+          onConfirm={() => remove.mutate(deleting)}
+          onClose={() => setDeleting(null)}
         />
-        <Button type="submit" size="icon-lg" disabled={!canSend} aria-label="Gửi">
-          {send.isPending ? <LoaderCircle className="animate-spin" /> : <SendHorizontal />}
-        </Button>
-      </form>
-    </section>
+      )}
+    </div>
   );
 }

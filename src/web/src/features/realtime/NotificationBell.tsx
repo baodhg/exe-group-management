@@ -1,15 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
-import { Link } from "react-router";
+import { ArrowRight, Bell, Check } from "lucide-react";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../../shared/auth/useAuth";
-import { formatRelative } from "../common/messages";
-import { unreadLabel, type Notification } from "./chat";
+import { EmptyState } from "../common/ui";
+import { errorText, formatRelative } from "../common/messages";
+import { notificationTarget, unreadLabel, type Notification } from "./chat";
+import { NotificationIcon } from "./NotificationIcon";
 
-export function NotificationBell() {
+export function NotificationBell({ compact = false }: { compact?: boolean }) {
   const { api, user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const unread = useQuery({
     queryKey: ["notifications", "unread"],
@@ -21,61 +26,72 @@ export function NotificationBell() {
     queryFn: () => api.get<Notification[]>("/api/v1/notifications", { pageSize: 6 }),
     enabled: user !== null,
   });
+  const [open, setOpen] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["notifications"] });
-  const read = useMutation({ mutationFn: (id: string) => api.post(`/api/v1/notifications/${id}/read`), onSuccess: refresh });
-  const readAll = useMutation({ mutationFn: () => api.post("/api/v1/notifications/read-all"), onSuccess: refresh });
+  const failed = (error: unknown) => toast.error(errorText(error));
+  const read = useMutation({ mutationFn: (id: string) => api.post(`/api/v1/notifications/${id}/read`), onSuccess: refresh, onError: failed });
+  const readAll = useMutation({ mutationFn: () => api.post("/api/v1/notifications/read-all"), onSuccess: refresh, onError: failed });
   const count = unread.data?.pagination?.totalItems ?? 0;
   const items = latest.data?.data ?? [];
+  const roles = user?.roles ?? [];
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
-        render={<Button variant="ghost" size="icon" className="relative size-10" aria-label={count > 0 ? `Thông báo, ${count} chưa đọc` : "Thông báo"} />}
+        title="Thông báo"
+        aria-label={count > 0 ? `Thông báo, ${count} chưa đọc` : "Thông báo"}
+        className={cn("relative flex min-h-10 items-center gap-2.5 rounded-[10px] px-2.5 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-sidebar-ring aria-expanded:bg-sidebar-accent", compact && "justify-center px-2")}
       >
-        <Bell className="size-5" aria-hidden />
-        {count > 0 && (
-          <span className="tabular absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-none font-semibold text-white">
-            {unreadLabel(count)}
-          </span>
-        )}
+        <Bell className="size-[17px] shrink-0" aria-hidden />
+        {!compact && <span className="flex-1 text-left">Thông báo</span>}
+        {count > 0 && <span className={cn("tabular rounded-full bg-primary px-1.5 text-xs/[18px] font-bold text-primary-foreground", compact && "absolute -top-0.5 -right-0.5")}>{unreadLabel(count)}</span>}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[22rem] max-w-[calc(100vw-2rem)] p-0">
-        <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
-          <p className="text-sm font-semibold">Thông báo</p>
+      <DropdownMenuContent side="right" align="end" sideOffset={10} className="w-[400px] max-w-[calc(100vw-2rem)] rounded-[20px] p-0 shadow-pop">
+        <div className="flex items-center justify-between gap-2 border-b px-4 py-3.5">
+          <strong className="inline-flex items-center gap-2 text-[15px]">
+            <Bell className="size-4" aria-hidden />
+            Thông báo
+          </strong>
           {count > 0 && (
-            <Button variant="link" size="sm" className="h-auto px-0" disabled={readAll.isPending} onClick={() => readAll.mutate()}>
-              Đánh dấu đã đọc hết
+            <Button variant="link" disabled={readAll.isPending} onClick={() => readAll.mutate()}>
+              <Check aria-hidden />
+              Đánh dấu đã đọc
             </Button>
           )}
         </div>
-        <div className="max-h-96 overflow-y-auto p-1">
-          {items.length === 0 && <p className="px-3 py-8 text-center text-sm text-muted-foreground">Chưa có thông báo nào.</p>}
+        <div className="max-h-96 overflow-y-auto">
+          {items.length === 0 && <EmptyState icon={Bell} title="Chưa có thông báo nào" />}
           {items.map((notification) => (
-            <DropdownMenuItem
+            <button
               key={notification.id}
-              className="items-start gap-3 px-2.5 py-2"
+              type="button"
+              className={cn("relative flex w-full items-start gap-[11px] border-b px-3.5 py-3 text-left transition-colors outline-none last:border-b-0 hover:bg-muted focus-visible:bg-muted", !notification.readAt && "bg-primary/7")}
               onClick={() => {
                 if (!notification.readAt) {
                   read.mutate(notification.id);
                 }
+                setOpen(false);
+                navigate(notificationTarget(notification, roles));
               }}
             >
-              <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", notification.readAt ? "bg-transparent" : "bg-primary")} aria-hidden />
-              <span className="min-w-0 flex-1 space-y-0.5">
-                <span className={cn("block text-sm", notification.readAt ? "font-normal" : "font-semibold")}>
+              <NotificationIcon type={notification.type} title={notification.title} />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5 pr-3.5">
+                <span className="text-[13.5px]/snug font-bold">
                   {notification.title}
                   {!notification.readAt && <span className="sr-only">, chưa đọc</span>}
                 </span>
-                <span className="line-clamp-2 block text-xs whitespace-normal text-muted-foreground">{notification.body}</span>
-                <span className="block text-xs text-muted-foreground">{formatRelative(notification.createdAt)}</span>
+                <span className="line-clamp-2 text-[13px]/snug text-muted-foreground">{notification.body}</span>
+                <span className="mt-0.5 text-xs text-muted-foreground">{formatRelative(notification.createdAt)}</span>
               </span>
-            </DropdownMenuItem>
+              {!notification.readAt && <span className="absolute top-[18px] right-3.5 size-2 rounded-full bg-primary" aria-hidden />}
+            </button>
           ))}
         </div>
-        <div className="border-t p-1">
-          <DropdownMenuItem render={<Link to="/notifications" />} className="justify-center py-2 font-medium text-primary">
+        <div className="flex justify-center border-t p-2">
+          <Link to="/notifications" onClick={() => setOpen(false)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:underline">
+            <ArrowRight className="size-3.5" aria-hidden />
             Xem tất cả thông báo
-          </DropdownMenuItem>
+          </Link>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

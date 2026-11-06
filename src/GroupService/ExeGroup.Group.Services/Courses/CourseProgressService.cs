@@ -172,6 +172,9 @@ public sealed class CourseProgressService(
             }
         }
 
+        var ineligibleIds = ineligible.Select(item => item.Room.Id).ToHashSet();
+        var summaries = (await new RoomSummaries(rooms).BuildAsync([.. rows.Where(row => ineligibleIds.Contains(row.Room.RoomId))], cancellationToken)).ToDictionary(summary => summary.Id);
+
         return new CourseOverviewModel(
             course.CourseId,
             course.Phase,
@@ -184,6 +187,6 @@ public sealed class CourseProgressService(
             empty,
             eligible,
             [.. students.Where(student => student.RoomId is null).Select(student => new StudentRefModel(student.StudentId, student.StudentCode, student.FullName, student.MajorCode))],
-            ineligible);
+            [.. ineligible.Select(item => item with { Room = summaries[item.Room.Id] })]);
     }
 }

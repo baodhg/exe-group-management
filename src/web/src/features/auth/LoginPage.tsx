@@ -1,139 +1,155 @@
-import { CircleAlert, LoaderCircle } from "lucide-react";
-import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router";
+import { CircleAlert, Clock, Info, Lock, LogIn, Mail, type LucideIcon } from "lucide-react";
+import { useState, type ComponentProps, type FormEvent } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { homeFor } from "../../shared/auth/homeFor";
 import { useAuth } from "../../shared/auth/useAuth";
 import { Brand } from "../../shared/layout/Brand";
-import { signInErrorText } from "../common/messages";
+import { Field, Notice } from "../common/ui";
+import { Glow, HeroTitle } from "../landing/parts";
+import { ThemeToggle } from "../landing/ThemeToggle";
+import { sessionEndedFrom, loginFailureOf, missingFieldsOf, nothingMissing, sessionEndedText, type LoginFailure, type LoginFieldErrors } from "./loginForm";
 
-const previewRooms = [
-  { name: "Phòng 03", topic: "Ứng dụng đặt sân thể thao", seats: [1, 1, 2, 3, 0, 0], short: null },
-  { name: "Phòng 07", topic: "Nền tảng học nhóm", seats: [2, 4, 1, 0, -1, 0], short: "Còn thiếu ngành AI" },
-  { name: "Phòng 11", topic: "Chưa có đề tài", seats: [3, 0, 0, 0, -1, -1], short: "Còn thiếu ngành SE, GD" },
-] as const;
+const emailLimit = 255;
+const passwordLimit = 100;
 
-function PreviewSeat({ value }: { value: number }) {
-  if (value > 0) {
-    return <span className="size-4 rounded-[4px]" style={{ backgroundColor: `var(--major-${value})` }} />;
-  }
+function IconInput({ icon: Icon, ...props }: { icon: LucideIcon } & ComponentProps<typeof Input>) {
+  return (
+    <span className="relative flex font-normal">
+      <Icon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <Input className="pl-[38px]" {...props} />
+    </span>
+  );
+}
 
-  return value < 0 ? (
-    <span className="size-4 rounded-[4px] border-[1.5px] border-dashed border-deadline bg-deadline/15" />
-  ) : (
-    <span className="size-4 rounded-[4px] border-[1.5px] border-dashed border-sidebar-muted/60" />
+function BrandPanel() {
+  return (
+    <section className="relative hidden min-w-0 flex-[3_1_560px] flex-col justify-between gap-10 overflow-hidden border-r bg-card px-12 pt-8 pb-12 lg:flex">
+      <Glow className="-bottom-[24%] -left-[8%] size-[760px]" />
+      <Link to="/" className="relative self-start rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Brand />
+      </Link>
+      <div className="relative flex flex-col gap-4">
+        <HeroTitle>Lập nhóm EXE đủ ngành, kịp hạn.</HeroTitle>
+        <p className="max-w-[48rem] text-[15px]/normal text-muted-foreground">Sinh viên thấy ngay phòng nào còn thiếu ngành của mình. Trưởng nhóm duyệt đơn, giảng viên theo dõi tiến độ, giáo vụ chốt danh sách nhóm.</p>
+      </div>
+      <div className="relative flex max-w-[25rem] flex-col gap-1.5 rounded-[18px] border bg-card px-4 py-3.5">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+          <Info className="size-3.5 shrink-0" aria-hidden />
+          Tài khoản do giáo vụ cấp
+        </span>
+        <span className="text-[15px]/normal text-muted-foreground">Không có đăng ký tự do. Nếu chưa có tài khoản, hãy liên hệ giáo vụ của lớp.</span>
+      </div>
+    </section>
   );
 }
 
 export function LoginPage() {
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<LoginFailure | null>(null);
+  const [missing, setMissing] = useState<LoginFieldErrors>(nothingMissing);
+  const [attempted, setAttempted] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (user) {
     return <Navigate to={homeFor(user.roles)} replace />;
   }
 
+  function clearFeedback() {
+    setFailure(null);
+    setMissing(nothingMissing);
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setAttempted(true);
+    setFailure(null);
+    const nextMissing = missingFieldsOf(email, password);
+    setMissing(nextMissing);
+    if (nextMissing.email || nextMissing.password) {
+      return;
+    }
+
     setBusy(true);
-    setError(null);
     try {
       const signedIn = await signIn(email, password);
       navigate(homeFor(signedIn.roles), { replace: true });
     } catch (caught) {
-      setError(signInErrorText(caught));
+      setFailure(loginFailureOf(caught));
     } finally {
       setBusy(false);
     }
   }
 
-  return (
-    <div className="grid min-h-svh lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-sidebar-foreground lg:flex xl:p-14">
-        <Brand />
-        <div className="max-w-md space-y-8">
-          <div className="space-y-3">
-            <h1 className="text-3xl leading-tight font-semibold text-white xl:text-4xl">Lập nhóm EXE đủ ngành, kịp hạn.</h1>
-            <p className="text-sidebar-foreground/80">
-              Sinh viên thấy ngay phòng nào còn thiếu ngành của mình. Trưởng phòng duyệt đơn, giảng viên theo dõi tiến độ, phòng đào tạo chốt danh sách nhóm.
-            </p>
-          </div>
-          <div className="space-y-3" aria-hidden>
-            {previewRooms.map((room, index) => (
-              <div
-                key={room.name}
-                className="rounded-xl border border-sidebar-border bg-sidebar-accent/70 p-4 shadow-lg shadow-black/10"
-                style={{ marginLeft: `${index * 1.5}rem` }}
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="font-semibold text-white">{room.name}</p>
-                  <p className="truncate text-xs text-sidebar-muted">{room.topic}</p>
-                </div>
-                <div className="mt-3 flex items-center gap-1">
-                  {room.seats.map((seat, seatIndex) => (
-                    <PreviewSeat key={seatIndex} value={seat} />
-                  ))}
-                </div>
-                {room.short && <p className="mt-2 text-xs text-[#f5b56f]">{room.short}</p>}
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="text-xs text-sidebar-muted">Dành cho các môn làm dự án theo nhóm liên ngành.</p>
-      </aside>
+  const rejected = failure?.credentialsRejected ?? false;
 
-      <main className="flex items-center justify-center px-4 py-12 sm:px-8">
-        <div className="w-full max-w-sm space-y-8">
-          <Brand tone="light" className="lg:hidden" />
-          <div className="space-y-2">
-            <h2 className="text-2xl font-semibold tracking-tight">Đăng nhập</h2>
-            <p className="text-sm text-muted-foreground">Dùng tài khoản nhà trường cấp cho bạn.</p>
+  return (
+    <div className="min-h-svh lg:flex">
+      <BrandPanel />
+      <main className="flex min-h-svh min-w-0 flex-[2_1_400px] flex-col justify-center gap-6 px-4 py-8 sm:px-12 lg:min-h-0">
+        <Link to="/" className="self-start rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden">
+          <Brand />
+        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <h2 className="mt-0.5 text-[clamp(1.75rem,2.2vw,2.25rem)] leading-[1.2] font-extrabold tracking-[-0.02em]">Đăng nhập</h2>
+            <p className="text-sm/[1.55] text-muted-foreground">Dùng tài khoản nhà trường cấp cho bạn.</p>
           </div>
-          <form className="space-y-5" onSubmit={submit}>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                className="h-10"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-                autoComplete="username"
-                aria-invalid={error !== null}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <Input
-                id="password"
-                type="password"
-                className="h-10"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                autoComplete="current-password"
-                aria-invalid={error !== null}
-              />
-            </div>
-            {error && (
-              <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-danger-soft px-3 py-2.5 text-sm text-danger-ink">
-                <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                {error}
-              </div>
-            )}
-            <Button type="submit" className="h-10 w-full" disabled={busy}>
-              {busy && <LoaderCircle className="animate-spin" aria-hidden />}
-              {busy ? "Đang đăng nhập" : "Đăng nhập"}
-            </Button>
-          </form>
+          <ThemeToggle />
         </div>
+        {sessionEndedFrom(location.state) && !attempted && (
+          <Notice tone="warn" icon={Clock}>
+            {sessionEndedText}
+          </Notice>
+        )}
+        <form noValidate className="flex flex-col gap-4" aria-busy={busy} onSubmit={submit}>
+          <Field label="Email" error={missing.email}>
+            <IconInput
+              icon={Mail}
+              type="email"
+              required
+              maxLength={emailLimit}
+              autoComplete="username"
+              placeholder="ban@truong.edu.vn"
+              aria-invalid={rejected || missing.email !== null}
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                clearFeedback();
+              }}
+            />
+          </Field>
+          <Field label="Mật khẩu" error={missing.password}>
+            <IconInput
+              icon={Lock}
+              type="password"
+              required
+              maxLength={passwordLimit}
+              autoComplete="current-password"
+              placeholder="Nhập mật khẩu"
+              aria-invalid={rejected || missing.password !== null}
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                clearFeedback();
+              }}
+            />
+          </Field>
+          {failure && (
+            <Notice tone="bad" icon={CircleAlert}>
+              {failure.message}
+            </Notice>
+          )}
+          <Button type="submit" size="lg" className="w-full" pending={busy}>
+            {!busy && <LogIn aria-hidden />}
+            {busy ? "Đang đăng nhập" : "Đăng nhập"}
+          </Button>
+        </form>
       </main>
     </div>
   );

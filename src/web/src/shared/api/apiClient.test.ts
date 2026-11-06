@@ -91,6 +91,18 @@ describe("apiClient", () => {
     expect(store.current).toEqual({ accessToken: "new-access", refreshToken: "refresh-2" });
   });
 
+  it("renews the session on request so a changed profile reaches the token", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(envelope(200, { success: true, message: "Token refreshed", data: { accessToken: "renamed-access", refreshToken: "refresh-2" }, errors: null, traceId: "t" }));
+    const store = memoryStore(session);
+    const client = createApiClient({ fetcher, store });
+
+    const renewed = await client.renewSession();
+
+    expect(renewed?.accessToken).toBe("renamed-access");
+    expect(fetcher.mock.calls[0]![0]).toBe("/api/v1/auth/refresh-token");
+    expect(store.current?.refreshToken).toBe("refresh-2");
+  });
+
   it("signs the user out when the refresh also fails, without looping", async () => {
     const unauthorized = () => envelope(401, { success: false, message: "Authentication required", data: null, errors: [{ code: "UNAUTHORIZED", field: null, message: "no" }], traceId: "t" });
     const fetcher = vi.fn().mockImplementation(() => Promise.resolve(unauthorized()));

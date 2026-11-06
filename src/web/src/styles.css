@@ -1,69 +1,114 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource/be-vietnam-pro/400.css";
-@import "@fontsource/be-vietnam-pro/500.css";
-@import "@fontsource/be-vietnam-pro/600.css";
-@import "@fontsource/be-vietnam-pro/700.css";
+@import "@fontsource/inter/vietnamese-400.css";
+@import "@fontsource/inter/vietnamese-500.css";
+@import "@fontsource/inter/vietnamese-600.css";
+@import "@fontsource/inter/vietnamese-700.css";
+@import "@fontsource/inter/vietnamese-800.css";
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-700.css";
+@import "@fontsource/inter/latin-800.css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.75rem;
-  --background: #f6f7f9;
-  --foreground: #1b2a41;
-  --card: #ffffff;
-  --card-foreground: #1b2a41;
-  --popover: #ffffff;
-  --popover-foreground: #1b2a41;
-  --primary: #2457d6;
-  --primary-foreground: #ffffff;
-  --secondary: #eef1f6;
-  --secondary-foreground: #1b2a41;
-  --muted: #eef1f6;
-  --muted-foreground: #5b6b82;
-  --accent: #e8eefc;
-  --accent-foreground: #1d47b3;
-  --destructive: #c9423a;
-  --border: #e3e7ee;
-  --input: #d3dae5;
-  --ring: #2457d6;
-  --deadline: #e8892b;
-  --deadline-soft: #fdf1e4;
-  --deadline-ink: #8f4c0c;
-  --success: #2e9d6b;
-  --success-soft: #e5f4ec;
-  --success-ink: #1b6646;
-  --danger-soft: #fbeae8;
-  --danger-ink: #9b2f28;
-  --info-soft: #e8eefc;
-  --info-ink: #1d47b3;
-  --major-1: #2a78d6;
-  --major-2: #eb6834;
-  --major-3: #1baf7a;
-  --major-4: #eda100;
-  --major-5: #e87ba4;
-  --major-6: #008300;
-  --major-7: #6250d6;
-  --major-8: #e34948;
-  --chart-1: var(--major-1);
-  --chart-2: var(--major-2);
-  --chart-3: var(--major-3);
-  --chart-4: var(--major-4);
-  --chart-5: var(--major-5);
-  --sidebar: #1b2a41;
-  --sidebar-foreground: #dfe6f1;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #1b2a41;
-  --sidebar-accent: #263a59;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #2c4163;
-  --sidebar-ring: #8fb0ff;
-  --sidebar-muted: #93a4bd;
+  color-scheme: light;
+  --radius: 0.875rem;
+  --background: #ede8dd;
+  --foreground: #1f1b15;
+  --card: #fbf8f1;
+  --card-foreground: #1f1b15;
+  --popover: #fbf8f1;
+  --popover-foreground: #1f1b15;
+  --primary: #f37021;
+  --primary-foreground: #1f1b15;
+  --primary-hover: #d6631d;
+  --secondary: #f6dfcb;
+  --secondary-hover: #f3cfb0;
+  --secondary-foreground: #b5490b;
+  --muted: #e7e1d3;
+  --muted-foreground: #675f50;
+  --accent: #e7e1d3;
+  --accent-foreground: #1f1b15;
+  --destructive: #b3321f;
+  --border: rgb(60 48 28 / 14%);
+  --input: rgb(60 48 28 / 30%);
+  --ring: #f37021;
+  --ink: #b5490b;
+  --hairline: #f1ece0;
+  --seat: #e2dbca;
+  --seat-foreground: #2b261d;
+  --deadline: #f37021;
+  --deadline-soft: #f9e4d2;
+  --deadline-ink: #b5490b;
+  --success: #1e6b3a;
+  --success-soft: #dcebd8;
+  --success-ink: #1e6b3a;
+  --danger-soft: #f5ddd6;
+  --danger-ink: #b3321f;
+  --info-soft: #dfe6ef;
+  --info-ink: #2b5ba8;
+  --sidebar: #fbf8f1;
+  --sidebar-foreground: #1f1b15;
+  --sidebar-primary: #f37021;
+  --sidebar-primary-foreground: #1f1b15;
+  --sidebar-accent: rgb(243 112 33 / 15%);
+  --sidebar-accent-foreground: #1f1b15;
+  --sidebar-border: rgb(60 48 28 / 14%);
+  --sidebar-ring: #f37021;
+  --sidebar-muted: #675f50;
+  --shadow-card: 0 1px 2px rgb(60 45 20 / 5%), 0 10px 28px rgb(60 45 20 / 8%);
+  --shadow-pop: 0 2px 4px rgb(60 45 20 / 8%), 0 24px 60px rgb(40 30 12 / 22%);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .16 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #171411;
+  --foreground: #f4efe5;
+  --card: #221e18;
+  --card-foreground: #f4efe5;
+  --popover: #221e18;
+  --popover-foreground: #f4efe5;
+  --primary-hover: #f58643;
+  --secondary: #4a3120;
+  --secondary-hover: #5a3a24;
+  --secondary-foreground: #f59a5e;
+  --muted: #2e2820;
+  --muted-foreground: #aea493;
+  --accent: #2e2820;
+  --accent-foreground: #f4efe5;
+  --destructive: #f08a78;
+  --border: rgb(255 240 215 / 13%);
+  --input: rgb(255 240 215 / 28%);
+  --ink: #f59a5e;
+  --hairline: #171411;
+  --seat: #373027;
+  --seat-foreground: #e9e2d4;
+  --deadline-soft: rgb(243 112 33 / 16%);
+  --deadline-ink: #f59a5e;
+  --success: #7cc98f;
+  --success-soft: rgb(124 201 143 / 14%);
+  --success-ink: #7cc98f;
+  --danger-soft: rgb(240 138 120 / 15%);
+  --danger-ink: #f08a78;
+  --info-soft: rgb(157 187 232 / 14%);
+  --info-ink: #9dbbe8;
+  --sidebar: #221e18;
+  --sidebar-foreground: #f4efe5;
+  --sidebar-accent-foreground: #f4efe5;
+  --sidebar-border: rgb(255 240 215 / 13%);
+  --sidebar-muted: #aea493;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 32px rgb(0 0 0 / 35%);
+  --shadow-pop: 0 2px 4px rgb(0 0 0 / 30%), 0 24px 60px rgb(0 0 0 / 50%);
+  --grain: none;
 }
 
 @theme inline {
-  --font-sans: "Be Vietnam Pro", system-ui, "Segoe UI", sans-serif;
+  --font-sans: "Inter", system-ui, "Segoe UI", sans-serif;
   --font-heading: var(--font-sans);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -73,7 +118,9 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
@@ -83,6 +130,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-ink: var(--ink);
+  --color-hairline: var(--hairline);
+  --color-seat: var(--seat);
+  --color-seat-foreground: var(--seat-foreground);
   --color-deadline: var(--deadline);
   --color-deadline-soft: var(--deadline-soft);
   --color-deadline-ink: var(--deadline-ink);
@@ -93,11 +144,6 @@
   --color-danger-ink: var(--danger-ink);
   --color-info-soft: var(--info-soft);
   --color-info-ink: var(--info-ink);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -107,11 +153,13 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-muted: var(--sidebar-muted);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.33);
-  --radius-2xl: calc(var(--radius) * 1.66);
+  --radius-xl: calc(var(--radius) * 1.43);
+  --radius-2xl: calc(var(--radius) * 1.72);
 }
 
 @layer base {
@@ -121,11 +169,13 @@
 
   html {
     @apply font-sans antialiased;
+    font-feature-settings: "cv11";
   }
 
   body {
     @apply bg-background text-foreground;
-    line-height: 1.6;
+    background-image: var(--grain);
+    line-height: 1.5;
   }
 
   button:not(:disabled),
@@ -139,6 +189,32 @@
     @apply font-heading text-foreground;
     line-height: 1.3;
     text-wrap: balance;
+  }
+
+  progress {
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 6px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 999px;
+    background: var(--muted);
+  }
+
+  progress::-webkit-progress-bar {
+    border-radius: 999px;
+    background: var(--muted);
+  }
+
+  progress::-webkit-progress-value {
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  progress::-moz-progress-bar {
+    border-radius: 999px;
+    background: var(--primary);
   }
 
   @media (prefers-reduced-motion: reduce) {

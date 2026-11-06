@@ -5,8 +5,10 @@ import type { Role, SessionUser } from "./sessionStore";
 export interface AuthState {
   api: ApiClient;
   user: SessionUser | null;
+  sessionEnded: boolean;
   signIn(email: string, password: string): Promise<SessionUser>;
   signOut(): void;
+  reloadUser(): Promise<boolean>;
   hasRole(role: Role): boolean;
 }
 
