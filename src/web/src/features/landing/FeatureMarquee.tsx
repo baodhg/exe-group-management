@@ -17,7 +17,7 @@ function TagRow({ className }: { className?: string }) {
 
 export function FeatureMarquee() {
   return (
-    <Wrap>
+    <Wrap className="relative z-[2]">
       <div aria-hidden className="flex overflow-hidden whitespace-nowrap mask-x-from-88% mask-x-to-100% motion-reduce:mask-none">
         <div className="inline-flex min-w-max animate-out slide-out-to-left-1/2 duration-[42s] ease-linear repeat-infinite hover:paused motion-reduce:w-full motion-reduce:min-w-0 motion-reduce:animate-none">
           <TagRow />

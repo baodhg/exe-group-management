@@ -78,7 +78,7 @@ function PreviewRoom({ name, badge, memberCount, majors, missingMajorSeats = 0 }
 
 export function LandingHero() {
   return (
-    <section className="relative overflow-hidden pb-14">
+    <section className="relative overflow-x-clip pb-14">
       <div className="pointer-events-none absolute inset-0 mask-b-from-55% mask-b-to-100%">
         <Glow className="top-10 right-[2%] size-[640px]" />
       </div>
