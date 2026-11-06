@@ -20,6 +20,8 @@ export interface Notification {
   body: string;
   createdAt: string;
   readAt: string | null;
+  courseId?: string | null;
+  roomId?: string | null;
 }
 
 export interface RoomChange {
@@ -44,4 +46,20 @@ export function tokenExpired(expiresAt: number | undefined, now: number, marginM
 
 export function unreadLabel(count: number): string {
   return count > 99 ? "99+" : String(count);
+}
+
+export function notificationTarget(notification: Pick<Notification, "courseId" | "roomId">, roles: readonly string[]): string {
+  if (notification.roomId) {
+    return `/rooms/${notification.roomId}`;
+  }
+
+  if (!notification.courseId) {
+    return "/notifications";
+  }
+
+  if (roles.includes("Administrator")) {
+    return `/admin/courses/${notification.courseId}`;
+  }
+
+  return roles.includes("Lecturer") ? `/lecturer/courses/${notification.courseId}` : `/student/courses/${notification.courseId}`;
 }

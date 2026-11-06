@@ -15,7 +15,7 @@ import { ChatPanel } from "../realtime/ChatPanel";
 import { useWatchCourse } from "../realtime/realtimeContext";
 import { leadsRoom } from "./leader";
 import { LeaderPanel, MemberActions } from "./LeaderPanel";
-import { missingMajors } from "./majorPalette";
+import { missingMajors } from "./seatLayout";
 import { studentActionFor } from "./roomActions";
 import { RoomStatusBadge } from "./RoomCard";
 import { MajorChips, MajorTag, SeatStrip, SkillTags } from "./seats";
@@ -35,7 +35,7 @@ function Composition({ room }: { room: RoomDetail }) {
     <Section title="Thành phần nhóm" description={`Loại nhóm ${room.groupTypeName} (${room.groupTypeCode})`}>
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <SeatStrip size="lg" capacity={room.capacity} memberCount={room.memberCount} majors={room.majors} missingMajorSeats={missing.reduce((sum, major) => sum + major.required - major.members, 0)} />
+          <SeatStrip capacity={room.capacity} memberCount={room.memberCount} majors={room.majors} missingMajorSeats={missing.reduce((sum, major) => sum + major.required - major.members, 0)} />
           <span className="tabular shrink-0 text-lg font-semibold">
             {room.memberCount}/{room.capacity}
           </span>
@@ -216,7 +216,7 @@ export function RoomPage() {
                       {member.studentId === user?.userId && <Badge>Bạn</Badge>}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
-                      <MajorTag majorId={member.majorId} code={member.majorCode} />
+                      <MajorTag code={member.majorCode} />
                       <SkillTags skills={member.skills} />
                     </div>
                   </div>

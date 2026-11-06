@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeMessages, tokenExpired, unreadLabel, type ChatMessage } from "./chat";
+import { mergeMessages, tokenExpired, unreadLabel, type ChatMessage, notificationTarget } from "./chat";
 
 function message(id: string, sentAt: string, content = "hi"): ChatMessage {
   return { id, conversationId: "c1", senderId: "u1", senderName: "An", content, sentAt, deleted: false };
@@ -22,5 +22,20 @@ describe("chat", () => {
     expect(tokenExpired(undefined, 0)).toBe(true);
     expect(unreadLabel(7)).toBe("7");
     expect(unreadLabel(150)).toBe("99+");
+  });
+});
+
+describe("notificationTarget", () => {
+  it("opens the room when the notification names one", () => {
+    expect(notificationTarget({ courseId: "c", roomId: "r" }, ["Student"])).toBe("/rooms/r");
+  });
+
+  it("opens the course page of the reader's role", () => {
+    expect(notificationTarget({ courseId: "c", roomId: null }, ["Student"])).toBe("/student/courses/c");
+    expect(notificationTarget({ courseId: "c", roomId: null }, ["Lecturer"])).toBe("/lecturer/courses/c");
+  });
+
+  it("falls back to the list for old notifications with no target", () => {
+    expect(notificationTarget({ courseId: null, roomId: null }, ["Student"])).toBe("/notifications");
   });
 });

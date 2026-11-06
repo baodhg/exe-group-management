@@ -35,13 +35,13 @@ export function OverviewPanel({ courseId }: { courseId: string }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Đã có phòng" value={`${data.placedCount}/${data.studentCount}`} hint={`${placedShare}% sinh viên`} tone={data.unplaced.length === 0 ? "good" : "info"} />
-        <StatTile label="Chưa có phòng" value={data.unplaced.length} hint={data.unplaced.length > 0 ? "Cần xếp trước khi chốt" : "Không còn ai"} tone={data.unplaced.length > 0 ? "warn" : "good"} />
+        <StatTile label="Đã có phòng" value={`${data.placedCount}/${data.studentCount}`} hint={`${placedShare}% sinh viên`} />
+        <StatTile label="Chưa có phòng" value={data.unplaced.length} hint={data.unplaced.length > 0 ? "Cần xếp trước khi chốt" : "Không còn ai"} />
         <StatTile
           label="Phòng đủ điều kiện"
           value={`${data.eligibleRoomCount}/${activeRooms}`}
           hint="Trên số phòng đã có người"
-          tone={data.eligibleRoomCount === activeRooms ? "good" : "warn"}
+         
         />
         <StatTile label="Phòng trống" value={data.emptyRoomCount} hint={`Trong ${data.roomCount} phòng`} />
       </div>
@@ -68,7 +68,7 @@ export function OverviewPanel({ courseId }: { courseId: string }) {
                     <Link to={`/rooms/${item.room.id}`} className="font-medium hover:underline">
                       {item.room.name}
                     </Link>
-                    <SeatStrip size="sm" capacity={item.room.capacity} memberCount={item.room.memberCount} majors={item.majors} missingMajorSeats={item.missingMajorSeats} />
+                    <SeatStrip capacity={item.room.capacity} memberCount={item.room.memberCount} majors={item.majors} missingMajorSeats={item.missingMajorSeats} />
                   </div>
                   <MajorChips majors={item.majors} />
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">

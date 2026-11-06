@@ -53,7 +53,7 @@ export function AdminHomePage() {
         {courses.isLoading
           ? Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-24 rounded-xl" />)
           : counted.map((item) => (
-              <StatTile key={item.phase} label={`Course ${item.label.toLowerCase()}`} value={all.filter((course) => course.phase === item.phase).length} tone={item.tone} />
+              <StatTile key={item.phase} label={`Course ${item.label.toLowerCase()}`} value={all.filter((course) => course.phase === item.phase).length} />
             ))}
       </div>
 

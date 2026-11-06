@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { roomStatusLabels } from "../common/messages";
 import type { RoomSummary } from "../common/types";
 import { Badge, type Tone } from "../common/ui";
-import { missingMajors } from "./majorPalette";
+import { missingMajors } from "./seatLayout";
 import { MajorChips, SeatStrip } from "./seats";
 
 const statusTones: Record<RoomSummary["status"], Tone> = { Open: "good", Locked: "warn", Finalized: "info" };

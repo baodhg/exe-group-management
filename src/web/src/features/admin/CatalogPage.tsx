@@ -129,7 +129,7 @@ export function CatalogPage({ config }: { config: CatalogConfig }) {
                   </TableRow>
                 ) : (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{config.resource === "majors" ? <MajorTag majorId={item.id} code={item.code} /> : item.code}</TableCell>
+                    <TableCell className="font-medium">{config.resource === "majors" ? <MajorTag code={item.code} /> : item.code}</TableCell>
                     <TableCell>{item.name}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon-sm" aria-label={`Sửa ${item.code}`} onClick={() => setEditing(item)}>

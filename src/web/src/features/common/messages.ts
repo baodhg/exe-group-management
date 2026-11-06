@@ -62,6 +62,10 @@ export function errorText(error: unknown): string {
   return "Không thực hiện được, hãy thử lại.";
 }
 
+export function traceIdOf(error: unknown): string | null {
+  return error instanceof ApiError && error.status >= 500 ? error.traceId : null;
+}
+
 export const phaseLabels: Record<CoursePhase, string> = {
   Setup: "Chuẩn bị",
   Published: "Đang tìm nhóm",

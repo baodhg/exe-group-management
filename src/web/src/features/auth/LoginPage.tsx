@@ -90,7 +90,7 @@ export function LoginPage() {
 
       <main className="flex items-center justify-center px-4 py-12 sm:px-8">
         <div className="w-full max-w-sm space-y-8">
-          <Brand tone="light" className="lg:hidden" />
+          <Brand />
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold tracking-tight">Đăng nhập</h2>
             <p className="text-sm text-muted-foreground">Dùng tài khoản nhà trường cấp cho bạn.</p>

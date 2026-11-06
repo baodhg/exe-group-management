@@ -1,7 +1,7 @@
-import { ChevronDown, LogOut, Menu } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Sun, UserRound } from "lucide-react";
 import { Suspense, useState, type ReactNode } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -10,75 +10,130 @@ import { cn } from "@/lib/utils";
 import { homeFor } from "../auth/homeFor";
 import type { Role } from "../auth/sessionStore";
 import { useAuth } from "../auth/useAuth";
+import { useTheme } from "../theme/theme";
 import { Brand } from "./Brand";
-import { initialsOf, navSections, roleLabels } from "./navigation";
+import { adminCourseSection, initialsOf, navSections, roleLabels, type CoursePhaseName, type NavSection } from "./navigation";
 
-function SideNav({ roles, onNavigate }: { roles: Role[]; onNavigate?: () => void }) {
+const collapseKey = "exe-group.sidebar";
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(collapseKey) === "collapsed";
+  } catch {
+    return false;
+  }
+}
+
+function useCourseSection(): NavSection | null {
+  const { api, user } = useAuth();
+  const match = useMatch("/admin/courses/:courseId/*");
+  const courseId = match?.params.courseId;
+  const course = useQuery({
+    queryKey: ["course", courseId],
+    queryFn: async () => (await api.get<{ phase: CoursePhaseName; classCode: string }>(`/api/v1/courses/${courseId}`)).data,
+    enabled: Boolean(courseId) && Boolean(user?.roles.includes("Administrator")),
+  });
+
+  return courseId && course.data ? adminCourseSection(courseId, course.data.phase, course.data.classCode) : null;
+}
+
+function SideNav({ roles, collapsed, onNavigate }: { roles: Role[]; collapsed: boolean; onNavigate?: () => void }) {
+  const courseSection = useCourseSection();
+  const sections = navSections.filter((section) => section.roles.some((role) => roles.includes(role)));
+  const shown = courseSection ? [...sections.slice(0, 1), courseSection, ...sections.slice(1)] : sections;
+
   return (
-    <nav aria-label="Điều hướng chính" className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
-      {navSections
-        .filter((section) => section.roles.some((role) => roles.includes(role)))
-        .map((section) => (
-          <div key={section.title} className="space-y-0.5">
-            <p className="px-3 pb-1.5 text-xs font-medium text-sidebar-muted">{section.title}</p>
-            {section.items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-                    isActive && "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_3px_0_0_var(--sidebar-ring)]",
-                  )
-                }
-              >
-                <item.icon className="size-4 shrink-0" aria-hidden />
-                {item.label}
-              </NavLink>
-            ))}
-          </div>
-        ))}
+    <nav aria-label="Điều hướng chính" className="flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto [scrollbar-color:var(--input)_transparent] [scrollbar-width:thin]">
+      {shown.map((section) => (
+        <div key={section.title} className="flex flex-col gap-0.5">
+          {!collapsed && <p className="px-2.5 pb-1 text-xs font-semibold text-sidebar-muted">{section.title}</p>}
+          {section.items.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              title={item.label}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                cn(
+                  "relative flex min-h-10 items-center gap-2.5 rounded-[10px] px-2.5 text-sm font-medium whitespace-nowrap transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  collapsed && "justify-center px-0",
+                  isActive && "bg-sidebar-accent font-bold [&>svg]:text-ink",
+                )
+              }
+            >
+              <item.icon className="size-[17px] shrink-0" aria-hidden />
+              {!collapsed && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+              {item.count !== undefined && item.count > 0 && <span className={cn("tabular rounded-full bg-primary px-1.5 text-xs/[18px] font-bold text-primary-foreground", collapsed && "absolute top-px right-0.5")}>{item.count}</span>}
+            </NavLink>
+          ))}
+        </div>
+      ))}
     </nav>
   );
 }
 
-function SidebarBody({ roles, home, status, onNavigate }: { roles: Role[]; home: string; status?: ReactNode; onNavigate?: () => void }) {
+function ThemeSwitch({ collapsed }: { collapsed: boolean }) {
+  const { theme, setTheme } = useTheme();
+  const option = (value: "light" | "dark", label: string, Icon: typeof Sun) => (
+    <button
+      type="button"
+      title={label}
+      aria-pressed={theme === value}
+      onClick={() => setTheme(value)}
+      className={cn(
+        "inline-flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-semibold text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        theme === value && "bg-card text-foreground shadow-card dark:bg-foreground dark:text-background",
+      )}
+    >
+      <Icon className="size-3.5" aria-hidden />
+      {!collapsed && label}
+    </button>
+  );
+
   return (
-    <>
-      <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-5">
-        <Link to={home} onClick={onNavigate} className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-          <Brand />
-        </Link>
-      </div>
-      <SideNav roles={roles} onNavigate={onNavigate} />
-      {status && <div className="border-t border-sidebar-border px-5 py-3 text-xs text-sidebar-muted">{status}</div>}
-    </>
+    <div role="group" aria-label="Giao diện" className={cn("flex gap-0.5 rounded-full bg-muted p-[3px]", collapsed && "flex-col")}>
+      {option("light", "Sáng", Sun)}
+      {option("dark", "Tối", Moon)}
+    </div>
   );
 }
 
-function UserMenu() {
+function UserCard({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const name = user?.name ?? user?.email ?? "Tài khoản";
+  const role = user?.roles.map((item) => roleLabels[item]).join(", ");
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" className="h-10 gap-2 px-1.5" aria-label="Tài khoản" />}>
-        <Avatar>
-          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">{initialsOf(user?.name ?? user?.email)}</AvatarFallback>
-        </Avatar>
-        <span className="hidden max-w-44 truncate text-sm font-medium md:block">{name}</span>
-        <ChevronDown className="hidden size-4 text-muted-foreground md:block" aria-hidden />
+      <DropdownMenuTrigger
+        title={name}
+        aria-label={`Tài khoản của ${name}`}
+        className={cn("flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-sidebar-ring", collapsed && "justify-center px-0")}
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-extrabold">{initialsOf(user?.name ?? user?.email)}</span>
+        {!collapsed && (
+          <>
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+              <strong className="truncate text-[13.5px]">{name}</strong>
+              <span className="truncate text-xs text-muted-foreground">{role}</span>
+            </span>
+            <ChevronDown className="size-4 shrink-0" aria-hidden />
+          </>
+        )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <div className="space-y-1 px-2 py-2">
-          <p className="truncate text-sm font-semibold">{name}</p>
+      <DropdownMenuContent side="right" align="end" sideOffset={10} className="w-64 rounded-[14px]">
+        <div className="space-y-0.5 px-2 py-2">
+          <p className="truncate text-sm font-bold">{name}</p>
           {user?.email && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
-          <p className="text-xs text-muted-foreground">{user?.roles.map((role) => roleLabels[role]).join(", ")}</p>
+          <p className="text-xs text-muted-foreground">{role}</p>
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => { onNavigate?.(); navigate("/account"); }}>
+          <UserRound aria-hidden />
+          Tài khoản của tôi
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
             signOut();
@@ -93,52 +148,84 @@ function UserMenu() {
   );
 }
 
-function PageSkeleton() {
+function SidebarBody({ roles, home, bell, status, collapsed, onCollapse, onNavigate }: { roles: Role[]; home: string; bell?: ReactNode; status?: ReactNode; collapsed: boolean; onCollapse?: () => void; onNavigate?: () => void }) {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Đang tải">
-      <Skeleton className="h-10 w-72" />
-      <Skeleton className="h-40 w-full rounded-xl" />
-      <Skeleton className="h-64 w-full rounded-xl" />
+    <div className="flex h-full flex-col gap-3.5 px-3 pt-3.5 pb-3">
+      <div className={cn("flex min-h-10 items-center justify-between gap-1.5 pl-1.5", collapsed && "flex-col pl-0")}>
+        <Link to={home} onClick={onNavigate} title="EXE Group" className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+          <Brand compact={collapsed} />
+        </Link>
+        {onCollapse && (
+          <Button variant="ghost" size="icon-sm" onClick={onCollapse} aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} className="hidden lg:inline-flex">
+            {collapsed ? <ChevronRight /> : <ChevronLeft />}
+          </Button>
+        )}
+      </div>
+      <SideNav roles={roles} collapsed={collapsed} onNavigate={onNavigate} />
+      <div className="flex flex-col gap-2 border-t pt-2.5">
+        {!collapsed && status}
+        {bell}
+        <ThemeSwitch collapsed={collapsed} />
+        <UserCard collapsed={collapsed} onNavigate={onNavigate} />
+      </div>
     </div>
   );
 }
 
-export function AppLayout({ actions, status }: { actions?: ReactNode; status?: ReactNode }) {
+function PageSkeleton() {
+  return (
+    <div className="space-y-4 pt-5" aria-busy="true" aria-label="Đang tải">
+      <Skeleton className="h-9 w-72 rounded-full" />
+      <Skeleton className="h-3 w-96 max-w-full rounded-full" />
+      <Skeleton className="h-48 w-full rounded-xl" />
+      <Skeleton className="h-72 w-full rounded-xl" />
+    </div>
+  );
+}
+
+export function AppLayout({ bell, status }: { bell?: (collapsed: boolean) => ReactNode; status?: ReactNode }) {
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
   const roles = user?.roles ?? [];
   const home = homeFor(roles);
 
+  function toggleCollapsed() {
+    setCollapsed((current) => {
+      try {
+        localStorage.setItem(collapseKey, current ? "expanded" : "collapsed");
+      } catch {
+        return !current;
+      }
+      return !current;
+    });
+  }
+
   return (
-    <div className="min-h-svh bg-background">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-sidebar text-sidebar-foreground lg:flex">
-        <SidebarBody roles={roles} home={home} status={status} />
+    <div className="flex min-h-svh flex-col lg:flex-row">
+      <aside className={cn("sticky top-0 z-30 hidden h-svh flex-none border-r bg-sidebar transition-[width] duration-200 lg:block", collapsed ? "w-[68px]" : "w-[252px]")}>
+        <SidebarBody roles={roles} home={home} bell={bell?.(collapsed)} status={status} collapsed={collapsed} onCollapse={toggleCollapsed} />
       </aside>
+      <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-2 border-b bg-card px-3 py-2 lg:hidden">
+        <Button variant="ghost" size="icon-sm" aria-label="Mở menu" onClick={() => setMenuOpen(true)}>
+          <Menu />
+        </Button>
+        <Link to={home} aria-label="Trang chủ">
+          <Brand />
+        </Link>
+        {bell?.(true)}
+      </header>
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="left" showCloseButton={false} className="w-72 gap-0 border-sidebar-border bg-sidebar p-0 text-sidebar-foreground">
+        <SheetContent side="left" showCloseButton={false} className="w-[280px] max-w-[86vw] gap-0 bg-sidebar p-0">
           <SheetTitle className="sr-only">Điều hướng</SheetTitle>
-          <SidebarBody roles={roles} home={home} status={status} onNavigate={() => setMenuOpen(false)} />
+          <SidebarBody roles={roles} home={home} bell={bell?.(false)} status={status} collapsed={false} onNavigate={() => setMenuOpen(false)} />
         </SheetContent>
       </Sheet>
-      <div className="flex min-h-svh flex-col lg:pl-64">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-          <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Mở menu" onClick={() => setMenuOpen(true)}>
-            <Menu />
-          </Button>
-          <Link to={home} className="lg:hidden" aria-label="Trang chủ">
-            <Brand tone="light" className="[&>span:last-child>span:last-child]:hidden sm:[&>span:last-child>span:last-child]:block" />
-          </Link>
-          <div className="ml-auto flex items-center gap-1">
-            {actions}
-            <UserMenu />
-          </div>
-        </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <Suspense fallback={<PageSkeleton />}>
-            <Outlet />
-          </Suspense>
-        </main>
-      </div>
+      <main className="mx-auto flex w-full max-w-[1376px] min-w-0 flex-1 flex-col px-3 pb-6 lg:px-7 lg:pb-7">
+        <Suspense fallback={<PageSkeleton />}>
+          <Outlet />
+        </Suspense>
+      </main>
     </div>
   );
 }

@@ -100,7 +100,7 @@ export function SkillsPage() {
           <>
             <span className="text-sm font-medium">{me.fullName}</span>
             <span className="text-sm text-muted-foreground">{me.studentCode}</span>
-            <MajorTag majorId={me.majorId} code={me.majorCode} />
+            <MajorTag code={me.majorCode} />
             <span className="text-sm text-muted-foreground">{me.majorName}</span>
           </>
         }

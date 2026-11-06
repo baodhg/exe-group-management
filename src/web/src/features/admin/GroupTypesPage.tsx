@@ -99,7 +99,7 @@ export function GroupTypesPage() {
               {groupType.majors.length === 0 && <span className="text-xs text-muted-foreground">Không yêu cầu ngành cụ thể</span>}
               {groupType.majors.map((major) => (
                 <span key={major.majorId} className="inline-flex items-center gap-1">
-                  <MajorTag majorId={major.majorId} code={major.majorCode} />
+                  <MajorTag code={major.majorCode} />
                   <span className="tabular text-xs text-muted-foreground">từ {major.minMembers}</span>
                 </span>
               ))}
@@ -202,7 +202,7 @@ function GroupTypeEditor({ groupType, majors, onDone }: { groupType: GroupType; 
             {majors.map((major) => (
               <li key={major.id} className="flex items-center justify-between gap-3 px-3 py-2">
                 <span className="flex min-w-0 items-center gap-2 text-sm">
-                  <MajorTag majorId={major.id} code={major.code} />
+                  <MajorTag code={major.code} />
                   <span className="truncate text-muted-foreground">{major.name}</span>
                 </span>
                 <Input
