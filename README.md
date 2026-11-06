@@ -228,7 +228,8 @@ version if anything fails. Follow it in the **Actions** tab; a failed deployment
 
 `main` accepts pull requests only and nobody can skip the rules, administrators included. A pull request merges when
 `dotnet`, `web`, `docker`, `architecture`, `conventions` and `infra-guard` are green. The branch does not have to be up to
-date with `main`; CI runs again on `main` after each merge and the demo deploys only when that run is green. No review is
+date with `main`; CI runs again on `main` after each merge and the demo deploys automatically only when that run is green
+(a manual deploy from the Actions tab does not check this). No review is
 required, except that `infra-guard` asks the project manager to approve member changes to DevOps files, listed in
 `.github/devops-paths.txt` and the guard workflow. See `CONTRIBUTING.md` for what each check verifies.
 

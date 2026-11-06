@@ -28,7 +28,8 @@ async function guard({
   const github = {
     rest: {
       repos: {
-        getContent: async ({ ref }) => {
+        getContent: async ({ ref, path }) => {
+          assert.equal(path, ".github/devops-paths.txt");
           result.listRef = ref;
           return { data: { content: Buffer.from(devOpsPaths).toString("base64") } };
         },
@@ -90,14 +91,19 @@ for (const path of [
   "ExeGroup.slnLaunch",
   "Directory.Packages.props",
   ".editorconfig",
-  ".env.example",
   ".env.local.example",
-  "dotnet-tools.json",
   "scripts/seed-demo.mjs",
   "scripts/smoke-e2e.mjs",
   "scripts/dev-token.mjs",
   "scripts/ef.sh",
   "scripts/ef.ps1",
+  "scripts/nested/helper.test.mjs",
+  "scripts/demo-deploy.sh.bak",
+  "docs/deploy/notes.md",
+  "docs/docker/notes.md",
+  "docs/scripts/zz.test.mjs",
+  "mydocker-compose.yml",
+  "src/GroupService/.env.example",
 ]) {
   test(`a member changing ${path} passes without approval`, async () => {
     assert.equal((await guard({ files: [path] })).failure, null);
@@ -119,6 +125,16 @@ for (const path of [
   "deploy/docker-compose.demo.yml",
   "deploy/anything-new.conf",
   "docker/dotnet-service.Dockerfile",
+  "docker/settings.conf",
+  ".env.example",
+  ".gitattributes",
+  "src/GroupService/.gitattributes",
+  ".GITATTRIBUTES",
+  "dotnet-tools.json",
+  ".config/dotnet-tools.json",
+  ".gitleaksignore",
+  "scripts/zz.test.mjs",
+  "scripts/ZZ.TEST.MJS",
   "src/web/Dockerfile",
   "src/GroupService/Dockerfile.dev",
   "src/GroupService/custom.Dockerfile",
@@ -142,6 +158,21 @@ for (const path of [
     assert.match(result.failure ?? "", /must approve the latest commit/);
   });
 }
+
+test("the guard runs on every pull request event against main with read-only access", () => {
+  const header = workflow.split("steps:")[0].replaceAll("\r", "");
+  const block = (...parts) => parts.join("\n");
+  assert.ok(header.includes(block("on:", "  pull_request_target:", "    branches: [main]", "    types: [opened, synchronize, reopened, edited, ready_for_review]")));
+  assert.ok(header.includes(block("permissions:", "  contents: read", "  pull-requests: read")));
+  assert.ok(header.includes(block("  infra-guard:", "    name: infra-guard")));
+  assert.ok(!header.includes("write"));
+});
+
+test("every test file the conventions job runs is protected", async () => {
+  const conventions = readFileSync(join(import.meta.dirname, "..", ".github", "workflows", "conventions.yml"), "utf8");
+  assert.ok(conventions.includes('node --test "scripts/*.test.mjs"'));
+  assert.match((await guard({ files: ["scripts/anything-new.test.mjs"] })).failure ?? "", /must approve/);
+});
 
 test("the list is read from the commit the workflow runs from, not the older base of the pull request", async () => {
   assert.equal((await guard({ files: ["docs/notes.md"] })).listRef, workflowCommit);
