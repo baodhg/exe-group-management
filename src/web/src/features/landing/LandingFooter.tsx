@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, Code2, Globe, LogIn } from "lucide-react";
+import { BookOpen, CalendarDays, LogIn } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { Brand } from "../../shared/layout/Brand";
@@ -49,18 +49,6 @@ export function LandingFooter() {
             ))}
           </FooterColumn>
           <FooterColumn title="Dự án">
-            <li>
-              <a className={linkClass} href="https://github.com/baodhg/exe-group-management">
-                <Code2 className="size-4" aria-hidden />
-                Mã nguồn
-              </a>
-            </li>
-            <li>
-              <a className={linkClass} href="https://exe.qizhub.com">
-                <Globe className="size-4" aria-hidden />
-                Bản demo
-              </a>
-            </li>
             <li>
               <Link className={linkClass} to="/login">
                 <LogIn className="size-4" aria-hidden />
