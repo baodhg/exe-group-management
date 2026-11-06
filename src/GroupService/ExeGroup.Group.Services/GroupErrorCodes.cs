@@ -21,4 +21,15 @@ public static class GroupErrorCodes
     public const string StudentNotInSemester = "STUDENT_NOT_IN_SEMESTER";
     public const string StudentInRoom = "STUDENT_IN_ROOM";
     public const string SkillsLocked = "SKILLS_LOCKED";
+    public const string CourseNotPublished = "COURSE_NOT_PUBLISHED";
+    public const string NotEnrolled = "NOT_ENROLLED";
+    public const string AlreadyInRoom = "ALREADY_IN_ROOM";
+    public const string RoomLocked = "ROOM_LOCKED";
+    public const string RoomNotLocked = "ROOM_NOT_LOCKED";
+    public const string RoomFull = "ROOM_FULL";
+    public const string CompositionRule = "COMPOSITION_RULE";
+    public const string RemovedFromRoom = "REMOVED_FROM_ROOM";
+    public const string NotRoomLeader = "NOT_ROOM_LEADER";
+    public const string NotRoomMember = "NOT_ROOM_MEMBER";
+    public const string RoomNameTaken = "ROOM_NAME_TAKEN";
 }

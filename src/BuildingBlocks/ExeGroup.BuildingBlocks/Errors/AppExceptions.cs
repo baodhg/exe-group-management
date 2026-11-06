@@ -16,8 +16,8 @@ public sealed class ConflictException(string code, string message) : AppExceptio
 public sealed class UnauthorizedException(string message = "A signed-in user is required.")
     : AppException(ErrorCodes.Unauthorized, message);
 
-public sealed class ForbiddenException(string message = "You are not allowed to perform this action.")
-    : AppException(ErrorCodes.Forbidden, message);
+public sealed class ForbiddenException(string message = "You are not allowed to perform this action.", string code = ErrorCodes.Forbidden)
+    : AppException(code, message);
 
 public sealed record FieldError(string? Field, string Message, string Code = ErrorCodes.ValidationFailed);
 

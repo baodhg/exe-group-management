@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<ICourseRepository, CourseRepository>();
         services.AddScoped<IRosterRepository, RosterRepository>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();
+        services.AddScoped<IRoomRepository, RoomRepository>();
         return services;
     }
 }
