@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddScoped<IConversationService, ConversationService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IGroupEventHandler, GroupEventHandler>();
+        services.AddScoped<IProcessedEventCleaner, ProcessedEventCleaner>();
         return services;
     }
 }
