@@ -204,7 +204,7 @@ public sealed class RoomService(IRoomRepository rooms, ICurrentUser currentUser)
                 .ToList());
     }
 
-    private static RoomSummaryModel ToSummary(RoomRow row) =>
+    internal static RoomSummaryModel ToSummary(RoomRow row) =>
         new(
             row.Room.RoomId,
             row.Room.CourseId,

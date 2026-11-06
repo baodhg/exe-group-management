@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
-    
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.API\ExeGroup.Group.API.csproj" />

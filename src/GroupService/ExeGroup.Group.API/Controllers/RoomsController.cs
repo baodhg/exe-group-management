@@ -2,7 +2,9 @@ using Asp.Versioning;
 using ExeGroup.BuildingBlocks.Context;
 using ExeGroup.BuildingBlocks.Web.Responses;
 using ExeGroup.Group.API.Models.Rooms;
+using ExeGroup.Group.API.Models.Suggestions;
 using ExeGroup.Group.Services.Rooms;
+using ExeGroup.Group.Services.Suggestions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,8 +13,17 @@ namespace ExeGroup.Group.API.Controllers;
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/courses/{courseId:guid}/rooms")]
 [Tags("Rooms")]
-public sealed class CourseRoomsController(IRoomService rooms) : ApiControllerBase
+public sealed class CourseRoomsController(IRoomService rooms, ISuggestionService suggestions) : ApiControllerBase
 {
+    [HttpGet("suggestions")]
+    [Authorize(Roles = Roles.Student)]
+    [EndpointSummary("Rooms ranked for me with reasons (gRPC Recommendation); unranked rooms if it is down")]
+    [ProducesResponseType<ApiResponse<RoomSuggestionsResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Suggestions([FromRoute] Guid courseId, [FromQuery] int top = 3, CancellationToken cancellationToken = default) =>
+        Success((await suggestions.SuggestRoomsAsync(courseId, top, cancellationToken)).ToResponse(), "Room suggestions loaded");
+
     [HttpGet]
     [EndpointSummary("Rooms of a course; filter status, hasSeat, groupTypeId; search name or topic")]
     [ProducesResponseType<ApiResponse<IReadOnlyList<RoomSummaryResponse>>>(StatusCodes.Status200OK)]

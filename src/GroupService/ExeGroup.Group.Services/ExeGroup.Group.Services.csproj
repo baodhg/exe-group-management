@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Grpc.Net.ClientFactory" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ExeGroup.Group.Repositories\ExeGroup.Group.Repositories.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\ExeGroup.BuildingBlocks\ExeGroup.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\Contracts\ExeGroup.Contracts\ExeGroup.Contracts.csproj" />
   </ItemGroup>
 </Project>

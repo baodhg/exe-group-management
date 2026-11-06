@@ -1,11 +1,13 @@
 using ExeGroup.Group.Repositories;
 using ExeGroup.Group.Repositories.Data;
 using ExeGroup.Testing;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ExeGroup.Group.IntegrationTests;
 
-public sealed class GroupApiFixture : IAsyncLifetime
+public class GroupApiFixture : IAsyncLifetime
 {
     public static readonly IReadOnlyDictionary<string, string?> Settings = new Dictionary<string, string?>
     {
@@ -16,10 +18,10 @@ public sealed class GroupApiFixture : IAsyncLifetime
 
     public string ConnectionString { get; private set; } = string.Empty;
 
-    public async ValueTask InitializeAsync()
+    public virtual async ValueTask InitializeAsync()
     {
         ConnectionString = (await SqlServerContainer.SharedAsync()).NewDatabaseConnectionString("group");
-        Api = new ServiceApiFactory<Program>(DependencyInjection.ConnectionName, ConnectionString, Settings);
+        Api = new GroupApiFactory(ConnectionString, ConfigureServices);
         await Api.MigrateAsync();
     }
 
@@ -37,8 +39,22 @@ public sealed class GroupApiFixture : IAsyncLifetime
         return await query(scope.ServiceProvider.GetRequiredService<GroupDbContext>());
     }
 
-    public async ValueTask DisposeAsync()
+    public virtual async ValueTask DisposeAsync()
     {
         await Api.DisposeAsync();
+    }
+
+    protected virtual void ConfigureServices(IServiceCollection services)
+    {
+    }
+
+    private sealed class GroupApiFactory(string connectionString, Action<IServiceCollection> configureServices)
+        : ServiceApiFactory<Program>(DependencyInjection.ConnectionName, connectionString, Settings)
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.ConfigureTestServices(configureServices);
+        }
     }
 }

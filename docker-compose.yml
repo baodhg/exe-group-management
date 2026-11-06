@@ -73,6 +73,7 @@ services:
       <<: *dotnet-env
       ConnectionStrings__GroupDb: Server=sqlserver,1433;Database=GroupDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
       Redis__Connection: redis:6379
+      Recommendation__Address: http://recommendation-service:8081
     depends_on:
       sqlserver:
         condition: service_healthy
