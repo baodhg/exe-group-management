@@ -23,14 +23,21 @@ public sealed class RealtimeApiFixture : IAsyncLifetime
         await Api.MigrateAsync();
     }
 
+    public static string TokenFor(Guid userId, string? name = null)
+    {
+        Claim[] claims = name is null ? [] : [new Claim(JwtRegisteredClaimNames.Name, name)];
+        return new AccessTokenFactory(TestTokens.Options).Create(userId, [Roles.Student], claims).Token;
+    }
+
     public HttpClient ClientFor(Guid userId, string? name = null)
     {
         var client = Api.CreateClient();
-        Claim[] claims = name is null ? [] : [new Claim(JwtRegisteredClaimNames.Name, name)];
-        var token = new AccessTokenFactory(TestTokens.Options).Create(userId, [Roles.Student], claims).Token;
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TokenFor(userId, name));
         return client;
     }
+
+    public Task<HubTestClient> HubFor(Guid? userId, string? name = null) =>
+        HubTestClient.ConnectAsync(Api.Server, userId is { } id ? TokenFor(id, name) : null, TestContext.Current.CancellationToken);
 
     public async Task SeedAsync(Action<ChatDbContext> seed, CancellationToken cancellationToken)
     {
