@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { marqueeTags } from "./landingContent";
+import { Wrap } from "./parts";
 
 function TagRow({ className }: { className?: string }) {
   return (
@@ -16,11 +17,13 @@ function TagRow({ className }: { className?: string }) {
 
 export function FeatureMarquee() {
   return (
-    <div aria-hidden className="flex overflow-hidden whitespace-nowrap mask-x-from-94% mask-x-to-100% motion-reduce:mask-none motion-reduce:px-4">
-      <div className="inline-flex min-w-max animate-out slide-out-to-left-1/2 duration-[42s] ease-linear repeat-infinite hover:paused motion-reduce:w-full motion-reduce:min-w-0 motion-reduce:animate-none">
-        <TagRow />
-        <TagRow className="motion-reduce:hidden" />
+    <Wrap>
+      <div aria-hidden className="flex overflow-hidden whitespace-nowrap mask-x-from-88% mask-x-to-100% motion-reduce:mask-none">
+        <div className="inline-flex min-w-max animate-out slide-out-to-left-1/2 duration-[42s] ease-linear repeat-infinite hover:paused motion-reduce:w-full motion-reduce:min-w-0 motion-reduce:animate-none">
+          <TagRow />
+          <TagRow className="motion-reduce:hidden" />
+        </div>
       </div>
-    </div>
+    </Wrap>
   );
 }
