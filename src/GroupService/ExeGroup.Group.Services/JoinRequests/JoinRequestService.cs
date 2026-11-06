@@ -17,6 +17,8 @@ public sealed record JoinRequestModel(
     Guid StudentId,
     string? StudentCode,
     string? StudentName,
+    string? MajorCode,
+    IReadOnlyList<RoomSkillModel> Skills,
     string? Message,
     string Status,
     string? ReasonCode,
@@ -75,7 +77,7 @@ public sealed class JoinRequestService(
         }
 
         var page = await joinRequests.GetPageAsync(new JoinRequestFilter(studentId, filter.RoomId, filter.CourseId, status), query, cancellationToken);
-        return page.Map(ToModel);
+        return new PagedResult<JoinRequestModel>(await ToModelsAsync(page.Items, cancellationToken), page.Page, page.PageSize, page.TotalItems);
     }
 
     public async Task<JoinRequestModel> GetAsync(Guid requestId, CancellationToken cancellationToken)
@@ -90,7 +92,7 @@ public sealed class JoinRequestService(
             }
         }
 
-        return ToModel(row);
+        return (await ToModelsAsync([row], cancellationToken))[0];
     }
 
     public async Task<JoinRequestModel> SubmitAsync(Guid roomId, string? message, CancellationToken cancellationToken)
@@ -248,7 +250,28 @@ public sealed class JoinRequestService(
             : throw new ValidationFailedException(field, $"Use at most {MaxTextLength} characters.");
     }
 
-    private static JoinRequestModel ToModel(JoinRequestRow row) =>
+    private async Task<List<JoinRequestModel>> ToModelsAsync(IReadOnlyList<JoinRequestRow> rows, CancellationToken cancellationToken)
+    {
+        var skills = new Dictionary<(Guid SemesterId, Guid StudentId), List<RoomSkillModel>>();
+        foreach (var semester in rows.GroupBy(row => row.SemesterId))
+        {
+            var studentIds = semester.Select(row => row.Request.StudentId).Distinct().ToList();
+            foreach (var rating in await joinRequests.ListSkillsAsync(semester.Key, studentIds, cancellationToken))
+            {
+                var key = (semester.Key, rating.StudentId);
+                if (!skills.TryGetValue(key, out var list))
+                {
+                    skills[key] = list = [];
+                }
+
+                list.Add(new RoomSkillModel(rating.SkillCode, rating.Level));
+            }
+        }
+
+        return rows.Select(row => ToModel(row, skills.GetValueOrDefault((row.SemesterId, row.Request.StudentId)) ?? [])).ToList();
+    }
+
+    private static JoinRequestModel ToModel(JoinRequestRow row, IReadOnlyList<RoomSkillModel> skills) =>
         new(
             row.Request.RequestId,
             row.Request.CourseId,
@@ -257,6 +280,8 @@ public sealed class JoinRequestService(
             row.Request.StudentId,
             row.StudentCode,
             row.StudentName,
+            row.MajorCode,
+            skills,
             row.Request.Message,
             row.Request.Status,
             row.Request.ReasonCode,

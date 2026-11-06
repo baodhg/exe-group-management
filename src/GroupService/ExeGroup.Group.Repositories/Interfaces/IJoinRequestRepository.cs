@@ -14,7 +14,13 @@ public sealed class JoinRequestRow
     public string? StudentCode { get; init; }
 
     public string? StudentName { get; init; }
+
+    public Guid SemesterId { get; init; }
+
+    public string? MajorCode { get; init; }
 }
+
+public sealed record StudentSkillRow(Guid StudentId, string SkillCode, byte Level);
 
 public sealed record JoinRequestFilter(Guid? StudentId, Guid? RoomId, Guid? CourseId, string? Status);
 
@@ -25,6 +31,8 @@ public interface IJoinRequestRepository
     Task<JoinRequestRow?> FindRowAsync(Guid requestId, CancellationToken cancellationToken);
 
     Task<JoinRequest?> FindAsync(Guid requestId, CancellationToken cancellationToken);
+
+    Task<List<StudentSkillRow>> ListSkillsAsync(Guid semesterId, IReadOnlyCollection<Guid> studentIds, CancellationToken cancellationToken);
 
     Task<bool> HasPendingAsync(Guid roomId, Guid studentId, CancellationToken cancellationToken);
 

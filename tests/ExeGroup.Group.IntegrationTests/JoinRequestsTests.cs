@@ -172,6 +172,16 @@ public sealed class JoinRequestsTests(GroupApiFixture fixture) : IClassFixture<G
         var scenario = await RoomScenario.CreateAsync(fixture, [(leader, false), (applicantA, false), (applicantB, false)]);
         var room = scenario.Rooms[0];
         await LeadLockedRoomAsync(leader, room);
+        var skillCode = string.Empty;
+        await fixture.SeedAsync(
+            database =>
+            {
+                var skill = database.Skill();
+                skillCode = skill.Code;
+                database.StudentSkills.Add(new StudentSkill { SemesterId = scenario.SemesterId, StudentId = applicantA, SkillId = skill.SkillId, Level = 4 });
+            },
+            Ct);
+        var majorCode = await fixture.QueryAsync(database => database.Majors.Where(major => major.MajorId == scenario.Se).Select(major => major.Code).SingleAsync(Ct));
         var requestA = await IdAsync(await ApplyAsync(applicantA, room));
         await ApplyAsync(applicantB, room);
 
@@ -184,6 +194,10 @@ public sealed class JoinRequestsTests(GroupApiFixture fixture) : IClassFixture<G
         var byOtherApplicant = await As(applicantB).GetAsync($"/api/v1/join-requests/{requestA}", Ct);
 
         Assert.Equal(2, forLeader.GetArrayLength());
+        var fromA = forLeader.EnumerateArray().Single(item => item.GetProperty("id").GetGuid() == requestA);
+        Assert.Equal(majorCode, fromA.GetProperty("majorCode").GetString());
+        var rated = Assert.Single(fromA.GetProperty("skills").EnumerateArray());
+        Assert.Equal((skillCode, 4), (rated.GetProperty("skillCode").GetString(), rated.GetProperty("level").GetInt32()));
         Assert.Equal(requestA, Assert.Single(mine.EnumerateArray()).GetProperty("id").GetGuid());
         Assert.Equal(2, forAdmin.GetArrayLength());
         Assert.Equal(0, approvedOnly.GetArrayLength());
