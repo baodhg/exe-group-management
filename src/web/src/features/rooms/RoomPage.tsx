@@ -1,57 +1,116 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleCheck, CircleDashed, Crown, DoorOpen, LogOut, Send } from "lucide-react";
+import { ArrowLeft, Clock, Crown, DoorOpen, Eye, Inbox, LayoutGrid, LogOut, MessagesSquare, Send, ShieldAlert } from "lucide-react";
+import { useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "../../shared/auth/useAuth";
-import { initialsOf } from "../../shared/layout/navigation";
-import { useDialogs } from "../common/dialogsContext";
-import { errorText, phaseLabels } from "../common/messages";
+import { errorText } from "../common/messages";
 import type { Course, JoinRequest, RoomDetail, RoomSummary } from "../common/types";
-import { Badge, ErrorNote, Loading, PageHeader, Section } from "../common/ui";
+import { Badge, Criteria, Criterion, EmptyState, ErrorNote, Failure, Field, LinkButton, Notice, PageHeader, Section, SummaryCard } from "../common/ui";
+import type { Conversation } from "../conversations/conversations";
 import { ChatPanel } from "../realtime/ChatPanel";
 import { useWatchCourse } from "../realtime/realtimeContext";
-import { leadsRoom } from "./leader";
-import { LeaderPanel, MemberActions } from "./LeaderPanel";
-import { missingMajors } from "./seatLayout";
-import { studentActionFor } from "./roomActions";
-import { RoomStatusBadge } from "./RoomCard";
-import { MajorChips, MajorTag, SeatStrip, SkillTags } from "./seats";
+import { ActionDialog } from "./ActionDialog";
+import { leaderKeepsRecords, leadsRoom } from "./leader";
+import { ApplicationHistory, LeaderAfterDeadline, LeaderPanel, MemberActions } from "./LeaderPanel";
+import { AfterDeadline, Composition, CountChip, EligibleChip, ExceptionBox, MemberList, PhaseChip, StatusChip, SuggestionsBox } from "./RoomSections";
+import { applicationLimit, capabilitiesOf, dayTime, deadlineCard, isBlockedRoom, leaveOutcome, leftRoomText, studentActionFor, viewerOf, visitorNote, type LeaveOutcome } from "./roomActions";
+import { useRoomApplications } from "./useRoomApplications";
 
-function Composition({ room }: { room: RoomDetail }) {
-  const missing = missingMajors(room.majors);
-  const distinct = room.majors.filter((major) => major.members > 0).length;
-  const checks = [
-    { ok: room.memberCount >= room.minGroupSize, text: `Ít nhất ${room.minGroupSize} người (đang có ${room.memberCount})` },
-    { ok: distinct >= room.minDistinctMajors, text: `Ít nhất ${room.minDistinctMajors} ngành khác nhau (đang có ${distinct})` },
-    ...room.majors
-      .filter((major) => major.required > 0)
-      .map((major) => ({ ok: major.members >= major.required, text: `Ngành ${major.majorCode}: ít nhất ${major.required} người (đang có ${major.members})` })),
-  ];
+const mainColumn = "flex min-w-0 flex-[3_1_540px] flex-col gap-3.5";
+const sideColumn = "flex min-w-0 flex-[2_1_340px] flex-col gap-3.5";
+const chatPane = "self-start lg:sticky lg:top-4";
 
+function RoomLoading() {
   return (
-    <Section title="Thành phần nhóm" description={`Loại nhóm ${room.groupTypeName} (${room.groupTypeCode})`}>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <SeatStrip capacity={room.capacity} memberCount={room.memberCount} majors={room.majors} missingMajorSeats={missing.reduce((sum, major) => sum + major.required - major.members, 0)} />
-          <span className="tabular shrink-0 text-lg font-semibold">
-            {room.memberCount}/{room.capacity}
-          </span>
-        </div>
-        <MajorChips majors={room.majors} />
-        <ul className="grid gap-1.5 text-sm">
-          {checks.map((check) => (
-            <li key={check.text} className={cn("flex items-start gap-2", check.ok ? "text-foreground" : "text-deadline-ink")}>
-              {check.ok ? <CircleCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden /> : <CircleDashed className="mt-0.5 size-4 shrink-0" aria-hidden />}
-              <span>
-                <span className="sr-only">{check.ok ? "Đạt: " : "Chưa đạt: "}</span>
-                {check.text}
-              </span>
-            </li>
-          ))}
-        </ul>
+    <div className="space-y-4 pt-5" aria-busy="true" aria-label="Đang tải">
+      <Skeleton className="h-3 w-40 rounded-full" />
+      <Skeleton className="h-8 w-72 rounded-full" />
+      <Skeleton className="h-3 w-96 max-w-full rounded-full" />
+      <div className="flex flex-wrap gap-4 pt-2.5">
+        <Skeleton className="h-96 min-w-0 flex-[3_1_540px] rounded-xl" />
+        <Skeleton className="h-72 min-w-0 flex-[2_1_340px] rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+function LeaveDialog({ name, outcome, pending, error, onConfirm, onClose }: { name: string; outcome: LeaveOutcome; pending: boolean; error: unknown; onConfirm: () => void; onClose: () => void }) {
+  return (
+    <ActionDialog
+      title={`Rời ${name}?`}
+      description={outcome.kind === "succession" ? "Bạn đang là trưởng nhóm, quyền trưởng nhóm sẽ chuyển cho thành viên khác." : "Bạn có thể vào phòng khác nếu còn chỗ."}
+      icon={LogOut}
+      confirmLabel="Rời phòng"
+      pendingLabel="Đang rời"
+      destructive
+      pending={pending}
+      onConfirm={onConfirm}
+      onClose={onClose}
+    >
+      {outcome.kind === "succession" && (
+        <Criteria>
+          <Criterion label="Trưởng nhóm mới">{outcome.successor}</Criterion>
+          <Criterion label="Cách chọn">Người vào phòng sớm nhất</Criterion>
+        </Criteria>
+      )}
+      {outcome.kind === "reopens" && (
+        <Criteria>
+          <Criterion label="Phòng sau khi rời">Không còn ai, tự mở lại</Criterion>
+          <Criterion label="Đơn đang chờ">{outcome.pending} đơn sẽ bị huỷ</Criterion>
+        </Criteria>
+      )}
+      <ErrorNote error={error} />
+    </ActionDialog>
+  );
+}
+
+function ApplyDialog({ name, pending, onConfirm, onClose }: { name: string; pending: boolean; onConfirm: (message: string) => void; onClose: () => void }) {
+  const [message, setMessage] = useState("");
+  return (
+    <ActionDialog
+      title={`Gửi đơn vào ${name}`}
+      description="Phòng đang khoá, trưởng nhóm sẽ xem đơn và quyết định."
+      icon={Send}
+      confirmLabel="Gửi đơn"
+      pendingLabel="Đang gửi"
+      pending={pending}
+      onConfirm={() => onConfirm(message.trim())}
+      onClose={onClose}
+    >
+      <Field label="Lời nhắn cho trưởng nhóm (không bắt buộc)" counter={{ value: message.length, max: applicationLimit }}>
+        <Textarea autoFocus maxLength={applicationLimit} className="font-normal" placeholder="Giới thiệu ngắn về bạn và phần bạn làm được" value={message} onChange={(event) => setMessage(event.target.value)} />
+      </Field>
+    </ActionDialog>
+  );
+}
+
+function FormerMemberBox({ room, leftAt, courseId, otherRoom }: { room: RoomDetail; leftAt: string | null; courseId: string; otherRoom: RoomSummary | null }) {
+  return (
+    <Section title="Việc tiếp theo" icon={DoorOpen}>
+      <Criteria>
+        <Criterion label="Rời phòng lúc">{dayTime(leftAt)}</Criterion>
+        <Criterion label="Tin nhắn cũ">Xem tới lúc rời</Criterion>
+      </Criteria>
+      <div className="flex flex-wrap items-center gap-2">
+        {otherRoom ? (
+          <LinkButton to={`/rooms/${otherRoom.id}`}>
+            <DoorOpen aria-hidden />
+            Mở {otherRoom.name}
+          </LinkButton>
+        ) : (
+          <LinkButton to={`/student/courses/${courseId}`}>
+            <LayoutGrid aria-hidden />
+            Về bảng phòng
+          </LinkButton>
+        )}
+        <LinkButton to={`/conversations?id=${room.id}`} variant="outline">
+          <MessagesSquare aria-hidden />
+          Xem lại tin nhắn
+        </LinkButton>
       </div>
     </Section>
   );
@@ -60,178 +119,292 @@ function Composition({ room }: { room: RoomDetail }) {
 export function RoomPage() {
   const { roomId = "" } = useParams();
   const { api, user, hasRole } = useAuth();
-  const { confirm, askText } = useDialogs();
   const queryClient = useQueryClient();
   const isStudent = hasRole("Student");
+  const userId = user?.userId;
+  const [dialog, setDialog] = useState<"leave" | "apply" | null>(null);
+  const [left, setLeft] = useState<{ roomId: string; text: string } | null>(null);
 
   const room = useQuery({ queryKey: ["room", roomId], queryFn: () => api.get<RoomDetail>(`/api/v1/rooms/${roomId}`) });
-  const courseId = room.data?.data.courseId;
+  const detail = room.data?.data;
+  const courseId = detail?.courseId;
   useWatchCourse(courseId);
   const course = useQuery({
     queryKey: ["course", courseId],
     queryFn: () => api.get<Course>(`/api/v1/courses/${courseId}`),
     enabled: courseId !== undefined,
   });
+  const phase = course.data?.data.phase;
+  const viewer = detail ? viewerOf(detail, userId, isStudent) : "staff";
   const myRoom = useQuery({
     queryKey: ["rooms", courseId, "mine"],
     queryFn: () => api.get<RoomSummary[]>(`/api/v1/courses/${courseId}/rooms`, { mine: true }),
     enabled: isStudent && courseId !== undefined,
   });
-  const pending = useQuery({
+  const myApplications = useQuery({
     queryKey: ["joinRequests", "mine", "room", roomId],
     queryFn: () => api.get<JoinRequest[]>("/api/v1/join-requests", { roomId, status: "Pending" }),
     enabled: isStudent,
   });
+  const conversations = useQuery({
+    queryKey: ["conversations"],
+    queryFn: () => api.get<Conversation[]>("/api/v1/conversations"),
+    enabled: viewer === "visitor",
+  });
+  const manages = detail ? leadsRoom(detail, userId, phase) : false;
+  const applications = useRoomApplications(roomId, manages);
 
   const refresh = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["room", roomId] }),
       queryClient.invalidateQueries({ queryKey: ["rooms", courseId] }),
+      queryClient.invalidateQueries({ queryKey: ["course", courseId] }),
       queryClient.invalidateQueries({ queryKey: ["joinRequests"] }),
       queryClient.invalidateQueries({ queryKey: ["suggestions", courseId] }),
+      queryClient.invalidateQueries({ queryKey: ["conversations"] }),
     ]);
 
-  const act = useMutation({
-    mutationFn: ({ action, message }: { action: "join" | "leave" | "apply"; message?: string }) =>
-      action === "apply" ? api.post("/api/v1/join-requests", { roomId, message: message || undefined }) : api.post(`/api/v1/rooms/${roomId}/${action}`),
-    onSuccess: async (_, { action }) => {
-      toast.success(action === "join" ? "Bạn đã vào phòng" : action === "leave" ? "Bạn đã rời phòng" : "Đã gửi đơn, chờ trưởng phòng duyệt");
+  const join = useMutation({
+    mutationFn: () => api.post(`/api/v1/rooms/${roomId}/join`),
+    onSuccess: async () => {
+      toast.success("Bạn đã vào phòng");
       await refresh();
     },
-    onError: (error) => toast.error(errorText(error)),
+    onError: async (error) => {
+      toast.error(errorText(error));
+      await refresh();
+    },
+  });
+  const apply = useMutation({
+    mutationFn: (message: string) => api.post("/api/v1/join-requests", { roomId, message: message || undefined }),
+    onSuccess: async () => {
+      setDialog(null);
+      toast.success("Đã gửi đơn, chờ trưởng nhóm duyệt");
+      await refresh();
+    },
+    onError: async (error) => {
+      setDialog(null);
+      toast.error(errorText(error));
+      await refresh();
+    },
+  });
+  const leave = useMutation({
+    mutationFn: async (expected: LeaveOutcome) => ({ result: await api.post<RoomDetail>(`/api/v1/rooms/${roomId}/leave`), expected }),
+    onSuccess: async ({ result, expected }) => {
+      setDialog(null);
+      setLeft({ roomId, text: leftRoomText(result.data, expected) });
+      toast.success("Bạn đã rời phòng");
+      await refresh();
+    },
   });
 
-  if (room.isLoading) {
-    return <Loading when rows={4} />;
+  function closeLeave() {
+    const failed = leave.isError;
+    leave.reset();
+    setDialog(null);
+    if (failed) {
+      void refresh();
+    }
   }
 
-  if (!room.data) {
-    return <ErrorNote error={room.error} />;
+  const backTo = (id: string) => (hasRole("Administrator") ? `/admin/courses/${id}` : hasRole("Lecturer") ? `/lecturer/courses/${id}` : `/student/courses/${id}`);
+  const rootLink = hasRole("Administrator") ? { to: "/admin/courses", label: "Về các lớp" } : hasRole("Lecturer") ? { to: "/lecturer", label: "Về các lớp" } : { to: "/student", label: "Về lớp của tôi" };
+  const loadError = room.error ?? course.error;
+
+  if (loadError) {
+    const blocked = isBlockedRoom(loadError);
+    return (
+      <>
+        <PageHeader title="Phòng" />
+        <Section className="mt-2.5">
+          <Failure
+            error={loadError}
+            title={blocked ? "Không mở được phòng này" : "Không tải được phòng"}
+            onRetry={
+              blocked
+                ? undefined
+                : () => {
+                    void room.refetch();
+                    void course.refetch();
+                  }
+            }
+            action={
+              <LinkButton to={rootLink.to} variant="link">
+                <ArrowLeft aria-hidden />
+                {rootLink.label}
+              </LinkButton>
+            }
+          />
+        </Section>
+      </>
+    );
   }
 
-  const detail = room.data.data;
-  const phase = course.data?.data.phase;
-  const myPending = (pending.data?.data ?? []).filter((request) => request.studentId === user?.userId);
-  const action =
-    isStudent && phase && myRoom.isSuccess
-      ? studentActionFor({ phase, room: detail, myRoomId: myRoom.data.data[0]?.id ?? null, hasPendingApplication: myPending.length > 0 })
-      : "none";
-  const isLeader = leadsRoom(detail, user?.userId, phase);
-  const isMember = detail.members.some((member) => member.studentId === user?.userId);
-  const back = hasRole("Administrator") ? `/admin/courses/${detail.courseId}` : hasRole("Lecturer") ? `/lecturer/courses/${detail.courseId}` : `/student/courses/${detail.courseId}`;
-  const courseLabel = course.data ? `${course.data.data.subjectCode} ${course.data.data.classCode}` : "Course";
+  if (!detail || !phase || !course.data) {
+    return <RoomLoading />;
+  }
+
+  const info = course.data.data;
+  const crumbs = [{ label: `${info.subjectCode} ${info.classCode}`, to: backTo(detail.courseId) }, { label: detail.name }];
+
+  if (left?.roomId === roomId) {
+    return (
+      <>
+        <PageHeader crumbs={crumbs} title={detail.name} />
+        <Section className="mt-2.5">
+          <EmptyState
+            icon={DoorOpen}
+            title={`Bạn đã rời ${detail.name}`}
+            description={left.text}
+            action={
+              <LinkButton to={`/student/courses/${detail.courseId}`} variant="outline">
+                <LayoutGrid aria-hidden />
+                Về bảng phòng
+              </LinkButton>
+            }
+          />
+        </Section>
+      </>
+    );
+  }
+
+  const can = capabilitiesOf(viewer, phase);
+  const keepsRecords = leaderKeepsRecords(detail, userId, phase);
+  const isException = phase === "Finalized" && !detail.eligible;
+  const pendingCount = applications.data?.data.length ?? 0;
+  const outcome = leaveOutcome(detail, userId, pendingCount);
+  const hasPending = (myApplications.data?.data ?? []).some((request) => request.studentId === userId);
+  const myRoomSummary = myRoom.data?.data[0] ?? null;
+  const visitorState = { phase, room: detail, myRoomId: myRoomSummary?.id ?? null, hasPendingApplication: hasPending };
+  const action = viewer === "visitor" && myRoom.isSuccess ? studentActionFor(visitorState) : "none";
+  const caseNote = viewer === "visitor" && myRoom.isSuccess ? visitorNote(visitorState) : null;
+  const former = viewer === "visitor" ? (conversations.data?.data ?? []).find((conversation) => conversation.id === roomId && !conversation.canSend) : undefined;
+  const otherRoom = myRoomSummary && myRoomSummary.id !== roomId ? myRoomSummary : null;
+  const card = can.deadlineCard ? deadlineCard(viewer, phase, info.expireAt) : null;
+  const inRoom = viewer === "leader" || viewer === "member";
+  const leaderLabel = viewer === "leader" ? "Bạn là trưởng nhóm" : `Trưởng nhóm: ${detail.leaderName || "Chưa có"}`;
+
+  const memberActions = (member: RoomDetail["members"][number]) => (manages && !member.isLeader ? <MemberActions room={detail} studentId={member.studentId} name={member.fullName} /> : null);
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
-        crumbs={[{ label: courseLabel, to: back }, { label: detail.name }]}
+        crumbs={crumbs}
         title={detail.groupNo !== null ? `Nhóm ${detail.groupNo}: ${detail.name}` : detail.name}
         description={detail.topic ?? "Chưa có đề tài"}
         meta={
           <>
-            <RoomStatusBadge status={detail.status} />
-            {detail.eligible ? <Badge tone="good">Đủ điều kiện</Badge> : <Badge tone="warn">Chưa đủ điều kiện</Badge>}
-            {phase && <Badge>{phaseLabels[phase]}</Badge>}
+            <StatusChip status={detail.status} />
+            <EligibleChip eligible={detail.eligible} />
+            {isException && (
+              <Badge tone="warn" icon={ShieldAlert}>
+                Ngoại lệ
+              </Badge>
+            )}
+            <PhaseChip phase={phase} />
+            {can.readOnly && <Badge icon={Eye}>Chỉ đọc</Badge>}
+            {viewer === "visitor" && phase === "Published" && hasPending && (
+              <Badge tone="info" icon={Clock}>
+                Đơn của bạn đang chờ duyệt
+              </Badge>
+            )}
+            {card && <CountChip room={detail} />}
+            {card && (
+              <Badge tone="info" icon={Crown}>
+                {leaderLabel}
+              </Badge>
+            )}
           </>
         }
         actions={
-          <>
-            {action === "join" && (
-              <Button disabled={act.isPending} onClick={() => act.mutate({ action: "join" })}>
-                <DoorOpen />
-                Vào phòng
+          action === "join" || action === "apply" ? (
+            action === "join" ? (
+              <Button pending={join.isPending} onClick={() => join.mutate()}>
+                {!join.isPending && <DoorOpen aria-hidden />}
+                {join.isPending ? "Đang vào phòng" : "Vào phòng"}
               </Button>
-            )}
-            {action === "apply" && (
-              <Button
-                disabled={act.isPending}
-                onClick={async () => {
-                  const message = await askText({
-                    title: `Gửi đơn vào ${detail.name}`,
-                    description: "Phòng đang khóa, trưởng phòng sẽ xem đơn và quyết định.",
-                    label: "Lời nhắn cho trưởng phòng (không bắt buộc)",
-                    placeholder: "Giới thiệu ngắn về bạn và phần bạn làm được",
-                    required: false,
-                    maxLength: 500,
-                    confirmLabel: "Gửi đơn",
-                  });
-                  if (message !== null) {
-                    act.mutate({ action: "apply", message });
-                  }
-                }}
-              >
-                <Send />
+            ) : (
+              <Button onClick={() => setDialog("apply")}>
+                <Send aria-hidden />
                 Gửi đơn xin vào
               </Button>
-            )}
-            {action === "leave" && (
-              <Button
-                variant="outline"
-                disabled={act.isPending}
-                onClick={async () => {
-                  const leader = detail.leaderId === user?.userId && detail.memberCount > 1;
-                  if (
-                    await confirm({
-                      title: `Rời ${detail.name}?`,
-                      description: leader ? "Bạn đang là trưởng phòng, quyền trưởng phòng sẽ chuyển cho thành viên khác." : "Bạn có thể vào phòng khác nếu còn chỗ.",
-                      confirmLabel: "Rời phòng",
-                      destructive: true,
-                    })
-                  ) {
-                    act.mutate({ action: "leave" });
-                  }
-                }}
-              >
-                <LogOut />
-                Rời phòng
-              </Button>
-            )}
-            {myPending.length > 0 && <Badge tone="info">Đơn của bạn đang chờ duyệt</Badge>}
-          </>
+            )
+          ) : undefined
+        }
+        aside={
+          card ? (
+            <SummaryCard icon={Clock} label={card.label} value={card.value}>
+              <span className="text-xs font-semibold">{card.note}</span>
+              {manages && (
+                <span className="inline-flex items-center gap-1.5 text-xs">
+                  <Inbox className="size-3.5 shrink-0" aria-hidden />
+                  {pendingCount} đơn đang chờ bạn duyệt
+                </span>
+              )}
+              {can.leave && (
+                <Button variant="destructive" size="sm" className="self-start" onClick={() => setDialog("leave")}>
+                  <LogOut aria-hidden />
+                  Rời phòng
+                </Button>
+              )}
+            </SummaryCard>
+          ) : undefined
         }
       />
 
-      <div className={cn("grid gap-6", isMember && "lg:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)]")}>
-        <div className="min-w-0 space-y-6">
-          {isLeader && <LeaderPanel key={detail.id} room={detail} />}
-          <Composition room={detail} />
-          <Section title="Thành viên">
-            {detail.members.length === 0 && <p className="text-sm text-muted-foreground">Phòng chưa có ai.</p>}
-            <ul className="divide-y">
-              {detail.members.map((member) => (
-                <li key={member.studentId} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                  <Avatar>
-                    <AvatarFallback className={cn("text-xs font-medium", member.isLeader && "bg-accent text-accent-foreground")}>{initialsOf(member.fullName)}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                      <span className="font-medium">{member.fullName}</span>
-                      <span className="text-muted-foreground">{member.studentCode}</span>
-                      {member.isLeader && (
-                        <Badge tone="info">
-                          <Crown className="size-3" aria-hidden />
-                          Trưởng phòng
-                        </Badge>
-                      )}
-                      {member.studentId === user?.userId && <Badge>Bạn</Badge>}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <MajorTag code={member.majorCode} />
-                      <SkillTags skills={member.skills} />
-                    </div>
-                  </div>
-                  {isLeader && !member.isLeader && <MemberActions room={detail} studentId={member.studentId} name={member.fullName} />}
-                </li>
-              ))}
-            </ul>
-          </Section>
-        </div>
-        {isMember && (
-          <div className="lg:sticky lg:top-24 lg:self-start">
-            <ChatPanel key={detail.id} conversationId={detail.id} />
-          </div>
+      {caseNote && <Notice className="mt-2.5">{caseNote}</Notice>}
+      {former && (
+        <Notice tone="warn" className="mt-2.5" title={`Bạn không còn ở ${detail.name}`}>
+          Bạn đã rời phòng, được chuyển sang phòng khác hoặc bị xoá khỏi phòng.
+        </Notice>
+      )}
+
+      <div className="flex flex-wrap items-start gap-4 pt-2.5">
+        {keepsRecords && (
+          <>
+            <div className={mainColumn}>
+              {manages ? <LeaderPanel key={detail.id} room={detail} /> : <LeaderAfterDeadline key={detail.id} room={detail} />}
+              <Composition room={detail} single={false} />
+              <MemberList room={detail} userId={userId} actionsFor={memberActions} />
+              <ApplicationHistory key={detail.id} roomId={detail.id} />
+            </div>
+            <Section className={`min-w-0 flex-[2_1_340px] ${chatPane}`}>
+              <ChatPanel key={detail.id} conversationId={detail.id} />
+            </Section>
+          </>
+        )}
+
+        {!keepsRecords && inRoom && (
+          <>
+            <Section className={`min-w-0 flex-[3_1_540px] ${chatPane}`}>
+              <ChatPanel key={detail.id} conversationId={detail.id} />
+            </Section>
+            <div className={sideColumn}>
+              {isException && <ExceptionBox room={detail} />}
+              <Composition room={detail} />
+              <MemberList room={detail} userId={userId} joinDetails={can.joinDetails} readOnlyChip={phase === "Finalized"} />
+              {can.afterDeadline && <AfterDeadline />}
+              {can.suggestions && <SuggestionsBox courseId={detail.courseId} expireAt={info.expireAt} />}
+            </div>
+          </>
+        )}
+
+        {!inRoom && (
+          <>
+            <div className={mainColumn}>
+              {former && <FormerMemberBox room={detail} leftAt={former.leftAt} courseId={detail.courseId} otherRoom={otherRoom} />}
+              <MemberList room={detail} userId={userId} />
+            </div>
+            <div className={sideColumn}>
+              {isException && <ExceptionBox room={detail} />}
+              <Composition room={detail} />
+            </div>
+          </>
         )}
       </div>
-    </div>
+
+      {dialog === "apply" && action === "apply" && <ApplyDialog name={detail.name} pending={apply.isPending} onConfirm={(message) => apply.mutate(message)} onClose={() => setDialog(null)} />}
+      {dialog === "leave" && can.leave && <LeaveDialog name={detail.name} outcome={outcome} pending={leave.isPending} error={leave.error} onConfirm={() => leave.mutate(outcome)} onClose={closeLeave} />}
+    </>
   );
 }
