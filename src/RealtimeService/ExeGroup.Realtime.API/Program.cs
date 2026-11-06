@@ -1,5 +1,6 @@
 using ExeGroup.BuildingBlocks.Web.Health;
 using ExeGroup.BuildingBlocks.Web.Hosting;
+using ExeGroup.Realtime.API.Events;
 using ExeGroup.Realtime.API.Hubs;
 using ExeGroup.Realtime.Services;
 
@@ -8,6 +9,10 @@ builder.AddServiceDefaults("realtime-service", typeof(Program).Assembly);
 builder.Services.AddRealtimeServices(builder.Configuration);
 builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddRealtimeHub();
+if (builder.Configuration.GetValue(GroupEventsConsumer.EnabledKey, true))
+{
+    builder.Services.AddHostedService<GroupEventsConsumer>();
+}
 
 var app = builder.Build();
 app.UseServiceDefaults();
