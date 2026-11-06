@@ -5,6 +5,7 @@ import { useAuth } from "../../shared/auth/useAuth";
 import { roomStatusLabels } from "../common/messages";
 import type { RoomSummary } from "../common/types";
 import { Badge, ErrorNote, Pager } from "../common/ui";
+import { useWatchCourse } from "../realtime/realtimeContext";
 import { roomSorts } from "./roomActions";
 
 export function RoomBoard({ courseId, finalized = false, myRoomId = null }: { courseId: string; finalized?: boolean; myRoomId?: string | null }) {
@@ -13,6 +14,7 @@ export function RoomBoard({ courseId, finalized = false, myRoomId = null }: { co
   const [onlyWithSeat, setOnlyWithSeat] = useState(false);
   const [sort, setSort] = useState<string>(finalized ? "groupNo" : "name");
   const [page, setPage] = useState(1);
+  useWatchCourse(courseId);
 
   const rooms = useQuery({
     queryKey: ["rooms", courseId, { search, onlyWithSeat, sort, page }],

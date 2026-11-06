@@ -9,6 +9,9 @@ import { GroupTypesPage } from "../features/admin/GroupTypesPage";
 import { UsersPage } from "../features/admin/UsersPage";
 import { AdminHomePage } from "../features/home/AdminHomePage";
 import { MyCoursesPage } from "../features/home/MyCoursesPage";
+import { NotificationBell } from "../features/realtime/NotificationBell";
+import { NotificationsPage } from "../features/realtime/NotificationsPage";
+import { RealtimeProvider } from "../features/realtime/RealtimeProvider";
 import { LecturerCoursePage } from "../features/lecturer/LecturerCoursePage";
 import { RoomPage } from "../features/rooms/RoomPage";
 import { SemestersPage } from "../features/semesters/SemestersPage";
@@ -26,13 +29,15 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <RealtimeProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route element={<AppLayout />}>
+            <Route element={<AppLayout actions={<NotificationBell />} />}>
               <Route path="/student" element={<RequireRole roles={["Student"]}><MyCoursesPage area="student" /></RequireRole>} />
               <Route path="/student/courses/:courseId" element={<RequireRole roles={["Student"]}><StudentCoursePage /></RequireRole>} />
               <Route path="/student/semesters/:semesterId/skills" element={<RequireRole roles={["Student"]}><SkillsPage /></RequireRole>} />
+              <Route path="/notifications" element={<RequireRole roles={["Student", "Lecturer", "Administrator"]}><NotificationsPage /></RequireRole>} />
               <Route path="/rooms/:roomId" element={<RequireRole roles={["Student", "Lecturer", "Administrator"]}><RoomPage /></RequireRole>} />
               <Route path="/lecturer" element={<RequireRole roles={["Lecturer"]}><MyCoursesPage area="lecturer" /></RequireRole>} />
               <Route path="/lecturer/courses/:courseId" element={<RequireRole roles={["Lecturer"]}><LecturerCoursePage /></RequireRole>} />
@@ -49,6 +54,7 @@ export function App() {
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </BrowserRouter>
+        </RealtimeProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

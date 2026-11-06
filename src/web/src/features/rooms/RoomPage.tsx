@@ -5,6 +5,8 @@ import { useAuth } from "../../shared/auth/useAuth";
 import { phaseLabels, roomStatusLabels } from "../common/messages";
 import type { Course, JoinRequest, RoomDetail, RoomSummary } from "../common/types";
 import { Badge, ErrorNote, Loading } from "../common/ui";
+import { ChatPanel } from "../realtime/ChatPanel";
+import { useWatchCourse } from "../realtime/realtimeContext";
 import { leadsRoom } from "./leader";
 import { LeaderPanel, MemberActions } from "./LeaderPanel";
 import { studentActionFor } from "./roomActions";
@@ -18,6 +20,7 @@ export function RoomPage() {
 
   const room = useQuery({ queryKey: ["room", roomId], queryFn: () => api.get<RoomDetail>(`/api/v1/rooms/${roomId}`) });
   const courseId = room.data?.data.courseId;
+  useWatchCourse(courseId);
   const course = useQuery({
     queryKey: ["course", courseId],
     queryFn: () => api.get<Course>(`/api/v1/courses/${courseId}`),
@@ -69,6 +72,7 @@ export function RoomPage() {
       ? studentActionFor({ phase, room: detail, myRoomId: myRoom.data.data[0]?.id ?? null, hasPendingApplication: myPending.length > 0 })
       : "none";
   const isLeader = leadsRoom(detail, user?.userId, phase);
+  const isMember = detail.members.some((member) => member.studentId === user?.userId);
   const back = hasRole("Administrator") ? `/admin/courses/${detail.courseId}` : hasRole("Lecturer") ? `/lecturer/courses/${detail.courseId}` : `/student/courses/${detail.courseId}`;
 
   return (
@@ -129,6 +133,8 @@ export function RoomPage() {
       </section>
 
       {isLeader && <LeaderPanel key={detail.id} room={detail} />}
+
+      {isMember && <ChatPanel key={detail.id} conversationId={detail.id} />}
 
       <section className="card">
         <h2>Ngành</h2>
