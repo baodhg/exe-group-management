@@ -47,7 +47,7 @@ public sealed class CourseLifecycleTests(GroupApiFixture fixture) : IClassFixtur
         var notAllowed = await GenerateAsync(course.CourseId, otherType);
 
         Assert.Equal((4, 4), (first.GetProperty("target").GetInt32(), first.GetProperty("created").GetInt32()));
-        Assert.Equal(new[] { "Room 01", "Room 02", "Room 03", "Room 04" }, Names(first));
+        Assert.Equal(new[] { "Phòng 01", "Phòng 02", "Phòng 03", "Phòng 04" }, Names(first));
         Assert.All(first.GetProperty("rooms").EnumerateArray(), room =>
         {
             Assert.Equal(5, room.GetProperty("capacity").GetInt32());
@@ -55,7 +55,7 @@ public sealed class CourseLifecycleTests(GroupApiFixture fixture) : IClassFixtur
         });
         Assert.Equal((4, 0), (again.GetProperty("target").GetInt32(), again.GetProperty("created").GetInt32()));
         Assert.Equal((5, 1), (grown.GetProperty("target").GetInt32(), grown.GetProperty("created").GetInt32()));
-        Assert.Equal("Room 05", Names(grown).Last());
+        Assert.Equal("Phòng 05", Names(grown).Last());
         Assert.Equal(HttpStatusCode.BadRequest, notAllowed.StatusCode);
     }
 

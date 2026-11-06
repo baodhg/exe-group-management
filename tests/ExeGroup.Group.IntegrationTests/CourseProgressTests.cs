@@ -34,6 +34,8 @@ public sealed class CourseProgressTests(GroupApiFixture fixture) : IClassFixture
         Assert.Equal(alone, Assert.Single(overview.GetProperty("unplaced").EnumerateArray()).GetProperty("studentId").GetGuid());
         var room = Assert.Single(overview.GetProperty("ineligibleRooms").EnumerateArray());
         Assert.Equal(scenario.Rooms[1], room.GetProperty("room").GetProperty("id").GetGuid());
+        var seated = Assert.Single(room.GetProperty("room").GetProperty("majors").EnumerateArray(), entry => entry.GetProperty("majorId").GetGuid() != scenario.Ai);
+        Assert.Equal(2, Int(seated, "members"));
         Assert.Equal((0, 1), (Int(room, "missingMembers"), Int(room, "missingMajorSeats")));
         var major = Assert.Single(room.GetProperty("majors").EnumerateArray());
         Assert.Equal((scenario.Ai, 0, 1), (major.GetProperty("majorId").GetGuid(), Int(major, "members"), Int(major, "required")));

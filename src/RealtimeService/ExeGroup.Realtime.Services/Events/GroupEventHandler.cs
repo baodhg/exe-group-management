@@ -159,7 +159,7 @@ public sealed class GroupEventHandler(
         {
             case "Removed":
                 var reason = string.IsNullOrWhiteSpace(left.EndNote) ? "." : $". Lý do: {left.EndNote}";
-                Notify(left.StudentId, type, $"Bạn không còn ở {left.RoomName}", $"Trưởng nhóm đã xóa bạn khỏi {left.RoomName}{reason}", left.CourseId, left.RoomId, pushes);
+                Notify(left.StudentId, type, $"Bạn không còn ở {left.RoomName}", $"Trưởng nhóm đã xoá bạn khỏi {left.RoomName}{reason}", left.CourseId, left.RoomId, pushes);
                 break;
             case "Moved":
                 Notify(left.StudentId, type, $"Bạn được chuyển khỏi {left.RoomName}", $"Giáo vụ đã chuyển bạn khỏi {left.RoomName}.", left.CourseId, left.RoomId, pushes);
@@ -189,8 +189,8 @@ public sealed class GroupEventHandler(
             (_, "ROOM_FULL") => ("Đơn bị từ chối", $"{room} đã đủ người."),
             (_, "COMPOSITION_RULE") => ("Đơn bị từ chối", $"Nhận bạn sẽ khiến {room} không còn đủ chỗ cho các ngành còn thiếu."),
             (_, "GROUPING_EXPIRED") => ("Đơn đã đóng", $"Đã hết hạn tìm nhóm trước khi {room} quyết định đơn của bạn."),
-            (_, "JOINED_ANOTHER_ROOM") => ("Đơn đã hủy", $"Đơn vào {room} được hủy vì bạn đã vào phòng khác."),
-            (_, "ROOM_REOPENED") => ("Đơn đã hủy", $"{room} đã mở lại, bạn có thể vào thẳng."),
+            (_, "JOINED_ANOTHER_ROOM") => ("Đơn đã huỷ", $"Đơn vào {room} được huỷ vì bạn đã vào phòng khác."),
+            (_, "ROOM_REOPENED") => ("Đơn đã huỷ", $"{room} đã mở lại, bạn có thể vào thẳng."),
             _ => null,
         };
         if (text is { } notice)
@@ -203,7 +203,7 @@ public sealed class GroupEventHandler(
     {
         (string Title, string Body)? text = changed.Phase switch
         {
-            "Published" => ("Đã mở tìm nhóm", $"{changed.CourseName}: các phòng đã mở. Hãy vào một phòng hoặc gửi đơn vào phòng đang khóa."),
+            "Published" => ("Đã mở tìm nhóm", $"{changed.CourseName}: các phòng đã mở. Hãy vào một phòng hoặc gửi đơn vào phòng đang khoá."),
             "Expired" => ("Đã hết hạn tìm nhóm", $"{changed.CourseName}: đã hết hạn. Giáo vụ sẽ xếp các bạn chưa có phòng."),
             "Finalized" => ("Đã chốt nhóm", $"{changed.CourseName}: danh sách nhóm đã chính thức."),
             _ => null,

@@ -84,7 +84,7 @@ public sealed class GroupEventsConsumerTests(ConsumerFixture fixture) : IClassFi
         Assert.Equal(0, (await fixture.Redis.StreamPendingAsync(stream, GroupEventsConsumer.GroupName)).PendingMessageCount);
 
         var removal = await NextNotificationAsync(memberHub, "RoomMemberLeft");
-        Assert.Equal("Trưởng nhóm đã xóa bạn khỏi Room 01. Lý do: Không tham gia buổi họp nào", removal.GetProperty("body").GetString());
+        Assert.Equal("Trưởng nhóm đã xoá bạn khỏi Room 01. Lý do: Không tham gia buổi họp nào", removal.GetProperty("body").GetString());
         var change = await leaderHub.NextAsync(RealtimeHub.RoomChanged);
         Assert.Equal(room, change.GetProperty("roomId").GetGuid());
         await leaderHub.InvokeAsync("sendMessage", room, "Welcome");
@@ -150,7 +150,7 @@ public sealed class GroupEventsConsumerTests(ConsumerFixture fixture) : IClassFi
             [placed] = "Giáo vụ đã xếp bạn vào Room 07.",
             [greeter] = "Một sinh viên vừa vào Room 07.",
             [reviewer] = "Một sinh viên vừa xin vào Room 07.",
-            [removed] = "Trưởng nhóm đã xóa bạn khỏi Room 07.",
+            [removed] = "Trưởng nhóm đã xoá bạn khỏi Room 07.",
             [moved] = "Giáo vụ đã chuyển bạn khỏi Room 07.",
             [promoted] = "Bạn vừa trở thành trưởng nhóm Room 07.",
         };
