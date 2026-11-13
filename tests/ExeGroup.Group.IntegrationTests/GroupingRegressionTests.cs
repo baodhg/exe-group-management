@@ -1,5 +1,5 @@
-using System.Globalization;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -47,10 +47,12 @@ public sealed class GroupingRegressionTests(GroupApiFixture fixture) : IClassFix
         var ids = Enumerable.Range(0, 5).Select(_ => Guid.NewGuid()).ToArray();
         var scenario = await RoomScenario.CreateAsync(fixture, ids.Select(id => (id, false)).ToList(), capacity: 6);
         var path = $"/api/v1/rooms/{scenario.Rooms[0]}";
-        foreach (var id in ids.Take(4)) await RoomScenario.As(fixture, id).PostAsync($"{path}/join", null, Ct);
+        foreach (var id in ids.Take(4))
+        {
+            await RoomScenario.As(fixture, id).PostAsync($"{path}/join", null, Ct);
+        }
         await fixture.SeedAsync(db => db.Courses.Single(course => course.CourseId == scenario.CourseId).MaxGroupSize = 4, Ct);
         Assert.Equal("ROOM_FULL", await CodeAsync(await RoomScenario.As(fixture, ids[4]).PostAsync($"{path}/join", null, Ct)));
-        // Simulate an overfilled group created by the old implementation.
         await fixture.SeedAsync(db => db.Join(db.Rooms.Single(room => room.RoomId == scenario.Rooms[0]), ids[4]), Ct);
         await Admin.PostAsync($"/api/v1/courses/{scenario.CourseId}/expire", null, Ct);
         Assert.Equal("FINALIZE_BLOCKED", await CodeAsync(await Admin.PostAsJsonAsync($"/api/v1/courses/{scenario.CourseId}/finalize", new { acceptExceptions = true }, Ct)));
@@ -71,7 +73,6 @@ public sealed class GroupingRegressionTests(GroupApiFixture fixture) : IClassFix
         var retyped = await Admin.PutAsJsonAsync($"/api/v1/rooms/{scenario.Rooms[0]}", new { groupTypeId = impossibleType }, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, generated.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, retyped.StatusCode);
-        // Also reject invalid legacy data already persisted before the guards existed.
         await fixture.SeedAsync(db => db.Rooms.Single(room => room.RoomId == scenario.Rooms[0]).GroupTypeId = impossibleType, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, (await Admin.PostAsync($"/api/v1/courses/{scenario.CourseId}/publish", null, Ct)).StatusCode);
     }

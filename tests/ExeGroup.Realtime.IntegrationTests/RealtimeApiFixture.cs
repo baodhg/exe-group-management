@@ -2,14 +2,14 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using ExeGroup.BuildingBlocks.Context;
 using ExeGroup.BuildingBlocks.Web.Security;
+using ExeGroup.Realtime.API.Hubs;
 using ExeGroup.Realtime.Repositories;
 using ExeGroup.Realtime.Repositories.Data;
 using ExeGroup.Testing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.JsonWebTokens;
-using ExeGroup.Realtime.API.Hubs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace ExeGroup.Realtime.IntegrationTests;
 
