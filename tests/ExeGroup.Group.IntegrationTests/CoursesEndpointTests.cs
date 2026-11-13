@@ -95,10 +95,12 @@ public sealed class CoursesEndpointTests(GroupApiFixture fixture) : IClassFixtur
         var lecturer = fixture.Api.ClientAs(Roles.Lecturer, lecturerId);
 
         var mine = await ReadAsync(await lecturer.GetAsync($"{Route}?mine=true&semesterId={taught.SemesterId}", Ct));
+        var unfiltered = await ReadAsync(await lecturer.GetAsync($"{Route}?semesterId={taught.SemesterId}", Ct));
         var ownCourse = await lecturer.GetAsync($"{Route}/{taught.CourseId}", Ct);
         var otherCourse = await lecturer.GetAsync($"{Route}/{other.CourseId}", Ct);
 
         Assert.Equal(taught.CourseId, Assert.Single(mine.Data().EnumerateArray()).GetProperty("id").GetGuid());
+        Assert.Equal(taught.CourseId, Assert.Single(unfiltered.Data().EnumerateArray()).GetProperty("id").GetGuid());
         Assert.Equal(HttpStatusCode.OK, ownCourse.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, otherCourse.StatusCode);
     }
@@ -120,10 +122,12 @@ public sealed class CoursesEndpointTests(GroupApiFixture fixture) : IClassFixtur
         var student = fixture.Api.ClientAs(Roles.Student, studentId);
 
         var mine = await ReadAsync(await student.GetAsync($"{Route}?mine=true", Ct));
+        var unfiltered = await ReadAsync(await student.GetAsync($"{Route}?semesterId={enrolled.SemesterId}", Ct));
         var enrolledCourse = await ReadAsync(await student.GetAsync($"{Route}/{enrolled.CourseId}", Ct));
         var otherCourse = await student.GetAsync($"{Route}/{other.CourseId}", Ct);
 
         Assert.Equal(enrolled.CourseId, Assert.Single(mine.Data().EnumerateArray()).GetProperty("id").GetGuid());
+        Assert.Equal(enrolled.CourseId, Assert.Single(unfiltered.Data().EnumerateArray()).GetProperty("id").GetGuid());
         Assert.Equal(1, enrolledCourse.Data().GetProperty("studentCount").GetInt32());
         Assert.Equal(HttpStatusCode.Forbidden, otherCourse.StatusCode);
     }

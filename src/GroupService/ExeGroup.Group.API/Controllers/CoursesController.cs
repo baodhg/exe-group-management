@@ -16,18 +16,17 @@ public sealed class CoursesController(ICourseService courses, ICoursePhaseServic
     public const string GetByIdRoute = "GetCourseById";
 
     [HttpGet]
-    [EndpointSummary("List courses; filter semesterId, subjectId, phase; mine=true keeps the ones I study or teach")]
+    [EndpointSummary("List courses; filter semesterId, subjectId, phase; students and lecturers get only the ones they study or teach")]
     [ProducesResponseType<ApiResponse<IReadOnlyList<CourseResponse>>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> List(
         [FromQuery] ListQueryRequest request,
         [FromQuery] Guid? semesterId,
         [FromQuery] Guid? subjectId,
         [FromQuery] string? phase,
-        [FromQuery] bool? mine,
         CancellationToken cancellationToken)
     {
         var query = request.ToListQuery();
-        var page = await courses.ListAsync(query, new CourseListFilter(semesterId, subjectId, phase, mine == true), cancellationToken);
+        var page = await courses.ListAsync(query, new CourseListFilter(semesterId, subjectId, phase), cancellationToken);
         return Paged(page.Map(model => model.ToResponse()), query, "Courses loaded");
     }
 
