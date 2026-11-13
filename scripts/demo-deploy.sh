@@ -11,6 +11,8 @@ compose=(docker compose -f docker-compose.yml -f deploy/docker-compose.demo.yml 
 database_services=(identity-service group-service realtime-service)
 seed_network="exe-group-demo_default"
 seed_image="node:22-alpine"
+shared_demo_email="admin@fpt.edu.vn"
+shared_demo_sign_in="12345678"
 
 if [[ ! -f "$env_file" ]]; then
   echo "Missing $env_file: create it with SA_PASSWORD and JWT_SIGNING_KEY first." >&2
@@ -27,6 +29,17 @@ if grep -qxF "$sample_key" "$env_file"; then
   echo "Missing a real JWT_SIGNING_KEY in $env_file: it still holds the sample from .env.example." >&2
   exit 1
 fi
+
+demo_setting() {
+  local value
+  value="$(grep -m1 "^$1=" "$env_file" | cut -d= -f2-)"
+  echo "${value:-$2}"
+}
+
+SEED_ADMIN_EMAIL="$(demo_setting SEED_ADMIN_EMAIL "$shared_demo_email")"
+SEED_ADMIN_PASSWORD="$(demo_setting SEED_ADMIN_PASSWORD "$shared_demo_sign_in")"
+SEED_DEMO_PASSWORD="$(demo_setting SEED_DEMO_PASSWORD "$shared_demo_sign_in")"
+export SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_DEMO_PASSWORD
 
 deploy() {
   IMAGE_TAG="$1" "${compose[@]}" up -d --wait --wait-timeout 300 --no-build --pull never --remove-orphans
@@ -67,23 +80,8 @@ smoke() {
   done
 }
 
-demo_setting() {
-  grep -m1 "^$1=" "$env_file" | cut -d= -f2-
-}
-
 seed_demo_data() {
-  local name
-  for name in SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_DEMO_PASSWORD; do
-    if [[ -z "$(demo_setting "$name")" ]]; then
-      echo "Seed skipped: $name is not in $env_file, so the demo data was not loaded."
-      return 0
-    fi
-  done
-
   if ! SEED_GATEWAY_URL="http://gateway:8080" \
-    SEED_ADMIN_EMAIL="$(demo_setting SEED_ADMIN_EMAIL)" \
-    SEED_ADMIN_PASSWORD="$(demo_setting SEED_ADMIN_PASSWORD)" \
-    SEED_DEMO_PASSWORD="$(demo_setting SEED_DEMO_PASSWORD)" \
     timeout 900 docker run --rm -i --network "$seed_network" --memory 256m --cpus 1 \
     -e SEED_GATEWAY_URL -e SEED_ADMIN_EMAIL -e SEED_ADMIN_PASSWORD -e SEED_DEMO_PASSWORD \
     "$seed_image" node --input-type=module - --once < scripts/seed-demo.mjs; then

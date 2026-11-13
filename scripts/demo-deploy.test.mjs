@@ -10,6 +10,7 @@ echo "docker $*" >> "$FAKE_LOG"
 args="$*"
 case "$args" in
   *" up -d "*)
+    echo "stack started for $SEED_ADMIN_EMAIL" >> "$FAKE_LOG"
     if [[ "$IMAGE_TAG" == "$FAKE_BROKEN_UP" ]]; then exit 1; fi
     ;;
   *"-w %{http_code} http://web/"*)
@@ -28,6 +29,7 @@ case "$args" in
   "run --rm "*)
     if [[ -n "$FAKE_BROKEN_SEED" ]]; then exit 1; fi
     echo "seed received $(wc -c | tr -d ' ') bytes as $SEED_ADMIN_EMAIL" >> "$FAKE_LOG"
+    echo "seed signs in with \${#SEED_ADMIN_PASSWORD} and \${#SEED_DEMO_PASSWORD} characters" >> "$FAKE_LOG"
     echo "Seed done at $SEED_GATEWAY_URL"
     ;;
 esac
@@ -127,12 +129,25 @@ test("the seed keeps its settings out of the command line and off the host files
   assert.doesNotMatch(result.calls, /docker run .*( -v |--volume|--mount|--env-file)/);
 });
 
-test("a deploy without the demo sign-in settings skips the seed and says so", () => {
-  const result = deployment({ lastGood: "old", seedSettings: "SEED_ADMIN_EMAIL=admin@example.test\nSEED_ADMIN_PASSWORD=admin-sample\n" });
+test("a server without sign-in settings starts and seeds with the shared demo account", () => {
+  const result = deployment({ lastGood: "old" });
   assert.equal(result.status, 0, result.output);
-  assert.doesNotMatch(result.calls, /docker run/);
-  assert.match(result.output, /^Seed skipped: .*SEED_DEMO_PASSWORD/m);
+  assert.match(result.calls, /stack started for admin@fpt\.edu\.vn/);
+  assert.match(result.calls, /seed received 12 bytes as admin@fpt\.edu\.vn/);
+  assert.match(result.calls, /seed signs in with 8 and 8 characters/);
   assert.match(result.output, /Deployed new/);
+});
+
+test("sign-in settings on the server win over the shared demo account", () => {
+  const result = deployment({ lastGood: "old", seedSettings });
+  assert.match(result.calls, /stack started for admin@example\.test/);
+  assert.match(result.calls, /seed signs in with 12 and 11 characters/);
+});
+
+test("one setting on the server leaves the others on the shared demo account", () => {
+  const result = deployment({ lastGood: "old", seedSettings: "SEED_ADMIN_EMAIL=admin@example.test\n" });
+  assert.match(result.calls, /seed received 12 bytes as admin@example\.test/);
+  assert.match(result.calls, /seed signs in with 8 and 8 characters/);
 });
 
 test("a seed that fails does not fail a good deploy", () => {
