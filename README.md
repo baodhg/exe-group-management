@@ -224,10 +224,13 @@ version if anything fails. Follow it in the **Actions** tab; a failed deployment
   GitHub environment, which only `main` can use, so pull requests cannot read it.
 - Secrets stay in `demo.env` on the server (`SA_PASSWORD`, `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`,
   `ASPNETCORE_ENVIRONMENT=Production`), never in the repository.
-- The demo accounts need nothing on the server: the deployment creates the Administrator `admin@fpt.edu.vn`, and the
-  seed creates `lecturer@fpt.edu.vn` and `sv01`…`sv30@fpt.edu.vn`, all with the shared demo password `12345678`.
-  `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` or `SEED_DEMO_PASSWORD` in `demo.env` replace these for accounts that do not
-  exist yet. Anyone can sign in with the shared password, so do not store real student data on this demo.
+- The demo accounts come from the `demo` GitHub environment, not from the server: the variable `DEMO_ADMIN_EMAIL` and
+  the secrets `DEMO_ADMIN_PASSWORD` and `DEMO_ACCOUNT_PASSWORD` (lecturer and students). The `deploy-demo` workflow sends
+  them with the deploy command over standard input, so they are in no command line, log or file. The deployment creates
+  that Administrator if the e-mail is new, and the seed creates `lecturer@fpt.edu.vn` and `sv01`…`sv30@fpt.edu.vn`.
+  A value left empty falls back to `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` or `SEED_DEMO_PASSWORD` in `demo.env`;
+  with neither, the seed is skipped. Changing a secret later does not change accounts that already exist. Do not store
+  real student data on this demo.
 - Every successful deployment loads the demo data once: it runs `scripts/seed-demo.mjs --once` in a short-lived container
   on the demo network. When semester FA26 is already in the database the seed changes nothing, so whatever was created
   on the demo afterwards stays as it is. The databases live in the named volumes `exe-group-demo_sqlserver-data` and

@@ -11,8 +11,7 @@ compose=(docker compose -f docker-compose.yml -f deploy/docker-compose.demo.yml 
 database_services=(identity-service group-service realtime-service)
 seed_network="exe-group-demo_default"
 seed_image="node:22-alpine"
-shared_demo_email="admin@fpt.edu.vn"
-shared_demo_sign_in="12345678"
+seed_settings=(SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_DEMO_PASSWORD)
 
 if [[ ! -f "$env_file" ]]; then
   echo "Missing $env_file: create it with SA_PASSWORD and JWT_SIGNING_KEY first." >&2
@@ -30,15 +29,35 @@ if grep -qxF "$sample_key" "$env_file"; then
   exit 1
 fi
 
-demo_setting() {
-  local value
-  value="$(grep -m1 "^$1=" "$env_file" | cut -d= -f2-)"
-  echo "${value:-$2}"
+declare -A sent_settings=()
+
+read_sent_settings() {
+  local line name
+  if [[ -t 0 ]]; then
+    return 0
+  fi
+
+  while IFS= read -r -t 10 line; do
+    name="${line%%=*}"
+    if [[ "$line" == *=* && " ${seed_settings[*]} " == *" $name "* ]]; then
+      sent_settings["$name"]="${line#*=}"
+    fi
+  done
 }
 
-SEED_ADMIN_EMAIL="$(demo_setting SEED_ADMIN_EMAIL "$shared_demo_email")"
-SEED_ADMIN_PASSWORD="$(demo_setting SEED_ADMIN_PASSWORD "$shared_demo_sign_in")"
-SEED_DEMO_PASSWORD="$(demo_setting SEED_DEMO_PASSWORD "$shared_demo_sign_in")"
+demo_setting() {
+  local value="${sent_settings[$1]:-}"
+  if [[ -z "$value" ]]; then
+    value="$(grep -m1 "^$1=" "$env_file" | cut -d= -f2-)"
+  fi
+
+  echo "$value"
+}
+
+read_sent_settings
+SEED_ADMIN_EMAIL="$(demo_setting SEED_ADMIN_EMAIL)"
+SEED_ADMIN_PASSWORD="$(demo_setting SEED_ADMIN_PASSWORD)"
+SEED_DEMO_PASSWORD="$(demo_setting SEED_DEMO_PASSWORD)"
 export SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_DEMO_PASSWORD
 
 deploy() {
@@ -81,6 +100,14 @@ smoke() {
 }
 
 seed_demo_data() {
+  local name
+  for name in "${seed_settings[@]}"; do
+    if [[ -z "${!name}" ]]; then
+      echo "Seed skipped: $name came neither with the deploy nor from $env_file, so the demo data was not loaded."
+      return 0
+    fi
+  done
+
   if ! SEED_GATEWAY_URL="http://gateway:8080" \
     timeout 900 docker run --rm -i --network "$seed_network" --memory 256m --cpus 1 \
     -e SEED_GATEWAY_URL -e SEED_ADMIN_EMAIL -e SEED_ADMIN_PASSWORD -e SEED_DEMO_PASSWORD \

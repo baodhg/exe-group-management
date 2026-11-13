@@ -48,7 +48,7 @@ fi
 exit 0
 `;
 
-function deployment({ tag = "new", lastGood, lastGoodCommit, seedSettings = "", ...fake } = {}) {
+function deployment({ tag = "new", lastGood, lastGoodCommit, seedSettings = "", input = "", ...fake } = {}) {
   const root = mkdtempSync(join(tmpdir(), "demo-deploy-"));
   try {
     const bin = join(root, "bin");
@@ -79,6 +79,7 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, seedSettings = "", 
     const result = spawnSync("bash", ["scripts/demo-deploy.sh"], {
       cwd: work,
       encoding: "utf8",
+      input,
       env: {
         ...process.env,
         PATH: `${bin}${delimiter}${process.env.PATH}`,
@@ -129,25 +130,37 @@ test("the seed keeps its settings out of the command line and off the host files
   assert.doesNotMatch(result.calls, /docker run .*( -v |--volume|--mount|--env-file)/);
 });
 
-test("a server without sign-in settings starts and seeds with the shared demo account", () => {
-  const result = deployment({ lastGood: "old" });
+const sentSettings = "SEED_ADMIN_EMAIL=sent@example.test\nSEED_ADMIN_PASSWORD=sent-admin\nSEED_DEMO_PASSWORD=sent-demo\n";
+
+test("sign-in settings sent with the deploy start the stack and seed without anything on the server", () => {
+  const result = deployment({ lastGood: "old", input: sentSettings });
   assert.equal(result.status, 0, result.output);
-  assert.match(result.calls, /stack started for admin@fpt\.edu\.vn/);
-  assert.match(result.calls, /seed received 12 bytes as admin@fpt\.edu\.vn/);
-  assert.match(result.calls, /seed signs in with 8 and 8 characters/);
+  assert.match(result.calls, /stack started for sent@example\.test/);
+  assert.match(result.calls, /seed received 12 bytes as sent@example\.test/);
+  assert.match(result.calls, /seed signs in with 10 and 9 characters/);
+  assert.doesNotMatch(`${result.calls}${result.output}`, /sent-admin|sent-demo/);
   assert.match(result.output, /Deployed new/);
 });
 
-test("sign-in settings on the server win over the shared demo account", () => {
-  const result = deployment({ lastGood: "old", seedSettings });
-  assert.match(result.calls, /stack started for admin@example\.test/);
+test("settings sent with the deploy win over the server file, one by one", () => {
+  const result = deployment({ lastGood: "old", seedSettings, input: "SEED_ADMIN_EMAIL=sent@example.test\n" });
+  assert.match(result.calls, /stack started for sent@example\.test/);
   assert.match(result.calls, /seed signs in with 12 and 11 characters/);
 });
 
-test("one setting on the server leaves the others on the shared demo account", () => {
-  const result = deployment({ lastGood: "old", seedSettings: "SEED_ADMIN_EMAIL=admin@example.test\n" });
-  assert.match(result.calls, /seed received 12 bytes as admin@example\.test/);
-  assert.match(result.calls, /seed signs in with 8 and 8 characters/);
+test("a deploy with no sign-in settings from either side skips the seed and says which one is missing", () => {
+  const result = deployment({ lastGood: "old", seedSettings: "SEED_ADMIN_EMAIL=admin@example.test\nSEED_ADMIN_PASSWORD=admin-sample\n" });
+  assert.equal(result.status, 0, result.output);
+  assert.doesNotMatch(result.calls, /docker run/);
+  assert.match(result.output, /^Seed skipped: .*SEED_DEMO_PASSWORD/m);
+  assert.match(result.output, /Deployed new/);
+});
+
+test("anything else sent with the deploy is ignored", () => {
+  const result = deployment({ lastGood: "old", input: `IMAGE_TAG=other\nDEMO_STATE_DIR=/nowhere\nSA_PASSWORD=x\n${sentSettings}` });
+  assert.equal(result.status, 0, result.output);
+  assert.equal(result.lastGood, "new");
+  assert.match(result.output, /Deployed new/);
 });
 
 test("a seed that fails does not fail a good deploy", () => {
