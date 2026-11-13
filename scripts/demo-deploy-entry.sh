@@ -5,7 +5,7 @@ state_dir="$HOME/exe-group-demo"
 source_dir="$state_dir/src"
 log_dir="$state_dir/logs"
 repository="https://github.com/baodhg/exe-group-management.git"
-public_lines='^(ok |Deployed |Deploy of |Rolling back|Rolled back|Rollback |This version|No earlier|Smoke check failed|Missing )'
+public_lines='^(ok |Deployed |Deploy of |Rolling back|Rolled back|Rollback |This version|No earlier|Smoke check failed|Missing |Seed (done|skipped|failed))'
 
 if [[ ! "${SSH_ORIGINAL_COMMAND:-}" =~ ^deploy\ ([0-9a-f]{40})$ ]]; then
   echo "Only 'deploy <full commit sha>' is allowed." >&2

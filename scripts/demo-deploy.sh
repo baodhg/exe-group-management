@@ -9,6 +9,8 @@ last_good_file="$state_dir/last-good"
 last_good_commit_file="$state_dir/last-good-commit"
 compose=(docker compose -f docker-compose.yml -f deploy/docker-compose.demo.yml --env-file "$env_file")
 database_services=(identity-service group-service realtime-service)
+seed_network="exe-group-demo_default"
+seed_image="node:22-alpine"
 
 if [[ ! -f "$env_file" ]]; then
   echo "Missing $env_file: create it with SA_PASSWORD and JWT_SIGNING_KEY first." >&2
@@ -65,6 +67,30 @@ smoke() {
   done
 }
 
+demo_setting() {
+  grep -m1 "^$1=" "$env_file" | cut -d= -f2-
+}
+
+seed_demo_data() {
+  local name
+  for name in SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_DEMO_PASSWORD; do
+    if [[ -z "$(demo_setting "$name")" ]]; then
+      echo "Seed skipped: $name is not in $env_file, so the demo data was not loaded."
+      return 0
+    fi
+  done
+
+  if ! SEED_GATEWAY_URL="http://gateway:8080" \
+    SEED_ADMIN_EMAIL="$(demo_setting SEED_ADMIN_EMAIL)" \
+    SEED_ADMIN_PASSWORD="$(demo_setting SEED_ADMIN_PASSWORD)" \
+    SEED_DEMO_PASSWORD="$(demo_setting SEED_DEMO_PASSWORD)" \
+    timeout 900 docker run --rm -i --network "$seed_network" --memory 256m --cpus 1 \
+    -e SEED_GATEWAY_URL -e SEED_ADMIN_EMAIL -e SEED_ADMIN_PASSWORD -e SEED_DEMO_PASSWORD \
+    "$seed_image" node --input-type=module - --once < scripts/seed-demo.mjs; then
+    echo "Seed failed: the deploy is not affected and the next deploy tries again." >&2
+  fi
+}
+
 remove_old_images() {
   local keep_current="$1" keep_previous="$2" image tag
   docker image ls --filter 'reference=exe-group-demo/*' --format '{{.Repository}}:{{.Tag}}' | while read -r image; do
@@ -107,6 +133,7 @@ main() {
   if deploy "$IMAGE_TAG" && smoke "$IMAGE_TAG"; then
     echo "$IMAGE_TAG" > "$last_good_file"
     echo "$current_commit" > "$last_good_commit_file"
+    seed_demo_data
     remove_old_images "$IMAGE_TAG" "$previous_tag"
     remove_old_build_cache
     echo "Deployed $IMAGE_TAG"

@@ -223,11 +223,16 @@ version if anything fails. Follow it in the **Actions** tab; a failed deployment
 - The deploy key can only run `scripts/demo-deploy-entry.sh` for a commit that is on `main`. It lives in the `demo`
   GitHub environment, which only `main` can use, so pull requests cannot read it.
 - Secrets stay in `demo.env` on the server (`SA_PASSWORD`, `JWT_SIGNING_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`,
-  `ASPNETCORE_ENVIRONMENT=Production`, and `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` for the first Administrator: without
-  them nobody can sign in), never in the repository. Do not store real student data on this demo.
-- Load the demo data from a laptop through the public site:
-  `SEED_GATEWAY_URL=https://exe.qizhub.com SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=... SEED_DEMO_PASSWORD=... node scripts/seed-demo.mjs`.
-  Do not run `scripts/smoke-e2e.mjs` there: it adds a throwaway course.
+  `ASPNETCORE_ENVIRONMENT=Production`, `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` for the first Administrator: without
+  them nobody can sign in, and `SEED_DEMO_PASSWORD` for the demo lecturer and students), never in the repository. Do not
+  store real student data on this demo.
+- Every successful deployment loads the demo data once: it runs `scripts/seed-demo.mjs --once` in a short-lived container
+  on the demo network. When semester FA26 is already in the database the seed changes nothing, so whatever was created
+  on the demo afterwards stays as it is. The databases live in the named volumes `exe-group-demo_sqlserver-data` and
+  `exe-group-demo_redis-data`, which a deployment never removes. Without `SEED_DEMO_PASSWORD` in `demo.env` the seed is
+  skipped; a seed that fails does not fail the deployment, and the next one tries again. The deployment log says
+  `Seed done`, `Seed skipped` or `Seed failed`.
+- Do not run `scripts/smoke-e2e.mjs` there: it adds a throwaway course.
 - Each successful deployment keeps the running and the last good images, and removes build cache unused for 7 days.
 - The server hosts other projects: never run `docker system prune` or `docker compose down -v` there.
 
