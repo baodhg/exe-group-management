@@ -1,9 +1,18 @@
+using ExeGroup.BuildingBlocks.Errors;
 using ExeGroup.Group.Repositories.Interfaces;
 
 namespace ExeGroup.Group.Services.Rooms;
 
 public static class RoomComposition
 {
+    public static void EnsureFeasible(int capacity, GroupTypeRules rules)
+    {
+        if (SeatsStillNeeded([], rules) > capacity)
+        {
+            throw new ValidationFailedException("groupTypeId", "The group's minimum major requirements exceed the room capacity.");
+        }
+    }
+
     public static int SeatsStillNeeded(IReadOnlyCollection<Guid> majors, GroupTypeRules rules)
     {
         var missingPerMajor = rules.MinPerMajor.Sum(rule => Math.Max(0, rule.Value - majors.Count(major => major == rule.Key)));

@@ -59,6 +59,11 @@ public sealed class GroupTypeService(IGroupTypeRepository groupTypes, ISemesterR
         input = Normalize(input);
         var groupType = await RequireAsync(id, cancellationToken);
         await EnsureCodeIsFreeAsync(input.Code, id, cancellationToken);
+        if (groupType.MinDistinctMajors != input.MinDistinctMajors && await groupTypes.IsUsedByRoomsAsync(id, cancellationToken))
+        {
+            throw RulesInUse();
+        }
+
         groupType.Code = input.Code;
         groupType.Name = input.Name;
         groupType.MinDistinctMajors = input.MinDistinctMajors;
@@ -106,6 +111,13 @@ public sealed class GroupTypeService(IGroupTypeRepository groupTypes, ISemesterR
         }
 
         var wanted = minimums.ToDictionary(minimum => minimum.MajorId, minimum => minimum.MinMembers);
+        var rulesChanged = wanted.Count != groupType.Majors.Count
+            || groupType.Majors.Any(rule => wanted.GetValueOrDefault(rule.MajorId) != rule.MinMembers);
+        if (rulesChanged && await groupTypes.IsUsedByRoomsAsync(id, cancellationToken))
+        {
+            throw RulesInUse();
+        }
+
         foreach (var rule in groupType.Majors.ToList())
         {
             if (wanted.Remove(rule.MajorId, out var minMembers))
@@ -215,6 +227,9 @@ public sealed class GroupTypeService(IGroupTypeRepository groupTypes, ISemesterR
                     rule.MinMembers))
                 .OrderBy(rule => rule.MajorCode, StringComparer.Ordinal)
                 .ToList());
+
+    private static ConflictException RulesInUse() =>
+        new(GroupErrorCodes.GroupTypeInUse, "Rooms already use these rules. Create a new group type to change the major requirements.");
 
     private static GroupTypeInput Normalize(GroupTypeInput input)
     {

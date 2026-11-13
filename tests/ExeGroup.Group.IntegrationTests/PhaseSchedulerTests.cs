@@ -59,7 +59,9 @@ public sealed class PhaseSchedulerTests(PhaseSchedulerFixture fixture) : IClassF
                     return course;
                 }
 
-                Add("toPublish", CoursePhases.Setup, now.AddMinutes(-1), now.AddDays(1));
+                var toPublish = Add("toPublish", CoursePhases.Setup, now.AddMinutes(-1), now.AddDays(1));
+                database.Enroll(toPublish, Guid.NewGuid());
+                database.Room(toPublish, database.GroupType(semester.SemesterId).GroupTypeId, "Ready room", toPublish.MaxGroupSize);
                 Add("notYet", CoursePhases.Setup, now.AddHours(1), now.AddDays(1));
                 Add("deadlinePassed", CoursePhases.Setup, now.AddHours(-2), now.AddHours(-1));
                 Add("later", CoursePhases.Published, now.AddDays(-1), now.AddDays(1));

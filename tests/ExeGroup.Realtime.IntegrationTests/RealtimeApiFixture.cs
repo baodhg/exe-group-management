@@ -2,9 +2,12 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using ExeGroup.BuildingBlocks.Context;
 using ExeGroup.BuildingBlocks.Web.Security;
+using ExeGroup.Realtime.API.Hubs;
 using ExeGroup.Realtime.Repositories;
 using ExeGroup.Realtime.Repositories.Data;
 using ExeGroup.Testing;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 
@@ -12,6 +15,7 @@ namespace ExeGroup.Realtime.IntegrationTests;
 
 public class RealtimeApiFixture : IAsyncLifetime
 {
+    public TestCourseAccess CourseAccess { get; } = new();
     public ServiceApiFactory<Program> Api { get; private set; } = null!;
 
     public string ConnectionString { get; private set; } = string.Empty;
@@ -19,7 +23,7 @@ public class RealtimeApiFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         ConnectionString = (await SqlServerContainer.SharedAsync()).NewDatabaseConnectionString("chat");
-        Api = new ServiceApiFactory<Program>(DependencyInjection.ConnectionName, ConnectionString, await SettingsAsync());
+        Api = new RealtimeFactory(ConnectionString, await SettingsAsync(), CourseAccess);
         await Api.MigrateAsync();
     }
 
@@ -64,4 +68,24 @@ public class RealtimeApiFixture : IAsyncLifetime
             ["Jobs:GroupEventsConsumer:Enabled"] = "false",
             ["Jobs:ProcessedEventsCleanup:Enabled"] = "false",
         });
+
+    private sealed class RealtimeFactory(string connectionString, Dictionary<string, string?> settings, TestCourseAccess access)
+        : ServiceApiFactory<Program>(DependencyInjection.ConnectionName, connectionString, settings)
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.ConfigureTestServices(services => services.AddSingleton<ICourseAccessVerifier>(access));
+        }
+    }
+}
+
+public sealed class TestCourseAccess : ICourseAccessVerifier
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid Course, Guid User), bool> _allowed = new();
+
+    public void Allow(Guid course, Guid user) => _allowed[(course, user)] = true;
+
+    public Task<bool> CanReadAsync(Guid courseId, string accessToken, CancellationToken cancellationToken) =>
+        Task.FromResult(Guid.TryParse(new JsonWebToken(accessToken).Subject, out var userId) && _allowed.ContainsKey((courseId, userId)));
 }

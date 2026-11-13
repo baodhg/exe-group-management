@@ -72,7 +72,7 @@ public interface IRoomService
     Task DeleteAsync(Guid roomId, CancellationToken cancellationToken);
 }
 
-public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, ITransactionRunner transactions, ICurrentUser currentUser) : IRoomService
+public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, ITransactionRunner transactions, ICurrentUser currentUser, IClock clock) : IRoomService
 {
     private static readonly string[] Statuses = [RoomStatuses.Open, RoomStatuses.Locked, RoomStatuses.Finalized];
 
@@ -123,6 +123,11 @@ public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, 
             throw new ForbiddenException("Only administrators rename rooms or change their group type.", GroupErrorCodes.NotRoomLeader);
         }
 
+        if (!currentUser.IsInRole(Roles.Administrator))
+        {
+            RoomSeating.EnsurePublished(course, clock.UtcNow);
+        }
+
         room.Topic = topic;
         if (!await rooms.TrySaveChangesAsync(cancellationToken))
         {
@@ -147,6 +152,7 @@ public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, 
                     throw new ValidationFailedException("groupTypeId", "This group type is not allowed in the course's semester.");
                 }
 
+                RoomComposition.EnsureFeasible(course.MaxGroupSize, await rooms.GetRulesAsync(groupTypeId, token));
                 var students = (await rooms.ListEnrolledIdsAsync(courseId, token)).Count;
                 var target = TargetRoomCount(students, course.MaxGroupSize, course.RoomFactor);
                 var names = (await rooms.ListRoomNamesAsync(courseId, token)).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -223,6 +229,7 @@ public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, 
             throw new ConflictException(GroupErrorCodes.RoomNameTaken, $"The course already has a room named '{name}'.");
         }
 
+        RoomComposition.EnsureFeasible(room.Capacity, await rooms.GetRulesAsync(groupTypeId, cancellationToken));
         room.Name = name;
         room.GroupTypeId = groupTypeId;
     }
@@ -267,7 +274,7 @@ public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, 
             rules.Name,
             course.MinGroupSize,
             rules.MinDistinctMajors,
-            RoomComposition.IsEligible(course.MinGroupSize, majors, rules),
+            majors.Count <= course.MaxGroupSize && RoomComposition.IsEligible(course.MinGroupSize, majors, rules),
             majorCodes
                 .Select(pair => new MajorCountModel(pair.Key, pair.Value, majors.Count(major => major == pair.Key), rules.MinPerMajor.GetValueOrDefault(pair.Key)))
                 .OrderBy(major => major.MajorCode, StringComparer.Ordinal)

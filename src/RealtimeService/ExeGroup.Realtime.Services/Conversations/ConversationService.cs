@@ -127,6 +127,8 @@ public sealed class ConversationService(
             message.DeletedAt = clock.UtcNow;
             await messages.SaveChangesAsync(cancellationToken);
         }
+
+        await push.MessageAsync(ToModel(message), cancellationToken);
     }
 
     private async Task<ConversationMember> RequireMembershipAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken)
@@ -152,6 +154,6 @@ public sealed class ConversationService(
             message.SenderId,
             message.SenderName,
             message.DeletedAt is null ? message.Content : null,
-            message.SentAt,
+            DateTime.SpecifyKind(message.SentAt, DateTimeKind.Utc),
             message.DeletedAt is not null);
 }

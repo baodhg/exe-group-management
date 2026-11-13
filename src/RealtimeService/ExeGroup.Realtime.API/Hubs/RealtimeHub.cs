@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.SignalR;
 namespace ExeGroup.Realtime.API.Hubs;
 
 [Authorize]
-public sealed class RealtimeHub(IConversationService conversations, ConnectionRegistry connections) : Hub
+public sealed class RealtimeHub(IConversationService conversations, ConnectionRegistry connections, ICourseAccessVerifier courseAccess) : Hub
 {
     public const string Route = "/hubs/realtime";
     public const string NotificationReceived = "notificationReceived";
@@ -49,7 +49,28 @@ public sealed class RealtimeHub(IConversationService conversations, ConnectionRe
         }
     }
 
-    public Task WatchCourse(Guid courseId) => Groups.AddToGroupAsync(Context.ConnectionId, CourseGroup(courseId), Context.ConnectionAborted);
+    public async Task WatchCourse(Guid courseId)
+    {
+        var context = Context.GetHttpContext();
+        var authorization = context?.Request.Headers.Authorization.ToString();
+        var token = System.Net.Http.Headers.AuthenticationHeaderValue.TryParse(authorization, out var header)
+            && string.Equals(header.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase)
+            ? header.Parameter
+            : context?.Request.Query[RealtimeUser.AccessTokenQuery].ToString();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(token) || !await courseAccess.CanReadAsync(courseId, token, Context.ConnectionAborted))
+            {
+                throw new HubException("FORBIDDEN: Only course members, its lecturer and administrators can watch this course.");
+            }
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException)
+        {
+            throw new HubException("Course access could not be verified. Try again later.");
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, CourseGroup(courseId), Context.ConnectionAborted);
+    }
 
     public Task UnwatchCourse(Guid courseId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, CourseGroup(courseId), Context.ConnectionAborted);
 }

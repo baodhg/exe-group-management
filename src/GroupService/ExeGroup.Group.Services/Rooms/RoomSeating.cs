@@ -8,9 +8,9 @@ namespace ExeGroup.Group.Services.Rooms;
 
 public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, IOutbox outbox, IClock clock)
 {
-    public static void EnsurePublished(Course course)
+    public static void EnsurePublished(Course course, DateTime now)
     {
-        if (course.Phase != CoursePhases.Published)
+        if (course.Phase != CoursePhases.Published || course.ExpireAt is { } deadline && deadline <= now)
         {
             throw Conflict(GroupErrorCodes.CourseNotPublished, "Students join, leave and apply only while the course is published.");
         }
@@ -27,7 +27,7 @@ public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, I
 
     public async Task EnsureCanEnterAsync(Room room, Course course, Guid studentId, CancellationToken cancellationToken)
     {
-        EnsurePublished(course);
+        EnsurePublished(course, clock.UtcNow);
         if (!await rooms.IsEnrolledAsync(course.CourseId, studentId, cancellationToken))
         {
             throw Conflict(GroupErrorCodes.NotEnrolled, "You are not on the course roster.");
@@ -46,7 +46,8 @@ public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, I
 
     public async Task<string?> SeatProblemAsync(Room room, Course course, Guid studentId, CancellationToken cancellationToken)
     {
-        if (room.MemberCount >= room.Capacity)
+        var capacity = Math.Min(room.Capacity, course.MaxGroupSize);
+        if (room.MemberCount >= capacity)
         {
             return GroupErrorCodes.RoomFull;
         }
@@ -59,7 +60,7 @@ public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, I
 
         var rules = await rooms.GetRulesAsync(room.GroupTypeId, cancellationToken);
         var majors = await rooms.ListMemberMajorsAsync(room, cancellationToken);
-        return RoomComposition.CanAdd(room.Capacity, majors, majorId.Value, rules) ? null : GroupErrorCodes.CompositionRule;
+        return RoomComposition.CanAdd(capacity, majors, majorId.Value, rules) ? null : GroupErrorCodes.CompositionRule;
     }
 
     public async Task EnsureSeatAsync(Room room, Course course, Guid studentId, CancellationToken cancellationToken)

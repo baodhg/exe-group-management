@@ -2,6 +2,8 @@ namespace ExeGroup.Group.Services;
 
 public static class GroupErrorCodes
 {
+    public const string CourseNotReady = "COURSE_NOT_READY";
+    public const string CourseSizeLocked = "COURSE_SIZE_LOCKED";
     public const string SemesterCodeTaken = "SEMESTER_CODE_TAKEN";
     public const string SemesterInUse = "SEMESTER_IN_USE";
     public const string SubjectCodeTaken = "SUBJECT_CODE_TAKEN";

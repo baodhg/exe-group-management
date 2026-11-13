@@ -49,7 +49,7 @@ public sealed class StudentProfileService(IRosterRepository rosters, ICurrentUse
         }
 
         var student = await RequireMeAsync(semesterId, cancellationToken);
-        if (await rosters.HasClosedCourseAsync(semesterId, student.StudentId, cancellationToken))
+        if (await rosters.HasClosedCourseAsync(semesterId, student.StudentId, clock.UtcNow, cancellationToken))
         {
             throw new ConflictException(GroupErrorCodes.SkillsLocked, "Skills are locked once one of your courses has passed its grouping deadline.");
         }
@@ -100,7 +100,7 @@ public sealed class StudentProfileService(IRosterRepository rosters, ICurrentUse
         var current = student.Skills.Where(skill => skill.SemesterId == student.SemesterId).ToList();
         var skills = await rosters.FindSkillsAsync(current.Select(skill => skill.SkillId).ToList(), cancellationToken);
         var major = await rosters.FindMajorAsync(student.MajorId, cancellationToken);
-        var locked = await rosters.HasClosedCourseAsync(student.SemesterId, student.StudentId, cancellationToken);
+        var locked = await rosters.HasClosedCourseAsync(student.SemesterId, student.StudentId, clock.UtcNow, cancellationToken);
         return new StudentProfileModel(
             student.SemesterId,
             student.StudentId,

@@ -27,7 +27,7 @@ public interface ISuggestionService
     Task<PlacementSuggestionsModel> SuggestPlacementsAsync(Guid courseId, CancellationToken cancellationToken);
 }
 
-public sealed class SuggestionService(IRoomRepository rooms, RoomSummaries summaries, IRecommendationClient recommendations, ICurrentUser currentUser) : ISuggestionService
+public sealed class SuggestionService(IRoomRepository rooms, RoomSummaries summaries, IRecommendationClient recommendations, ICurrentUser currentUser, IClock clock) : ISuggestionService
 {
     public const int MaxTop = 20;
 
@@ -39,7 +39,7 @@ public sealed class SuggestionService(IRoomRepository rooms, RoomSummaries summa
         }
 
         var course = await rooms.FindCourseAsync(courseId, cancellationToken) ?? throw new NotFoundException("Course", courseId);
-        RoomSeating.EnsurePublished(course);
+        RoomSeating.EnsurePublished(course, clock.UtcNow);
         var studentId = currentUser.RequireUserId();
         var students = await rooms.ListCourseStudentsAsync(course, cancellationToken);
         var me = students.SingleOrDefault(student => student.StudentId == studentId)

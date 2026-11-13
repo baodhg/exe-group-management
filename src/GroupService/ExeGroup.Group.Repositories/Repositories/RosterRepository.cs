@@ -147,11 +147,12 @@ public sealed class RosterRepository(GroupDbContext context) : IRosterRepository
     public Task<Major?> FindMajorAsync(Guid majorId, CancellationToken cancellationToken) =>
         context.Majors.AsNoTracking().SingleOrDefaultAsync(major => major.MajorId == majorId, cancellationToken);
 
-    public Task<bool> HasClosedCourseAsync(Guid semesterId, Guid studentId, CancellationToken cancellationToken) =>
+    public Task<bool> HasClosedCourseAsync(Guid semesterId, Guid studentId, DateTime now, CancellationToken cancellationToken) =>
         context.CourseEnrollments.AnyAsync(
             enrollment => enrollment.SemesterId == semesterId && enrollment.StudentId == studentId
                 && context.Courses.Any(course => course.CourseId == enrollment.CourseId
-                    && (course.Phase == CoursePhases.Expired || course.Phase == CoursePhases.Finalized)),
+                    && (course.Phase == CoursePhases.Expired || course.Phase == CoursePhases.Finalized
+                        || (course.Phase == CoursePhases.Published && course.ExpireAt <= now))),
             cancellationToken);
 
     public void RemoveSkill(StudentSkill skill) => context.StudentSkills.Remove(skill);

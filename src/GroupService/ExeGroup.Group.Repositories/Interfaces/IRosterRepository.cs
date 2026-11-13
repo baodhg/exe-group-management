@@ -57,7 +57,7 @@ public interface IRosterRepository
 
     Task<Major?> FindMajorAsync(Guid majorId, CancellationToken cancellationToken);
 
-    Task<bool> HasClosedCourseAsync(Guid semesterId, Guid studentId, CancellationToken cancellationToken);
+    Task<bool> HasClosedCourseAsync(Guid semesterId, Guid studentId, DateTime now, CancellationToken cancellationToken);
 
     void RemoveSkill(StudentSkill skill);
 
