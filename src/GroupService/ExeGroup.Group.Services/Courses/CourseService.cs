@@ -36,7 +36,7 @@ public sealed record CourseSettings(
     DateTime? PublishAt,
     DateTime? ExpireAt);
 
-public sealed record CourseListFilter(Guid? SemesterId, Guid? SubjectId, string? Phase, bool Mine);
+public sealed record CourseListFilter(Guid? SemesterId, Guid? SubjectId, string? Phase);
 
 public interface ICourseService
 {
@@ -68,7 +68,7 @@ public sealed class CourseService(ICourseRepository courses, ICurrentUser curren
 
         Guid? enrolledStudentId = null;
         Guid? lecturerId = null;
-        if (filter.Mine && !currentUser.IsInRole(Roles.Administrator))
+        if (!currentUser.IsInRole(Roles.Administrator))
         {
             var userId = currentUser.RequireUserId();
             if (currentUser.IsInRole(Roles.Lecturer))
