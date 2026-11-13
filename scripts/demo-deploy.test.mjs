@@ -10,6 +10,7 @@ echo "docker $*" >> "$FAKE_LOG"
 args="$*"
 case "$args" in
   *" up -d "*)
+    echo "stack started for $SEED_ADMIN_EMAIL" >> "$FAKE_LOG"
     if [[ "$IMAGE_TAG" == "$FAKE_BROKEN_UP" ]]; then exit 1; fi
     ;;
   *"-w %{http_code} http://web/"*)
@@ -24,6 +25,12 @@ case "$args" in
     ;;
   *"builder prune"*)
     if [[ -n "$FAKE_BROKEN_PRUNE" ]]; then exit 1; fi
+    ;;
+  "run --rm "*)
+    if [[ -n "$FAKE_BROKEN_SEED" ]]; then exit 1; fi
+    echo "seed received $(wc -c | tr -d ' ') bytes as $SEED_ADMIN_EMAIL" >> "$FAKE_LOG"
+    echo "seed signs in with \${#SEED_ADMIN_PASSWORD} and \${#SEED_DEMO_PASSWORD} characters" >> "$FAKE_LOG"
+    echo "Seed done at $SEED_GATEWAY_URL"
     ;;
 esac
 exit 0
@@ -41,7 +48,7 @@ fi
 exit 0
 `;
 
-function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
+function deployment({ tag = "new", lastGood, lastGoodCommit, seedSettings = "", input = "", ...fake } = {}) {
   const root = mkdtempSync(join(tmpdir(), "demo-deploy-"));
   try {
     const bin = join(root, "bin");
@@ -56,8 +63,9 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
     chmodSync(join(bin, "docker"), 0o755);
     chmodSync(join(bin, "git"), 0o755);
     copyFileSync(join(import.meta.dirname, "demo-deploy.sh"), join(work, "scripts", "demo-deploy.sh"));
+    writeFileSync(join(work, "scripts", "seed-demo.mjs"), "seed script\n");
     writeFileSync(join(work, ".env.example"), "JWT_SIGNING_KEY=sample\n");
-    writeFileSync(join(state, "demo.env"), "JWT_SIGNING_KEY=real\n");
+    writeFileSync(join(state, "demo.env"), `JWT_SIGNING_KEY=real\n${seedSettings}`);
     if (lastGood) {
       writeFileSync(join(state, "last-good"), `${lastGood}\n`);
     }
@@ -71,6 +79,7 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
     const result = spawnSync("bash", ["scripts/demo-deploy.sh"], {
       cwd: work,
       encoding: "utf8",
+      input,
       env: {
         ...process.env,
         PATH: `${bin}${delimiter}${process.env.PATH}`,
@@ -84,6 +93,7 @@ function deployment({ tag = "new", lastGood, lastGoodCommit, ...fake } = {}) {
         FAKE_BROKEN_REV_PARSE: fake.brokenRevParse ?? "",
         FAKE_OLD_SCRIPT: fake.oldScript ?? "",
         FAKE_BROKEN_PRUNE: fake.brokenPrune ?? "",
+        FAKE_BROKEN_SEED: fake.brokenSeed ?? "",
       },
     });
     const read = (name) => (existsSync(join(state, name)) ? readFileSync(join(state, name), "utf8").trim() : null);
@@ -99,6 +109,78 @@ test("a healthy deploy records the good version", () => {
   assert.match(result.output, /Deployed new/);
   assert.equal(result.lastGood, "new");
   assert.equal(result.lastGoodCommit, "commit-of-new");
+});
+
+const seedSettings = "SEED_ADMIN_EMAIL=admin@example.test\nSEED_ADMIN_PASSWORD=admin-sample\nSEED_DEMO_PASSWORD=demo-sample\n";
+
+test("a healthy deploy loads the demo data once through the gateway", () => {
+  const result = deployment({ lastGood: "old", seedSettings });
+  assert.equal(result.status, 0, result.output);
+  assert.equal(result.calls.match(/^docker run --rm /gm)?.length, 1, result.calls);
+  assert.match(result.calls, /docker run --rm -i --network exe-group-demo_default .* node:22-alpine node --input-type=module - --once$/m);
+  assert.match(result.calls, /seed received 12 bytes as admin@example\.test/);
+  assert.match(result.output, /Seed done at http:\/\/gateway:8080/);
+  assert.match(result.output, /Deployed new/);
+});
+
+test("the seed keeps its settings out of the command line and off the host files", () => {
+  const result = deployment({ lastGood: "old", seedSettings });
+  assert.match(result.calls, /docker run --rm /);
+  assert.doesNotMatch(result.calls, /admin-sample|demo-sample/);
+  assert.doesNotMatch(result.calls, /docker run .*( -v |--volume|--mount|--env-file)/);
+});
+
+const sentSettings = "SEED_ADMIN_EMAIL=sent@example.test\nSEED_ADMIN_PASSWORD=sent-admin\nSEED_DEMO_PASSWORD=sent-demo\n";
+
+test("sign-in settings sent with the deploy start the stack and seed without anything on the server", () => {
+  const result = deployment({ lastGood: "old", input: sentSettings });
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.calls, /stack started for sent@example\.test/);
+  assert.match(result.calls, /seed received 12 bytes as sent@example\.test/);
+  assert.match(result.calls, /seed signs in with 10 and 9 characters/);
+  assert.doesNotMatch(`${result.calls}${result.output}`, /sent-admin|sent-demo/);
+  assert.match(result.output, /Deployed new/);
+});
+
+test("settings sent with the deploy win over the server file, one by one", () => {
+  const result = deployment({ lastGood: "old", seedSettings, input: "SEED_ADMIN_EMAIL=sent@example.test\n" });
+  assert.match(result.calls, /stack started for sent@example\.test/);
+  assert.match(result.calls, /seed signs in with 12 and 11 characters/);
+});
+
+test("a deploy with no sign-in settings from either side skips the seed and says which one is missing", () => {
+  const result = deployment({ lastGood: "old", seedSettings: "SEED_ADMIN_EMAIL=admin@example.test\nSEED_ADMIN_PASSWORD=admin-sample\n" });
+  assert.equal(result.status, 0, result.output);
+  assert.doesNotMatch(result.calls, /docker run/);
+  assert.match(result.output, /^Seed skipped: .*SEED_DEMO_PASSWORD/m);
+  assert.match(result.output, /Deployed new/);
+});
+
+test("anything else sent with the deploy is ignored", () => {
+  const result = deployment({ lastGood: "old", input: `IMAGE_TAG=other\nDEMO_STATE_DIR=/nowhere\nSA_PASSWORD=x\n${sentSettings}` });
+  assert.equal(result.status, 0, result.output);
+  assert.equal(result.lastGood, "new");
+  assert.match(result.output, /Deployed new/);
+});
+
+test("a seed that fails does not fail a good deploy", () => {
+  const result = deployment({ lastGood: "old", seedSettings, brokenSeed: "yes" });
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /^Seed failed/m);
+  assert.match(result.output, /Deployed new/);
+  assert.equal(result.lastGood, "new");
+});
+
+test("a failed deploy does not seed", () => {
+  const result = deployment({ lastGood: "old", lastGoodCommit: "abc", brokenWeb: "new", seedSettings });
+  assert.equal(result.status, 1, result.output);
+  assert.doesNotMatch(result.calls, /docker run/);
+});
+
+test("a deploy never removes the volumes that hold the demo data", () => {
+  const healthy = deployment({ lastGood: "old", seedSettings });
+  const failed = deployment({ brokenWeb: "new" });
+  assert.doesNotMatch(`${healthy.calls}${failed.calls}`, / down\b| -v\b|--volumes|volume rm|volume prune/);
 });
 
 test("a successful deploy removes only build cache older than a week", () => {

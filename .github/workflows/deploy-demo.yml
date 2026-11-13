@@ -30,13 +30,16 @@ jobs:
       SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
       SSH_USER: ${{ secrets.DEMO_SSH_USER }}
       DEMO_URL: ${{ vars.DEMO_URL }}
+      SEED_ADMIN_EMAIL: ${{ vars.DEMO_ADMIN_EMAIL }}
+      SEED_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
+      SEED_DEMO_PASSWORD: ${{ secrets.DEMO_ACCOUNT_PASSWORD }}
     steps:
       - name: Deploy the commit on the server
         run: |
           umask 077
           printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/deploy_key"
           printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/known_hosts"
-          ssh -i "$RUNNER_TEMP/deploy_key" \
+          env | grep -E '^SEED_(ADMIN_EMAIL|ADMIN_PASSWORD|DEMO_PASSWORD)=' | ssh -i "$RUNNER_TEMP/deploy_key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" \
             -o ConnectTimeout=30 -o ServerAliveInterval=30 \

@@ -9,6 +9,9 @@ last_good_file="$state_dir/last-good"
 last_good_commit_file="$state_dir/last-good-commit"
 compose=(docker compose -f docker-compose.yml -f deploy/docker-compose.demo.yml --env-file "$env_file")
 database_services=(identity-service group-service realtime-service)
+seed_network="exe-group-demo_default"
+seed_image="node:22-alpine"
+seed_settings=(SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_DEMO_PASSWORD)
 
 if [[ ! -f "$env_file" ]]; then
   echo "Missing $env_file: create it with SA_PASSWORD and JWT_SIGNING_KEY first." >&2
@@ -25,6 +28,37 @@ if grep -qxF "$sample_key" "$env_file"; then
   echo "Missing a real JWT_SIGNING_KEY in $env_file: it still holds the sample from .env.example." >&2
   exit 1
 fi
+
+declare -A sent_settings=()
+
+read_sent_settings() {
+  local line name
+  if [[ -t 0 ]]; then
+    return 0
+  fi
+
+  while IFS= read -r -t 10 line; do
+    name="${line%%=*}"
+    if [[ "$line" == *=* && " ${seed_settings[*]} " == *" $name "* ]]; then
+      sent_settings["$name"]="${line#*=}"
+    fi
+  done
+}
+
+demo_setting() {
+  local value="${sent_settings[$1]:-}"
+  if [[ -z "$value" ]]; then
+    value="$(grep -m1 "^$1=" "$env_file" | cut -d= -f2-)"
+  fi
+
+  echo "$value"
+}
+
+read_sent_settings
+SEED_ADMIN_EMAIL="$(demo_setting SEED_ADMIN_EMAIL)"
+SEED_ADMIN_PASSWORD="$(demo_setting SEED_ADMIN_PASSWORD)"
+SEED_DEMO_PASSWORD="$(demo_setting SEED_DEMO_PASSWORD)"
+export SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_DEMO_PASSWORD
 
 deploy() {
   IMAGE_TAG="$1" "${compose[@]}" up -d --wait --wait-timeout 300 --no-build --pull never --remove-orphans
@@ -63,6 +97,23 @@ smoke() {
 
     echo "ok ready $service"
   done
+}
+
+seed_demo_data() {
+  local name
+  for name in "${seed_settings[@]}"; do
+    if [[ -z "${!name}" ]]; then
+      echo "Seed skipped: $name came neither with the deploy nor from $env_file, so the demo data was not loaded."
+      return 0
+    fi
+  done
+
+  if ! SEED_GATEWAY_URL="http://gateway:8080" \
+    timeout 900 docker run --rm -i --network "$seed_network" --memory 256m --cpus 1 \
+    -e SEED_GATEWAY_URL -e SEED_ADMIN_EMAIL -e SEED_ADMIN_PASSWORD -e SEED_DEMO_PASSWORD \
+    "$seed_image" node --input-type=module - --once < scripts/seed-demo.mjs; then
+    echo "Seed failed: the deploy is not affected and the next deploy tries again." >&2
+  fi
 }
 
 remove_old_images() {
@@ -107,6 +158,7 @@ main() {
   if deploy "$IMAGE_TAG" && smoke "$IMAGE_TAG"; then
     echo "$IMAGE_TAG" > "$last_good_file"
     echo "$current_commit" > "$last_good_commit_file"
+    seed_demo_data
     remove_old_images "$IMAGE_TAG" "$previous_tag"
     remove_old_build_cache
     echo "Deployed $IMAGE_TAG"

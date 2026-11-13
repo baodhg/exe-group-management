@@ -14,6 +14,7 @@ const fileEnv = existsSync(envFile)
   : {};
 const setting = (name, fallback) => process.env[name] ?? fileEnv[name] ?? fallback;
 const rateSkills = !process.argv.includes("--no-skills");
+const seedOnce = process.argv.includes("--once");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const gateway = setting("SEED_GATEWAY_URL", `http://localhost:${setting("GATEWAY_HOST_PORT", "8080")}`);
@@ -100,6 +101,14 @@ const counts = { created: 0, kept: 0 };
 const note = ({ created }) => (created ? counts.created++ : counts.kept++);
 
 const admin = await signIn(adminEmail, adminPassword);
+
+if (seedOnce) {
+  const seeded = (await call(admin, "GET", `/api/v1/semesters?search=${encodeURIComponent(semester.code)}&pageSize=100`)).some((existing) => existing.code === semester.code);
+  if (seeded) {
+    console.log(`Seed skipped: semester ${semester.code} is already at ${gateway}, so its data was left as it is.`);
+    process.exit(0);
+  }
+}
 
 const fa26 = await ensureByCode(admin, "semesters", semester);
 note(fa26);
