@@ -59,6 +59,7 @@ public sealed class GroupEventsConsumerTests(ConsumerFixture fixture) : IClassFi
     {
         var stream = NewStream();
         var (course, room, leader, member, applicant) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        fixture.CourseAccess.Allow(course, leader);
         await using var leaderHub = await fixture.HubFor(leader);
         await using var memberHub = await fixture.HubFor(member);
         await leaderHub.InvokeAsync("watchCourse", course);

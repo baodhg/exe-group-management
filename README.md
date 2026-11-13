@@ -63,6 +63,9 @@ How the services talk to each other:
   checks the seat and the majors and adds the member in one transaction.
 - **Real time:** the browser keeps a SignalR connection to `/hubs/realtime` (through nginx and the gateway) for chat
   messages, notifications and room changes.
+- **Course watchers:** Realtime forwards the caller's access token to Group's course endpoint before subscribing to
+  room changes. `GroupService__Address` defaults to `http://group-service:8080/`; the local Realtime launch profile
+  uses `http://localhost:5102/`. If access cannot be verified, the subscription is refused.
 - **Tracing:** the gateway assigns an `X-Correlation-ID`; it travels through HTTP headers, gRPC metadata and the event
   envelope, appears in every log line and comes back as `traceId` in every response.
 

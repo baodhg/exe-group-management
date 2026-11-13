@@ -102,7 +102,7 @@ public sealed class CourseProgressService(
                 foreach (var target in moves.GroupBy(move => move.RoomId))
                 {
                     var room = courseRooms[target.Key];
-                    if (room.MemberCount + target.Count() > room.Capacity)
+                    if (room.MemberCount + target.Count() > Math.Min(room.Capacity, course.MaxGroupSize))
                     {
                         throw RoomSeating.Conflict(GroupErrorCodes.RoomFull, $"{room.Name} has {room.Capacity - room.MemberCount} free seats for {target.Count()} students.");
                     }
@@ -155,7 +155,7 @@ public sealed class CourseProgressService(
             {
                 empty++;
             }
-            else if (RoomComposition.IsEligible(course.MinGroupSize, majors, rule))
+            else if (majors.Count <= course.MaxGroupSize && RoomComposition.IsEligible(course.MinGroupSize, majors, rule))
             {
                 eligible++;
             }

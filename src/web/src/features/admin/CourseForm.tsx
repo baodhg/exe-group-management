@@ -67,12 +67,14 @@ export function CourseForm({
   errors,
   creating,
   phase,
+  hasRooms = false,
 }: {
   draft: CourseDraft;
   onChange: (draft: CourseDraft, field: keyof CourseDraft) => void;
   errors: CourseFieldErrors;
   creating: boolean;
   phase: CoursePhase;
+  hasRooms?: boolean;
 }) {
   const { api } = useAuth();
   const semesters = useQuery({
@@ -128,7 +130,7 @@ export function CourseForm({
         <Input type="number" min={1} max={50} disabled={lockSetup} value={draft.minGroupSize} onChange={(event) => set("minGroupSize", Number(event.target.value))} />
       </Field>
       <Field label="Số người tối đa mỗi nhóm" error={errors.maxGroupSize}>
-        <Input type="number" min={1} max={50} disabled={lockSetup} value={draft.maxGroupSize} onChange={(event) => set("maxGroupSize", Number(event.target.value))} />
+        <Input type="number" min={1} max={50} disabled={lockSetup || hasRooms} value={draft.maxGroupSize} onChange={(event) => set("maxGroupSize", Number(event.target.value))} />
       </Field>
       {creating && (
         <Field label="Hệ số phòng k" hint="Số phòng = sinh viên × k ÷ số người tối đa, làm tròn lên." error={errors.roomFactor}>

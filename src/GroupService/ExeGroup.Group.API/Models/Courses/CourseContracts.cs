@@ -25,7 +25,7 @@ public class CourseSettingsRequest
     public int? MaxGroupSize { get; init; }
 
     [Required]
-    [Range(typeof(decimal), "1.00", "9.99")]
+    [Range(typeof(decimal), "1.00", "9.99", ParseLimitsInInvariantCulture = true)]
     public decimal? RoomFactor { get; init; }
 
     public DateTime? PublishAt { get; init; }

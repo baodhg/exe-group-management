@@ -246,7 +246,7 @@ function PublishDialog({ course, open, onOpenChange, onPastDeadline }: { course:
           <Button variant="ghost" onClick={() => close(false)}>
             Huỷ
           </Button>
-          <Button pending={publish.isPending} disabled={pastDeadline} onClick={() => publish.mutate()}>
+          <Button pending={publish.isPending} disabled={pastDeadline || course.studentCount === 0 || course.roomCount === 0} onClick={() => publish.mutate()}>
             {!publish.isPending && <Rocket />}
             Mở chọn phòng
           </Button>
@@ -374,6 +374,7 @@ export function SettingsSection({ course }: { course: Course }) {
             {errors.roomFactor && <Notice tone="bad">{errors.roomFactor}</Notice>}
             <CourseForm
               creating={false}
+              hasRooms={course.roomCount > 0}
               phase={course.phase}
               draft={draft}
               errors={errors}
@@ -383,10 +384,10 @@ export function SettingsSection({ course }: { course: Course }) {
               }}
             />
             {driftCapacity !== undefined && (
-              <Notice tone="warn" title="Phòng đã tạo không đổi sức chứa">
+              <Notice tone="warn" title="Cần sinh lại phòng để khớp sức chứa của lớp">
                 <Criteria columns={3} className="pt-1">
                   <Criterion label={`${course.roomCount} phòng đã tạo`}>Vẫn {driftCapacity} chỗ mỗi phòng</Criterion>
-                  <Criterion label="Phòng tạo thêm">{draft.maxGroupSize} chỗ mỗi phòng</Criterion>
+                  <Criterion label="Lớp quy định">{draft.maxGroupSize} chỗ mỗi phòng</Criterion>
                   <Criterion label="Muốn đổi hết">Xoá phòng rồi sinh lại</Criterion>
                 </Criteria>
               </Notice>
@@ -416,7 +417,7 @@ export function SettingsSection({ course }: { course: Course }) {
                 </Checks>
                 <Criteria>
                   <Criterion label="Số nhóm tối thiểu">{check.minGroups} nhóm</Criterion>
-                  <Criterion label="Mở được khi">Không cần đủ phòng, đủ sinh viên</Criterion>
+                  <Criterion label="Mở được khi">Có sinh viên và đủ chỗ trong các phòng</Criterion>
                 </Criteria>
               </Section>
               <GenerateRooms course={course} allowed={allowed.data?.data} loadError={allowed.error} groupTypeId={groupTypeId} onPick={setGroupTypeId} rule={rule} rooms={savedRooms} />
@@ -440,7 +441,10 @@ export function SettingsSection({ course }: { course: Course }) {
               </li>
             </ul>
             {isSetup && (
-              <Button size="lg" className="w-full" onClick={() => setPublishing(true)}>
+              <Notice tone="info">Thêm sinh viên và sinh đủ phòng trước khi mở tìm nhóm. Muốn đổi số người tối đa sau khi đã có phòng, hãy xoá phòng rồi sinh lại.</Notice>
+            )}
+            {isSetup && (
+              <Button size="lg" className="w-full" disabled={course.studentCount === 0 || course.roomCount === 0} onClick={() => setPublishing(true)}>
                 <Rocket />
                 Mở chọn phòng ngay
               </Button>

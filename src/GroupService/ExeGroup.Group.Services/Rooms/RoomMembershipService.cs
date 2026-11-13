@@ -60,7 +60,7 @@ public sealed class RoomMembershipService(
             async token =>
             {
                 var (room, course) = await seating.LoadAsync(roomId, token);
-                RoomSeating.EnsurePublished(course);
+                RoomSeating.EnsurePublished(course, clock.UtcNow);
                 var members = await rooms.ListActiveMembersAsync(roomId, token);
                 var membership = members.SingleOrDefault(member => member.StudentId == studentId)
                     ?? throw RoomSeating.Conflict(GroupErrorCodes.NotRoomMember, "You are not a member of this room.");
@@ -167,7 +167,7 @@ public sealed class RoomMembershipService(
                     throw RoomService.NotLeader();
                 }
 
-                RoomSeating.EnsurePublished(course);
+                RoomSeating.EnsurePublished(course, clock.UtcNow);
                 await action(room, await rooms.ListActiveMembersAsync(roomId, token), leaderId, token);
                 await rooms.SaveChangesAsync(token);
                 return true;

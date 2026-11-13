@@ -149,6 +149,8 @@ public sealed class JoinRequestService(
                     throw new ForbiddenException("Only the applicant can withdraw an application.");
                 }
 
+                var (_, course) = await seating.LoadAsync(request.RoomId, token);
+                RoomSeating.EnsurePublished(course, clock.UtcNow);
                 EnsurePending(request);
                 await closer.CloseAsync([request], JoinRequestReasons.Withdrawn, studentId, token);
                 await joinRequests.SaveChangesAsync(token);
@@ -221,7 +223,7 @@ public sealed class JoinRequestService(
                 }
 
                 EnsurePending(request);
-                RoomSeating.EnsurePublished(course);
+                RoomSeating.EnsurePublished(course, clock.UtcNow);
                 await decide(request, room, course, leaderId, token);
                 await joinRequests.SaveChangesAsync(token);
                 return true;

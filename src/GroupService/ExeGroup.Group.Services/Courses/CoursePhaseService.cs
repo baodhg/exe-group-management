@@ -42,7 +42,7 @@ public sealed class CoursePhaseService(
     {
         await ChangePhaseAsync(
             courseId,
-            (course, _) =>
+            async (course, token) =>
             {
                 if (course.Phase != CoursePhases.Setup)
                 {
@@ -54,8 +54,24 @@ public sealed class CoursePhaseService(
                     throw new ValidationFailedException("expireAt", "The deadline has passed; move it later before publishing.");
                 }
 
+                var students = await rooms.ListEnrolledIdsAsync(course.CourseId, token);
+                var courseRooms = await rooms.ListRoomsForUpdateAsync(course.CourseId, token);
+                if (students.Count == 0 || courseRooms.Count == 0 || courseRooms.Sum(room => room.Capacity) < students.Count)
+                {
+                    throw new ConflictException(GroupErrorCodes.CourseNotReady, "Enroll students and generate enough room seats before publishing.");
+                }
+
+                foreach (var room in courseRooms)
+                {
+                    if (room.Capacity != course.MaxGroupSize)
+                    {
+                        throw new ConflictException(GroupErrorCodes.CourseNotReady, "Regenerate rooms to match the course's maximum group size before publishing.");
+                    }
+
+                    RoomComposition.EnsureFeasible(room.Capacity, await rooms.GetRulesAsync(room.GroupTypeId, token));
+                }
+
                 course.Phase = CoursePhases.Published;
-                return Task.CompletedTask;
             },
             cancellationToken);
         return await GetAsync(courseId, cancellationToken);
@@ -88,6 +104,12 @@ public sealed class CoursePhaseService(
             {
                 (groups, deleted) = (0, 0);
                 CourseProgressService.EnsureExpired(course);
+                var courseRooms = await rooms.ListRoomsForUpdateAsync(course.CourseId, token);
+                if (courseRooms.Any(room => room.MemberCount > course.MaxGroupSize))
+                {
+                    throw new ConflictException(GroupErrorCodes.FinalizeBlocked, "Move members out of rooms exceeding the maximum group size before finalizing.");
+                }
+
                 var overview = await CourseProgressService.BuildAsync(rooms, course, token);
                 if (overview.Unplaced.Count > 0 || (overview.IneligibleRooms.Count > 0 && !acceptExceptions))
                 {
@@ -96,7 +118,7 @@ public sealed class CoursePhaseService(
                         $"{overview.Unplaced.Count} students have no room and {overview.IneligibleRooms.Count} rooms are not eligible; place every student, and accept exceptions for the rooms.");
                 }
 
-                foreach (var room in await rooms.ListRoomsForUpdateAsync(course.CourseId, token))
+                foreach (var room in courseRooms)
                 {
                     if (room.MemberCount == 0)
                     {

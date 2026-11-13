@@ -65,6 +65,7 @@ public sealed class RealtimeHubTests(RealtimeApiFixture fixture) : IClassFixture
     {
         var (owner, other) = (Guid.NewGuid(), Guid.NewGuid());
         var course = Guid.NewGuid();
+        fixture.CourseAccess.Allow(course, other);
         await using var ownerHub = await fixture.HubFor(owner);
         await using var otherHub = await fixture.HubFor(other);
         await otherHub.InvokeAsync("watchCourse", course);
@@ -78,6 +79,36 @@ public sealed class RealtimeHubTests(RealtimeApiFixture fixture) : IClassFixture
         Assert.Equal((course, "RoomMemberJoined"), (change.GetProperty("courseId").GetGuid(), change.GetProperty("eventType").GetString()));
         Assert.False(await otherHub.ReceivesAsync(RealtimeHub.NotificationReceived, Quiet));
         Assert.False(await ownerHub.ReceivesAsync(RealtimeHub.RoomChanged, Quiet));
+    }
+
+    [Fact]
+    public async Task An_outsider_cannot_watch_a_course_or_receive_its_changes()
+    {
+        var course = Guid.NewGuid();
+        await using var outsider = await fixture.HubFor(Guid.NewGuid());
+        var refused = await Assert.ThrowsAsync<HubCallException>(() => outsider.InvokeAsync("watchCourse", course));
+        Assert.Contains("FORBIDDEN", refused.Message);
+        await Push.RoomChangedAsync(new RoomChangeModel(course, Guid.NewGuid(), "Private room", "RoomStatusChanged"), Ct);
+        Assert.False(await outsider.ReceivesAsync(RealtimeHub.RoomChanged, Quiet));
+    }
+
+    [Fact]
+    public async Task Deleting_a_message_pushes_the_deleted_state_to_other_members()
+    {
+        var (alice, bob) = (Guid.NewGuid(), Guid.NewGuid());
+        var conversation = await NewConversationAsync(Guid.NewGuid(), (alice, false), (bob, false));
+        await using var aliceHub = await fixture.HubFor(alice, "Alice");
+        await using var bobHub = await fixture.HubFor(bob, "Bob");
+        var sent = await aliceHub.InvokeAsync("sendMessage", conversation, "Delete this");
+        await aliceHub.NextAsync(RealtimeHub.MessageReceived);
+        await bobHub.NextAsync(RealtimeHub.MessageReceived);
+        var response = await fixture.ClientFor(alice).DeleteAsync($"/api/v1/messages/{sent.GetProperty("id").GetGuid()}", Ct);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var deleted = await bobHub.NextAsync(RealtimeHub.MessageReceived);
+        Assert.Equal(sent.GetProperty("id").GetGuid(), deleted.GetProperty("id").GetGuid());
+        Assert.Equal(sent.GetProperty("sentAt").GetString(), deleted.GetProperty("sentAt").GetString());
+        Assert.True(deleted.GetProperty("deleted").GetBoolean());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, deleted.GetProperty("content").ValueKind);
     }
 
     [Fact]

@@ -51,7 +51,7 @@ public interface ICourseService
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 }
 
-public sealed class CourseService(ICourseRepository courses, ICurrentUser currentUser, IClock clock) : ICourseService
+public sealed class CourseService(ICourseRepository courses, ICurrentUser currentUser, IClock clock, IRoomRepository rooms) : ICourseService
 {
     public const decimal MaxRoomFactor = 9.99m;
 
@@ -145,6 +145,11 @@ public sealed class CourseService(ICourseRepository courses, ICurrentUser curren
                     throw new ConflictException(GroupErrorCodes.CourseScheduleLocked, "While the course is published the deadline can only move later.");
                 }
             }
+        }
+
+        if (settings.MaxGroupSize != course.MaxGroupSize && (await rooms.ListRoomNamesAsync(id, cancellationToken)).Count > 0)
+        {
+            throw new ConflictException(GroupErrorCodes.CourseSizeLocked, "Delete the Setup rooms before changing the maximum group size, then generate them again.");
         }
 
         await EnsureClassIsFreeAsync(course.SemesterId, course.SubjectId, settings.ClassCode, id, cancellationToken);

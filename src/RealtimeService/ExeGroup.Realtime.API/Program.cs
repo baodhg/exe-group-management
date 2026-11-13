@@ -10,6 +10,11 @@ builder.AddServiceDefaults("realtime-service", typeof(Program).Assembly);
 builder.Services.AddRealtimeServices(builder.Configuration);
 builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddRealtimeHub();
+builder.Services.AddHttpClient<ICourseAccessVerifier, CourseAccessVerifier>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["GroupService:Address"] ?? "http://group-service:8080/");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 if (builder.Configuration.GetValue(GroupEventsConsumer.EnabledKey, true))
 {
     builder.Services.AddHostedService<GroupEventsConsumer>();

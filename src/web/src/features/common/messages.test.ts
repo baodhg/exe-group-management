@@ -24,7 +24,9 @@ const errorSheet: [code: string, status: number, text: string][] = [
   ["SKILL_CODE_TAKEN", 409, "Mã kỹ năng đã tồn tại."],
   ["SKILL_IN_USE", 409, "Kỹ năng đang được dùng, không xoá được."],
   ["GROUP_TYPE_CODE_TAKEN", 409, "Mã loại nhóm đã tồn tại."],
-  ["GROUP_TYPE_IN_USE", 409, "Loại nhóm đang được dùng, không xoá được."],
+  ["GROUP_TYPE_IN_USE", 409, "Loại nhóm đang được phòng sử dụng. Không xoá hoặc đổi quy tắc ngành; hãy tạo loại nhóm mới."],
+  ["COURSE_SIZE_LOCKED", 409, "Đã có phòng. Hãy xoá các phòng trong giai đoạn chuẩn bị trước khi đổi số người tối đa, rồi sinh lại phòng."],
+  ["COURSE_NOT_READY", 409, "Cần có sinh viên và đủ chỗ trong các phòng trước khi mở tìm nhóm. Kiểm tra lại sức chứa phòng."],
   ["COURSE_CLASS_TAKEN", 409, "Lớp này đã có môn đó trong học kỳ."],
   ["COURSE_NOT_IN_SETUP", 409, "Lớp đã mở tìm nhóm, không còn ở giai đoạn chuẩn bị."],
   ["COURSE_FINALIZED", 409, "Lớp đã chốt nhóm, không thay đổi được nữa."],
@@ -53,7 +55,7 @@ const errorSheet: [code: string, status: number, text: string][] = [
 
 describe("messages", () => {
   it("covers every code on the handoff sheet", () => {
-    expect(errorSheet).toHaveLength(46);
+    expect(errorSheet).toHaveLength(48);
   });
 
   it.each(errorSheet)("shows the agreed wording for %s", (code, status, text) => {
