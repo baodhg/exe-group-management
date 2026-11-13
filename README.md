@@ -243,22 +243,27 @@ required, except that `infra-guard` asks the project manager to approve member c
 ## 6. Demo script (end-to-end)
 
 About 15 minutes. Before the demo: `docker compose up -d --build`, wait for `docker compose ps` to show every
-container healthy, then `node scripts/seed-demo.mjs` (step 7 of the installation guide). Use three browser windows
-that do not share sign-ins (for example one normal window, one private window and a second browser): **Admin**,
-**A** = `sv01@fpt.edu.vn` (SE) and **B** = `sv19@fpt.edu.vn` (MKT). Students and `lecturer@fpt.edu.vn` use
-`SEED_DEMO_PASSWORD`.
+container healthy, then `node scripts/seed-demo.mjs` (step 7 of the installation guide). Sign in to every account
+before you start: the gateway allows 10 sign-ins a minute from one address, and the seed uses them up for about a
+minute after it ends. Use four browser profiles that do not share sign-ins (all private windows of one browser share
+one sign-in, so use separate profiles or browsers): **Admin**, **A** = `sv01@fpt.edu.vn` (SE),
+**B** = `sv19@fpt.edu.vn` (MKT) and **C** = `sv20@fpt.edu.vn` (MKT). Students and `lecturer@fpt.edu.vn` use
+`SEED_DEMO_PASSWORD`. The Administrator role is shown as "Giáo vụ".
 
 | Step | Who | Action | What it demonstrates |
 |---|---|---|---|
 | 1 | – | `docker compose ps` (8 healthy containers); show the C4 diagrams above and the merged Swagger UI at <http://localhost:8080/swagger> (Identity, Group, Realtime; every endpoint has a summary) | Docker deployment, architecture, API documentation |
-| 2 | Admin | Sign in; open **Quản trị** → Học kỳ, Ngành, Skill and Loại nhóm (EXE: at least 1 SE, 1 MKT and 2 majors, allowed in FA26); in Swagger show `GET /api/v1/subjects?search=EXE&sort=-code&page=1&pageSize=5`, a 400 with field errors and a 406 for `Accept: text/plain` | REST, JWT, CRUD, search, sort, paging, validation, versioning, content negotiation |
-| 3 | Admin | Course → EXE101 – SE1919: lecturer, sizes 4–6, k = 1.2, 30 students (CSV import is in the "Sinh viên" block). **Sinh phòng** with EXE (⌈30 × 1.2 / 6⌉ = 6 rooms), then **Publish ngay** | Business rules (BR-03), outbox events |
-| 4 | A | Skill của tôi (ratings from the seed); open EXE101 → **Room 01** → **Vào phòng** (A becomes the leader) → set the topic → **Khóa phòng** | REST, SignalR room board |
-| 5 | B | Open EXE101: the room board (search, "Còn chỗ", sort, pages) and **Phòng gợi ý**, ranked with reasons in Vietnamese | REST → gRPC (Recommendation Service) |
-| 6 | B, A | B opens Room 01 → **Gửi đơn xin vào** with a message; A's bell lights up; A sees B's major, skills and message and clicks **Duyệt**: the answer comes back at once. Then `docker compose exec redis redis-cli XRANGE group-events - +` and `docker compose logs \| grep <traceId>` (the `traceId` of the approve response, also in the `X-Correlation-ID` header) | Transactional outbox → Redis Streams → consumer, notifications, tracing across gateway, Group, gRPC and Realtime |
-| 7 | A, B | A and B chat in Room 01: each message appears in the other window at once; a student outside the room cannot open the chat | SignalR, Realtime Service |
-| 8 | Admin, B | Admin sets **Hạn tìm nhóm (ExpireAt)** two minutes ahead and saves; B applies to another locked room meanwhile. Within about a minute after the deadline the PhaseScheduler expires the course: B's application turns into "Đã hết hạn tìm nhóm" and joining is refused | Background job, events |
-| 9 | Admin, lecturer | Admin opens the course: **Tiến độ chia nhóm**, **Xếp người sau hạn** (placement suggestions over gRPC → Áp dụng), **Chốt nhóm** (accept the exceptions shown). `lecturer@fpt.edu.vn` opens the course and sees the progress and the numbered official groups, read-only | gRPC, business rules (BR-12–BR-14), authorization |
+| 2 | Admin | Sign in; in the sidebar open **Dữ liệu nền** → Học kỳ, Ngành, Kỹ năng and Loại nhóm (EXE: at least 1 SE, 1 MKT and 2 majors, allowed in FA26); in Swagger show `GET /api/v1/subjects?search=EXE&sort=-code&page=1&pageSize=5`, a 400 with field errors and a 406 for `Accept: text/plain` | REST, JWT, CRUD, search, sort, paging, validation, versioning, content negotiation |
+| 3 | Admin | **Các lớp** → EXE101 SE1919 → **Thiết lập lớp**: lecturer, sizes 4–6, factor 1,2, 30 students (CSV import is **Nhập từ tệp**). Leave **Hạn tìm nhóm** empty. Under **Sinh phòng** choose the group type EXE and press **Sinh phòng** (⌈30 × 1.2 / 6⌉ = 6 rooms), then **Mở chọn phòng ngay** → **Mở chọn phòng** | Business rules (BR-03), outbox events |
+| 4 | A | **Lớp của tôi** → EXE101: **Kỹ năng của tôi** (ratings from the seed); back on the course pick **Phòng 01** → **Vào và làm trưởng nhóm**, open the room, type a topic → **Lưu đề tài** → **Khoá phòng** | REST, SignalR room board |
+| 5 | B | Open EXE101: **Phòng hợp với bạn**, ranked with reasons in Vietnamese, and **Bảng phòng** (search, "Chỉ phòng còn chỗ", sort) | REST → gRPC (Recommendation Service) |
+| 6 | B, A | B opens Phòng 01 → **Gửi đơn xin vào** with a message; A's bell lights up and the application appears without a reload; A sees B's major, skills and message and clicks **Duyệt**: the answer comes back at once. Then `docker compose exec redis redis-cli XRANGE group-events - +` and `docker compose logs \| grep <traceId>` (the `traceId` of the approve response, also in the `X-Correlation-ID` header) | Transactional outbox → Redis Streams → consumer, notifications, tracing across gateway, Group, gRPC and Realtime |
+| 7 | A, B | Both keep Phòng 01 (or **Trò chuyện**) open and chat: each message appears in the other window at once. A new member can write a few seconds after joining. For a student outside the room, `GET /api/v1/conversations/{roomId}/messages` in Swagger answers 403 | SignalR, Realtime Service |
+| 8 | Admin, C | C opens Phòng 01 → **Gửi đơn xin vào** (A does not answer). Admin opens **Điều phối** → **Hạn chọn phòng** → **Dời hạn**, sets it two minutes ahead and saves. Within about a minute after the deadline the PhaseScheduler expires the course: C's application under **Đơn của tôi** turns into "Đã hết hạn tìm nhóm" and joining is refused | Background job, events |
+| 9 | Admin, lecturer | Admin opens the course, now on **Xếp và chốt nhóm**: **Xếp theo gợi ý** (placement suggestions over gRPC) → **Áp dụng … gợi ý**, then **Chốt … nhóm chính thức** → **Chốt nhóm** (tick **Chấp nhận ngoại lệ** when a room still misses a rule; every student must have a room first). **Tiến độ xếp phòng** is under **Điều phối**. `lecturer@fpt.edu.vn` opens the course and sees the progress and the numbered official groups, read-only | gRPC, business rules (BR-12–BR-14), authorization |
+
+On the shared demo at `https://exe.qizhub.com`, once the demo data is loaded (section 5), start at step 2 and show
+step 1 and the two terminal commands of step 6 on a local stack.
 
 Rehearsal without a browser: `node scripts/smoke-e2e.mjs` runs the same story on a throwaway course and prints one
 line per check. To start the demo again from scratch on a local machine: `docker compose down -v`, `docker compose up -d
