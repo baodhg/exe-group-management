@@ -40,16 +40,16 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
             }
 
             realtime = container "Realtime Service" "Group chat and notifications; consumes the group events." "ASP.NET Core 10 Web API + SignalR" {
-                chatControllers = component "Chat and notification controllers" "/api/v1/conversations, /messages, /notifications." "ASP.NET Core MVC"
+                chatControllers = component "Chat and notification controllers" "/api/v1/conversations, /messages, /attachments, /notifications." "ASP.NET Core MVC"
                 hub = component "RealtimeHub" "/hubs/realtime: chat messages, notifications and room changes." "ASP.NET Core SignalR"
                 eventsConsumer = component "GroupEventsConsumer" "XREADGROUP (group realtime), idempotent apply, XACK after commit, XAUTOCLAIM." "BackgroundService"
-                chatDbContext = component "ChatDbContext" "Conversations, members, messages, notifications, processed events." "EF Core 10"
+                chatDbContext = component "ChatDbContext" "Conversations, members, messages, message attachments, notifications, processed events." "EF Core 10"
                 processedEventsCleanup = component "ProcessedEventsCleanup" "Daily: deletes ProcessedEvents older than 7 days." "BackgroundService"
             }
 
             identityDb = container "IdentityDb" "Users, roles and refresh tokens." "SQL Server 2022" "Database"
             groupDb = container "GroupDb" "Semesters, subjects, majors, skills, courses, rosters, group types, rooms, memberships, applications, outbox." "SQL Server 2022" "Database"
-            chatDb = container "ChatDb" "Conversations, messages, notifications and processed event ids." "SQL Server 2022" "Database"
+            chatDb = container "ChatDb" "Conversations, messages, message attachments, notifications and processed event ids." "SQL Server 2022" "Database"
             events = container "Group Events" "Stream group-events: course phases, room members, leaders and applications." "Redis 7 Stream" "Stream"
         }
 
@@ -64,7 +64,7 @@ workspace "EXE Group Management System" "PRN232 final assignment: microservices 
         exe.gateway -> exe.group.catalogControllers "Routes /api/v1/subjects, /majors, /skills, /group-types" "HTTP"
         exe.gateway -> exe.group.coursesController "Routes /api/v1/courses, /rooms" "HTTP"
         exe.gateway -> exe.group.joinRequestsController "Routes /api/v1/join-requests" "HTTP"
-        exe.gateway -> exe.realtime.chatControllers "Routes /api/v1/conversations, /messages, /notifications" "HTTP"
+        exe.gateway -> exe.realtime.chatControllers "Routes /api/v1/conversations, /messages, /attachments, /notifications" "HTTP"
         exe.gateway -> exe.realtime.hub "Forwards /hubs/realtime" "WebSocket"
 
         exe.identity.authController -> exe.identity.tokenFactory "Issues tokens with"

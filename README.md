@@ -17,8 +17,8 @@ The EXE Group Management System runs the process described in the lecturer's fee
   ones. The first member leads the room: sets the topic, locks it, approves applications and may remove members.
 - At the **deadline** (`ExpireAt`, enforced by a background job) the rooms freeze; the Admin places the remaining
   students with suggestions and **finalizes** numbered, read-only official groups.
-- **Lecturers** follow their own classes read-only; every room has its own **chat**, and everyone gets in-app
-  **notifications**.
+- **Lecturers** follow their own classes read-only; every room has its own **chat** with text and images, and everyone
+  gets in-app **notifications**.
 
 The full design is in [`docs/PRN232_v3.pdf`](docs/PRN232_v3.pdf) / [`docs/PRN232_v3.docx`](docs/PRN232_v3.docx):
 business rules, REST API list, events, jobs, gRPC contract and physical databases. The DDL is
@@ -45,7 +45,7 @@ Render the DSL views (on Git Bash for Windows, prefix the command with `MSYS_NO_
 | Identity Service | ASP.NET Core 10 Web API | Sign-in, JWT access and refresh tokens, users, roles |
 | Group Service | ASP.NET Core 10 Web API | Semesters, subjects, majors, skills, group types, courses, rosters, rooms, memberships, applications, finalize; outbox, phase scheduler and cleanup jobs |
 | Recommendation Service | ASP.NET Core 10 gRPC (HTTP/2 only, 8081) | Ranks rooms for a student and placements for students without a room; stateless, no database |
-| Realtime Service | ASP.NET Core 10 Web API + SignalR | Group chat and notifications; consumes the group events |
+| Realtime Service | ASP.NET Core 10 Web API + SignalR | Group chat with text and images, and notifications; consumes the group events |
 | IdentityDb / GroupDb / ChatDb | SQL Server 2022 (EF Core 10) | One database per service |
 | Group Events | Redis 7 Stream `group-events` | Course phases, room members, leaders and applications, from Group Service to Realtime Service |
 
@@ -267,7 +267,7 @@ one sign-in, so use separate profiles or browsers): **Admin**, **A** = `sv01@fpt
 | 4 | A | **Lớp của tôi** → EXE101: **Kỹ năng của tôi** (ratings from the seed); back on the course pick **Phòng 01** → **Vào và làm trưởng nhóm**, open the room, type a topic → **Lưu đề tài** → **Khoá phòng** | REST, SignalR room board |
 | 5 | B | Open EXE101: **Phòng hợp với bạn**, ranked with reasons in Vietnamese, and **Bảng phòng** (search, "Chỉ phòng còn chỗ", sort) | REST → gRPC (Recommendation Service) |
 | 6 | B, A | B opens Phòng 01 → **Gửi đơn xin vào** with a message; A's bell lights up and the application appears without a reload; A sees B's major, skills and message and clicks **Duyệt**: the answer comes back at once. Then `docker compose exec redis redis-cli XRANGE group-events - +` and `docker compose logs \| grep <traceId>` (the `traceId` of the approve response, also in the `X-Correlation-ID` header) | Transactional outbox → Redis Streams → consumer, notifications, tracing across gateway, Group, gRPC and Realtime |
-| 7 | A, B | Both keep Phòng 01 (or **Trò chuyện**) open and chat: each message appears in the other window at once. A new member can write a few seconds after joining. For a student outside the room, `GET /api/v1/conversations/{roomId}/messages` in Swagger answers 403 | SignalR, Realtime Service |
+| 7 | A, B | Both keep Phòng 01 (or **Trò chuyện**) open and chat: each message appears in the other window at once, and A can attach a picture (PNG, JPEG, WebP or GIF) that B sees straight away. A new member can write a few seconds after joining. For a student outside the room, `GET /api/v1/conversations/{roomId}/messages` in Swagger answers 403 | SignalR, Realtime Service |
 | 8 | Admin, C | C opens Phòng 01 → **Gửi đơn xin vào** (A does not answer). Admin opens **Điều phối** → **Hạn chọn phòng** → **Dời hạn**, sets it two minutes ahead and saves. Within about a minute after the deadline the PhaseScheduler expires the course: C's application under **Đơn của tôi** turns into "Đã hết hạn tìm nhóm" and joining is refused | Background job, events |
 | 9 | Admin, lecturer | Admin opens the course, now on **Xếp và chốt nhóm**: **Xếp theo gợi ý** (placement suggestions over gRPC) → **Áp dụng … gợi ý**, then **Chốt … nhóm chính thức** → **Chốt nhóm** (tick **Chấp nhận ngoại lệ** when a room still misses a rule; every student must have a room first). **Tiến độ xếp phòng** is under **Điều phối**. `lecturer@fpt.edu.vn` opens the course and sees the progress and the numbered official groups, read-only | gRPC, business rules (BR-12–BR-14), authorization |
 
