@@ -6,7 +6,17 @@ using ExeGroup.Realtime.Services.Push;
 
 namespace ExeGroup.Realtime.Services.Conversations;
 
-public sealed record MessageModel(Guid Id, Guid ConversationId, Guid SenderId, string SenderName, string? Content, DateTime SentAt, bool Deleted);
+public sealed record AttachmentModel(Guid Id, Guid MessageId, string FileName, string ContentType, int SizeBytes);
+
+public sealed record MessageModel(
+    Guid Id,
+    Guid ConversationId,
+    Guid SenderId,
+    string SenderName,
+    string? Content,
+    DateTime SentAt,
+    bool Deleted,
+    IReadOnlyList<AttachmentModel> Attachments);
 
 public sealed record ConversationModel(Guid Id, Guid CourseId, string Title, DateTime JoinedAt, DateTime? LeftAt, MessageModel? LastMessage);
 
@@ -14,13 +24,17 @@ public sealed record MessagePage(IReadOnlyList<MessageModel> Items, Guid? NextBe
 
 public sealed record Sender(Guid UserId, string Name);
 
+public sealed record UploadedImage(string FileName, string ContentType, byte[] Data);
+
 public interface IConversationService
 {
     Task<IReadOnlyList<ConversationModel>> ListMineAsync(CancellationToken cancellationToken);
 
     Task<MessagePage> ListMessagesAsync(Guid conversationId, Guid? before, int? pageSize, CancellationToken cancellationToken);
 
-    Task<MessageModel> SendAsync(Guid conversationId, Sender sender, string content, CancellationToken cancellationToken);
+    Task<MessageModel> SendAsync(Guid conversationId, Sender sender, string? content, IReadOnlyList<UploadedImage>? images, CancellationToken cancellationToken);
+
+    Task<(byte[] Data, string ContentType, string FileName)> ReadImageAsync(Guid attachmentId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Guid>> ListCurrentConversationIdsAsync(Guid userId, CancellationToken cancellationToken);
 
@@ -30,6 +44,7 @@ public interface IConversationService
 public sealed class ConversationService(
     IConversationRepository conversations,
     IMessageRepository messages,
+    IMessageAttachmentRepository attachments,
     IRealtimePush push,
     ICurrentUser currentUser,
     IClock clock) : IConversationService
@@ -38,6 +53,11 @@ public sealed class ConversationService(
     public const int MaxPageSize = 100;
     public const int MaxContentLength = 2000;
     public const int MaxSenderNameLength = 150;
+    public const int MaxImageBytes = 5 * 1024 * 1024;
+    public const int MaxImagesPerMessage = 4;
+
+    public static readonly IReadOnlyList<string> AllowedImageTypes =
+        ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
     public async Task<IReadOnlyList<ConversationModel>> ListMineAsync(CancellationToken cancellationToken)
     {
@@ -77,7 +97,12 @@ public sealed class ConversationService(
         return new MessagePage(items, page.Count > size ? items[^1].Id : null);
     }
 
-    public async Task<MessageModel> SendAsync(Guid conversationId, Sender sender, string content, CancellationToken cancellationToken)
+    public async Task<MessageModel> SendAsync(
+        Guid conversationId,
+        Sender sender,
+        string? content,
+        IReadOnlyList<UploadedImage>? images,
+        CancellationToken cancellationToken)
     {
         var membership = await RequireMembershipAsync(conversationId, sender.UserId, cancellationToken);
         if (membership.LeftAt is not null)
@@ -85,10 +110,21 @@ public sealed class ConversationService(
             throw new ForbiddenException("Only current members of the room can send messages.");
         }
 
-        var text = content.Trim();
-        if (text.Length is 0 or > MaxContentLength)
+        var text = content?.Trim() ?? string.Empty;
+        var pictures = images ?? [];
+        if (text.Length > MaxContentLength)
         {
-            throw new ValidationFailedException("content", $"A message must have 1 to {MaxContentLength} characters.");
+            throw new ValidationFailedException("content", $"A message must have at most {MaxContentLength} characters.");
+        }
+
+        if (text.Length is 0 && pictures.Count is 0)
+        {
+            throw new ValidationFailedException("content", "A message must have some text or at least one image.");
+        }
+
+        if (pictures.Count > MaxImagesPerMessage)
+        {
+            throw new ValidationFailedException("images", $"A message can carry at most {MaxImagesPerMessage} images.");
         }
 
         var name = sender.Name.Trim();
@@ -98,14 +134,39 @@ public sealed class ConversationService(
             ConversationId = conversationId,
             SenderId = membership.UserId,
             SenderName = name.Length > MaxSenderNameLength ? name[..MaxSenderNameLength] : name,
-            Content = text,
+            Content = text.Length is 0 ? null : text,
             SentAt = clock.UtcNow,
         };
+
+        foreach (var image in pictures)
+        {
+            ValidateImage(image);
+            message.Attachments.Add(new MessageAttachment
+            {
+                AttachmentId = Guid.NewGuid(),
+                MessageId = message.MessageId,
+                FileName = image.FileName,
+                ContentType = image.ContentType,
+                SizeBytes = image.Data.Length,
+                Data = image.Data,
+            });
+        }
+
         messages.Add(message);
         await messages.SaveChangesAsync(cancellationToken);
         var model = ToModel(message);
         await push.MessageAsync(model, cancellationToken);
         return model;
+    }
+
+    public async Task<(byte[] Data, string ContentType, string FileName)> ReadImageAsync(Guid attachmentId, CancellationToken cancellationToken)
+    {
+        var attachment = await attachments.FindAsync(attachmentId, cancellationToken)
+            ?? throw new NotFoundException("Attachment", attachmentId);
+        var message = await messages.FindAsync(attachment.MessageId, cancellationToken)
+            ?? throw new NotFoundException("Attachment", attachmentId);
+        await RequireMembershipAsync(message.ConversationId, currentUser.RequireUserId(), cancellationToken);
+        return (attachment.Data, attachment.ContentType, attachment.FileName);
     }
 
     public async Task<IReadOnlyList<Guid>> ListCurrentConversationIdsAsync(Guid userId, CancellationToken cancellationToken) =>
@@ -129,6 +190,24 @@ public sealed class ConversationService(
         }
 
         await push.MessageAsync(ToModel(message), cancellationToken);
+    }
+
+    private static void ValidateImage(UploadedImage image)
+    {
+        if (!AllowedImageTypes.Contains(image.ContentType))
+        {
+            throw new ValidationFailedException("file", "Only PNG, JPEG, WebP and GIF images are accepted.");
+        }
+
+        if (image.Data.Length is 0)
+        {
+            throw new ValidationFailedException("file", "The image is empty.");
+        }
+
+        if (image.Data.Length > MaxImageBytes)
+        {
+            throw new ValidationFailedException("file", $"An image can be at most {MaxImageBytes / (1024 * 1024)} MB.");
+        }
     }
 
     private async Task<ConversationMember> RequireMembershipAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken)
@@ -155,5 +234,15 @@ public sealed class ConversationService(
             message.SenderName,
             message.DeletedAt is null ? message.Content : null,
             DateTime.SpecifyKind(message.SentAt, DateTimeKind.Utc),
-            message.DeletedAt is not null);
+            message.DeletedAt is not null,
+            message.DeletedAt is not null
+                ? []
+                : message.Attachments
+                    .Select(attachment => new AttachmentModel(
+                        attachment.AttachmentId,
+                        attachment.MessageId,
+                        attachment.FileName,
+                        attachment.ContentType,
+                        attachment.SizeBytes))
+                    .ToList());
 }

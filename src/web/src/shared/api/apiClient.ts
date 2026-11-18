@@ -44,6 +44,7 @@ export interface ApiClientOptions {
 export interface ApiClient {
   get<T>(path: string, params?: ListParams): Promise<ApiResult<T>>;
   post<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>>;
+  postForm<T = unknown>(path: string, form: FormData): Promise<ApiResult<T>>;
   put<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>>;
   patch<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>>;
   delete(path: string): Promise<void>;
@@ -84,6 +85,24 @@ export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSig
         onSignedOut?.();
       } else if (session && (await refreshOnce(session))) {
         return send<T>(method, path, body, false);
+      }
+    }
+
+    return read<T>(response);
+  }
+
+  async function sendForm<T>(path: string, form: FormData, allowRefresh: boolean): Promise<ApiResult<T>> {
+    const session = store.read();
+    const headers = new Headers({ Accept: "application/json" });
+    if (session) {
+      headers.set("Authorization", `Bearer ${session.accessToken}`);
+    }
+
+    const response = await fetcher(path, { method: "POST", headers, body: form });
+
+    if (response.status === 401 && allowRefresh && session) {
+      if (await refreshOnce(session)) {
+        return sendForm<T>(path, form, false);
       }
     }
 
@@ -134,6 +153,7 @@ export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSig
   return {
     get: (path, params) => send("GET", withQuery(path, params), undefined, true),
     post: (path, body) => send("POST", path, body, true),
+    postForm: (path, form) => sendForm(path, form, true),
     put: (path, body) => send("PUT", path, body, true),
     patch: (path, body) => send("PATCH", path, body, true),
     delete: async (path) => {

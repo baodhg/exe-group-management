@@ -10,9 +10,11 @@ public sealed class Message
 
     public string SenderName { get; set; } = string.Empty;
 
-    public string Content { get; set; } = string.Empty;
+    public string? Content { get; set; }
 
     public DateTime SentAt { get; set; }
 
     public DateTime? DeletedAt { get; set; }
+
+    public ICollection<MessageAttachment> Attachments { get; } = [];
 }

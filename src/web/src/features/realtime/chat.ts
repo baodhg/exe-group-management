@@ -2,6 +2,18 @@ import { ApiError } from "../../shared/api/apiClient";
 import type { ConnectionState } from "./realtimeContext";
 
 export const messageLimit = 2000;
+export const imageLimit = 5 * 1024 * 1024;
+export const imageTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+export const imageCountLimit = 4;
+
+export interface ChatAttachment {
+  id: string;
+  messageId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  url: string;
+}
 
 export interface ChatMessage {
   id: string;
@@ -11,6 +23,7 @@ export interface ChatMessage {
   content: string | null;
   sentAt: string;
   deleted: boolean;
+  attachments: ChatAttachment[];
 }
 
 export interface MessagePage {
@@ -67,6 +80,7 @@ export interface ChatRow {
   text: string;
   time: string;
   canDelete: boolean;
+  attachments: ChatAttachment[];
 }
 
 export function chatRows(messages: readonly ChatMessage[], userId: string | undefined, readOnly: boolean): ChatRow[] {
@@ -86,6 +100,7 @@ export function chatRows(messages: readonly ChatMessage[], userId: string | unde
       text: message.deleted ? deletedMessageText : (message.content ?? ""),
       time: timeLabel(message.sentAt),
       canDelete: mine && !message.deleted && !readOnly,
+      attachments: message.deleted ? [] : (message.attachments ?? []),
     };
   });
 }
@@ -111,6 +126,30 @@ export function chatViewState({ hasData, error, failureReason }: { hasData: bool
 export function canSendDraft(text: string, view: ChatViewState, sending: boolean): boolean {
   const content = text.trim();
   return view === "ready" && !sending && content.length > 0 && content.length <= messageLimit;
+}
+
+export function canSendImages(text: string, view: ChatViewState, sending: boolean, images: number): boolean {
+  if (view !== "ready" || sending || images < 1) {
+    return false;
+  }
+
+  return text.trim().length <= messageLimit;
+}
+
+export function imageProblem(file: { type: string; size: number }, chosen: number): string | null {
+  if (!imageTypes.includes(file.type)) {
+    return "Chỉ nhận ảnh PNG, JPEG, WebP hoặc GIF.";
+  }
+
+  if (file.size > imageLimit) {
+    return `Mỗi ảnh tối đa ${imageLimit / (1024 * 1024)} MB.`;
+  }
+
+  if (chosen >= imageCountLimit) {
+    return `Mỗi tin nhắn tối đa ${imageCountLimit} ảnh.`;
+  }
+
+  return null;
 }
 
 export function draftCounter(text: string): { label: string; atLimit: boolean } {

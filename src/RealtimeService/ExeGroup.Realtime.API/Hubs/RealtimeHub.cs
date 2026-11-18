@@ -40,7 +40,7 @@ public sealed class RealtimeHub(IConversationService conversations, ConnectionRe
     {
         try
         {
-            var message = await conversations.SendAsync(conversationId, RealtimeUser.SenderOf(Context.User), content ?? string.Empty, Context.ConnectionAborted);
+            var message = await conversations.SendAsync(conversationId, RealtimeUser.SenderOf(Context.User), content ?? string.Empty, null, Context.ConnectionAborted);
             return message.ToResponse();
         }
         catch (AppException error)

@@ -401,4 +401,39 @@ describe("apiClient", () => {
 
     await expect(client.get("/api/v1/semesters")).rejects.toMatchObject({ status: 502, code: "UPSTREAM_UNAVAILABLE" });
   });
+
+  it("sends a form with the bearer token and no json content type", async () => {
+    const fetcher = vi.fn().mockResolvedValue(envelope(201, { success: true, message: "Message sent", data: { id: "m1" }, errors: null, traceId: "t" }));
+    const client = createApiClient({ fetcher, store: memoryStore(session) });
+
+    const form = new FormData();
+    form.append("content", "hello");
+    form.append("files", new Blob(["bytes"], { type: "image/png" }), "hinh.png");
+    const result = await client.postForm<{ id: string }>("/api/v1/conversations/c1/messages", form);
+
+    expect(result.data.id).toBe("m1");
+    const [, init] = fetcher.mock.calls[0]!;
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer old-access");
+    expect(new Headers(init.headers).get("Content-Type")).toBeNull();
+  });
+
+  it("refreshes once on 401 and retries a form call with the new token", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(envelope(401, { success: false, message: "Authentication required", data: null, errors: [{ code: "UNAUTHORIZED", field: null, message: "expired" }], traceId: "t" }))
+      .mockResolvedValueOnce(envelope(200, { success: true, message: "Token refreshed", data: { accessToken: "new-access", refreshToken: "refresh-2" }, errors: null, traceId: "t" }))
+      .mockResolvedValueOnce(envelope(201, { success: true, message: "Message sent", data: { id: "m1" }, errors: null, traceId: "t" }));
+    const store = memoryStore(session);
+    const client = createApiClient({ fetcher, store });
+
+    const form = new FormData();
+    form.append("content", "hello");
+    const result = await client.postForm<{ id: string }>("/api/v1/conversations/c1/messages", form);
+
+    expect(result.data.id).toBe("m1");
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(new Headers(fetcher.mock.calls[2]![1].headers).get("Authorization")).toBe("Bearer new-access");
+  });
 });

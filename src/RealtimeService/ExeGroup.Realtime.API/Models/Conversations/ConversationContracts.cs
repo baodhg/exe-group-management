@@ -5,12 +5,21 @@ namespace ExeGroup.Realtime.API.Models.Conversations;
 
 public sealed class SendMessageRequest
 {
-    [Required]
-    [StringLength(ConversationService.MaxContentLength, MinimumLength = 1)]
+    [StringLength(ConversationService.MaxContentLength)]
     public string? Content { get; init; }
 }
 
-public sealed record MessageResponse(Guid Id, Guid ConversationId, Guid SenderId, string SenderName, string? Content, DateTime SentAt, bool Deleted);
+public sealed record AttachmentResponse(Guid Id, Guid MessageId, string FileName, string ContentType, int SizeBytes, string Url);
+
+public sealed record MessageResponse(
+    Guid Id,
+    Guid ConversationId,
+    Guid SenderId,
+    string SenderName,
+    string? Content,
+    DateTime SentAt,
+    bool Deleted,
+    IReadOnlyList<AttachmentResponse> Attachments);
 
 public sealed record MessagePageResponse(IReadOnlyList<MessageResponse> Items, Guid? NextBefore);
 
@@ -18,8 +27,19 @@ public sealed record ConversationResponse(Guid Id, Guid CourseId, string Title, 
 
 public static class ConversationMappings
 {
+    public static AttachmentResponse ToResponse(this AttachmentModel model) =>
+        new(model.Id, model.MessageId, model.FileName, model.ContentType, model.SizeBytes, $"/api/v1/attachments/{model.Id}");
+
     public static MessageResponse ToResponse(this MessageModel model) =>
-        new(model.Id, model.ConversationId, model.SenderId, model.SenderName, model.Content, model.SentAt, model.Deleted);
+        new(
+            model.Id,
+            model.ConversationId,
+            model.SenderId,
+            model.SenderName,
+            model.Content,
+            model.SentAt,
+            model.Deleted,
+            model.Attachments.Select(item => item.ToResponse()).ToList());
 
     public static MessagePageResponse ToResponse(this MessagePage page) =>
         new(page.Items.Select(item => item.ToResponse()).ToList(), page.NextBefore);
