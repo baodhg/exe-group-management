@@ -80,7 +80,6 @@ namespace ExeGroup.Realtime.Repositories.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Content")
-                        .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
@@ -110,6 +109,41 @@ namespace ExeGroup.Realtime.Repositories.Data.Migrations
                         .HasDatabaseName("IX_Messages_Conversation_SentAt");
 
                     b.ToTable("Messages", (string)null);
+                });
+
+            modelBuilder.Entity("ExeGroup.Realtime.Repositories.Entities.MessageAttachment", b =>
+                {
+                    b.Property<Guid>("AttachmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("int");
+
+                    b.HasKey("AttachmentId")
+                        .HasName("PK_MessageAttachments");
+
+                    b.HasIndex("MessageId")
+                        .HasDatabaseName("IX_MessageAttachments_MessageId");
+
+                    b.ToTable("MessageAttachments", (string)null);
                 });
 
             modelBuilder.Entity("ExeGroup.Realtime.Repositories.Entities.Notification", b =>
@@ -208,9 +242,24 @@ namespace ExeGroup.Realtime.Repositories.Data.Migrations
                         .HasConstraintName("FK_Messages_Conversations");
                 });
 
+            modelBuilder.Entity("ExeGroup.Realtime.Repositories.Entities.MessageAttachment", b =>
+                {
+                    b.HasOne("ExeGroup.Realtime.Repositories.Entities.Message", null)
+                        .WithMany("Attachments")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_MessageAttachments_Messages");
+                });
+
             modelBuilder.Entity("ExeGroup.Realtime.Repositories.Entities.Conversation", b =>
                 {
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("ExeGroup.Realtime.Repositories.Entities.Message", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 #pragma warning restore 612, 618
         }

@@ -11,6 +11,8 @@ public sealed class ChatDbContext(DbContextOptions<ChatDbContext> options) : DbC
 
     public DbSet<Message> Messages => Set<Message>();
 
+    public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
+
     public DbSet<Notification> Notifications => Set<Notification>();
 
     public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();

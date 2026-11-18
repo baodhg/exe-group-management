@@ -19,7 +19,16 @@ export function conversationPreview(conversation: Pick<Conversation, "lastMessag
   }
 
   const who = last.senderId === userId ? "Bạn" : last.senderName || "Thành viên";
-  return `${who}: ${last.deleted ? deletedMessageText : (last.content ?? "")}`;
+  if (last.deleted) {
+    return `${who}: ${deletedMessageText}`;
+  }
+
+  if (last.content) {
+    return `${who}: ${last.content}`;
+  }
+
+  const images = last.attachments?.length ?? 0;
+  return images > 0 ? `${who}: ${images > 1 ? `${images} ảnh` : "1 ảnh"}` : `${who}: ${deletedMessageText}`;
 }
 
 export function conversationTime(value: string | null, now: number = Date.now()): string {

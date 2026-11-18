@@ -4,7 +4,7 @@ import type { ChatMessage } from "../realtime/chat";
 import { conversationPreview, conversationStanding, conversationTime, isRoomGone, orderConversations, selectConversation, type Conversation } from "./conversations";
 
 function last(change: Partial<ChatMessage> = {}): ChatMessage {
-  return { id: "m", conversationId: "c", senderId: "u2", senderName: "Bình", content: "Chào cả nhóm", sentAt: "2026-11-13T10:00:00Z", deleted: false, ...change };
+  return { id: "m", conversationId: "c", senderId: "u2", senderName: "Bình", content: "Chào cả nhóm", sentAt: "2026-11-13T10:00:00Z", deleted: false, attachments: [], ...change };
 }
 
 function conversation(change: Partial<Conversation> = {}): Conversation {

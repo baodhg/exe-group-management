@@ -44,7 +44,9 @@ public sealed class ConversationRepository(ChatDbContext context) : IConversatio
 public sealed class MessageRepository(ChatDbContext context) : IMessageRepository
 {
     public Task<Message?> FindAsync(Guid messageId, CancellationToken cancellationToken) =>
-        context.Messages.SingleOrDefaultAsync(message => message.MessageId == messageId, cancellationToken);
+        context.Messages
+            .Include(message => message.Attachments)
+            .SingleOrDefaultAsync(message => message.MessageId == messageId, cancellationToken);
 
     public async Task<IReadOnlyList<Message>> ListBeforeAsync(
         Guid conversationId,
@@ -53,7 +55,9 @@ public sealed class MessageRepository(ChatDbContext context) : IMessageRepositor
         int take,
         CancellationToken cancellationToken)
     {
-        var messages = context.Messages.AsNoTracking().Where(message => message.ConversationId == conversationId);
+        var messages = context.Messages.AsNoTracking()
+            .Include(message => message.Attachments)
+            .Where(message => message.ConversationId == conversationId);
         if (visibleUntil is { } until)
         {
             messages = messages.Where(message => message.SentAt <= until);

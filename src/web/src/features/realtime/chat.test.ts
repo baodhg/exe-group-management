@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../shared/api/apiClient";
-import { notificationQueryKeys, roomChangeQueryKeys, canSendDraft, chatRows, chatViewState, connectionLook, dayLabel, draftCounter, mergeMessages, notificationTarget, stillSyncing, timeLabel, tokenExpired, unreadLabel, type ChatMessage } from "./chat";
+import { notificationQueryKeys, roomChangeQueryKeys, canSendDraft, canSendImages, chatRows, chatViewState, connectionLook, dayLabel, draftCounter, imageProblem, mergeMessages, notificationTarget, stillSyncing, timeLabel, tokenExpired, unreadLabel, type ChatMessage } from "./chat";
 
 function message(id: string, sentAt: string, content = "hi"): ChatMessage {
-  return { id, conversationId: "c1", senderId: "u1", senderName: "An", content, sentAt, deleted: false };
+  return { id, conversationId: "c1", senderId: "u1", senderName: "An", content, sentAt, deleted: false, attachments: [] };
 }
 
 function apiError(status: number): ApiError {
@@ -112,6 +112,50 @@ describe("draft", () => {
   it("counts towards the limit and flags reaching it", () => {
     expect(draftCounter("abc")).toEqual({ label: "3/2000", atLimit: false });
     expect(draftCounter("x".repeat(2000))).toEqual({ label: "2000/2000", atLimit: true });
+  });
+});
+
+describe("images", () => {
+  it("sends a message with images even without any text", () => {
+    expect(canSendImages("", "ready", false, 1)).toBe(true);
+    expect(canSendImages("x", "ready", false, 1)).toBe(true);
+  });
+
+  it("refuses to send when nothing is picked, the chat is not ready or a send is running", () => {
+    expect(canSendImages("x", "ready", false, 0)).toBe(false);
+    expect(canSendImages("x", "syncing", false, 1)).toBe(false);
+    expect(canSendImages("x", "ready", true, 1)).toBe(false);
+    expect(canSendImages("x".repeat(2001), "ready", false, 1)).toBe(false);
+  });
+
+  it("accepts only the image types the server takes", () => {
+    expect(imageProblem({ type: "image/png", size: 1000 }, 0)).toBeNull();
+    expect(imageProblem({ type: "image/jpeg", size: 1000 }, 0)).toBeNull();
+    expect(imageProblem({ type: "image/webp", size: 1000 }, 0)).toBeNull();
+    expect(imageProblem({ type: "image/gif", size: 1000 }, 0)).toBeNull();
+    expect(imageProblem({ type: "application/pdf", size: 1000 }, 0)).toBe("Chỉ nhận ảnh PNG, JPEG, WebP hoặc GIF.");
+    expect(imageProblem({ type: "text/plain", size: 1000 }, 0)).toBe("Chỉ nhận ảnh PNG, JPEG, WebP hoặc GIF.");
+  });
+
+  it("refuses an image that is too big or too many of them", () => {
+    expect(imageProblem({ type: "image/png", size: 6 * 1024 * 1024 }, 0)).toBe("Mỗi ảnh tối đa 5 MB.");
+    expect(imageProblem({ type: "image/png", size: 1000 }, 4)).toBe("Mỗi tin nhắn tối đa 4 ảnh.");
+  });
+});
+
+describe("chatRows with images", () => {
+  it("keeps the images of a live message and drops them from a deleted one", () => {
+    const withImage: ChatMessage = {
+      ...message("1", "2026-11-13T09:00:00Z"),
+      content: null,
+      attachments: [{ id: "a1", messageId: "1", fileName: "hinh.png", contentType: "image/png", sizeBytes: 10, url: "/api/v1/attachments/a1" }],
+    };
+
+    const rows = chatRows([withImage, { ...withImage, id: "2", deleted: true }], "u2", false);
+
+    expect(rows[0]!.attachments).toHaveLength(1);
+    expect(rows[0]!.text).toBe("");
+    expect(rows[1]!.attachments).toHaveLength(0);
   });
 });
 

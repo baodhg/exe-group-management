@@ -409,12 +409,24 @@ CREATE TABLE dbo.[Messages] (
     [ConversationId] uniqueidentifier NOT NULL,
     [SenderId] uniqueidentifier NOT NULL,
     [SenderName] nvarchar(150) NOT NULL,
-    [Content] nvarchar(2000) NOT NULL,
+    [Content] nvarchar(2000) NULL,
     [SentAt] datetime2 NOT NULL CONSTRAINT [DF_Messages_SentAt] DEFAULT (SYSUTCDATETIME()),
     [DeletedAt] datetime2 NULL,
     CONSTRAINT [PK_Messages] PRIMARY KEY CLUSTERED ([MessageId])
 );
 CREATE INDEX [IX_Messages_Conversation_SentAt] ON dbo.[Messages] ([ConversationId], [SentAt]);
+GO
+
+CREATE TABLE dbo.[MessageAttachments] (
+    [AttachmentId] uniqueidentifier NOT NULL,
+    [MessageId] uniqueidentifier NOT NULL,
+    [FileName] nvarchar(200) NOT NULL,
+    [ContentType] nvarchar(100) NOT NULL,
+    [SizeBytes] int NOT NULL,
+    [Data] varbinary(max) NOT NULL,
+    CONSTRAINT [PK_MessageAttachments] PRIMARY KEY CLUSTERED ([AttachmentId])
+);
+CREATE INDEX [IX_MessageAttachments_MessageId] ON dbo.[MessageAttachments] ([MessageId]);
 GO
 
 CREATE TABLE dbo.[Notifications] (
@@ -444,4 +456,5 @@ GO
 
 ALTER TABLE dbo.[ConversationMembers] ADD CONSTRAINT [FK_ConversationMembers_Conversations] FOREIGN KEY ([ConversationId]) REFERENCES dbo.[Conversations] ([ConversationId]) ON DELETE NO ACTION;
 ALTER TABLE dbo.[Messages] ADD CONSTRAINT [FK_Messages_Conversations] FOREIGN KEY ([ConversationId]) REFERENCES dbo.[Conversations] ([ConversationId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[MessageAttachments] ADD CONSTRAINT [FK_MessageAttachments_Messages] FOREIGN KEY ([MessageId]) REFERENCES dbo.[Messages] ([MessageId]) ON DELETE CASCADE;
 GO

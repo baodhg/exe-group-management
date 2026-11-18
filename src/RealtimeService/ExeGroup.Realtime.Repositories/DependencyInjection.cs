@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddSqlServerDatabase<ChatDbContext>(configuration, ConnectionName);
         services.AddScoped<IConversationRepository, ConversationRepository>();
         services.AddScoped<IMessageRepository, MessageRepository>();
+        services.AddScoped<IMessageAttachmentRepository, MessageAttachmentRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IGroupEventRepository, GroupEventRepository>();
         return services;

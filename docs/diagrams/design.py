@@ -101,7 +101,7 @@ FEATURES = [
     ("F16", "Move and place students after the deadline, with placement suggestions", "Admin",
      "Group + Recommendation (gRPC)"),
     ("F17", "Finalize the course into numbered, read-only official groups", "Admin", "Group"),
-    ("F18", "Chat with the members of the room", "Student", "Realtime"),
+    ("F18", "Chat with the members of the room, with text and images", "Student", "Realtime"),
     ("F19", "Receive notifications: applications, decisions, removals, phase changes", "All", "Realtime"),
     ("F20", "Scheduled work: publish and expire on time, publish events, clean up", "Scheduler", "Group, Realtime"),
     ("F21", "See the official groups of a finalized course with their members and export them as CSV",
@@ -149,6 +149,9 @@ RULES = [
     ("BR-15", "Skills are self-rated 1-5 per semester. They are shown to students and leaders and used for "
               "suggestions; they never block an action."),
     ("BR-16", "A lecturer sees only the courses they teach. Only the members of a room can read its chat."),
+    ("BR-16b", "A chat message carries text, images or both. A message needs text or at least one image. Images are "
+               "PNG, JPEG, WebP or GIF, at most 5 MB each and at most 4 per message. The images live in the chat "
+               "database next to the message; only the members of the room can read them."),
     ("BR-17", "The topic of a room is proposed formally: only the room leader proposes, while the course is "
               "Published, and only one proposal may wait for the review (TOPIC_PROPOSAL_PENDING). A room may "
               "propose at most 5 times (TOPIC_PROPOSAL_ROUND_LIMIT)."),
@@ -480,7 +483,7 @@ ENTITIES = [
     ("TOPIC_PROPOSAL", "A topic proposal of a room leader with its review rounds and decision.", "GroupDb"),
     ("PROJECT_MILESTONE", "A milestone of the project lifecycle of a finalized course.", "GroupDb"),
     ("PROJECT_DELIVERABLE", "The deliverable of one official group for one milestone.", "GroupDb"),
-    ("CHAT_MESSAGE", "A message in the room's chat.", "ChatDb"),
+    ("CHAT_MESSAGE", "A message in the room's chat, with text and images.", "ChatDb"),
 ]
 
 API = [
@@ -571,7 +574,8 @@ API = [
     ("Realtime Service", [
         ("GET", "/conversations", "Signed in", "Own room chats with the last message."),
         ("GET, POST", "/conversations/{id}/messages", "Room members",
-         "Messages, newest first (before, pageSize); send a message."),
+         "Messages, newest first (before, pageSize); send a message, as text or with images."),
+        ("GET", "/attachments/{id}", "Room members", "Read an image sent in a room chat."),
         ("DELETE", "/messages/{id}", "Sender", "Delete own message."),
         ("GET", "/notifications", "Signed in", "Own notifications (filter unread; page)."),
         ("POST", "/notifications/{id}/read, /notifications/read-all", "Signed in", "Mark as read."),
