@@ -20,7 +20,8 @@ public sealed class TopicProposalTests(GroupApiFixture fixture) : IClassFixture<
         var room = scenario.Rooms[0];
         await JoinAsync(leader, room);
 
-        var created = await DataAsync(await ProposeAsync(leader, room, "Ứng dụng quản lý lớp học", "Nhóm muốn làm sản phẩm cho trường"), HttpStatusCode.Created);        var proposalId = created.GetProperty("id").GetGuid();
+        var created = await DataAsync(await ProposeAsync(leader, room, "Ứng dụng quản lý lớp học", "Nhóm muốn làm sản phẩm cho trường"), HttpStatusCode.Created);
+        var proposalId = created.GetProperty("id").GetGuid();
         var approved = await DataAsync(await ReviewAsync(scenario.LecturerId, proposalId, "Approved", "Hợp lý"));
         var topic = await fixture.QueryAsync(database => database.Rooms.AsNoTracking().Where(item => item.RoomId == room).Select(item => item.Topic).SingleAsync(Ct));
 

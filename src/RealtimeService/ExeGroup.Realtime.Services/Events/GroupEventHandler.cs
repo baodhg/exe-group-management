@@ -303,7 +303,8 @@ public sealed class GroupEventHandler(
         Board(requested.CourseId, requested.RoomId, requested.RoomName, type, pushes);
     }
 
-    private void MilestoneCreated(MilestoneCreated milestone, string type, List<Func<CancellationToken, Task>> pushes)    {
+    private void MilestoneCreated(MilestoneCreated milestone, string type, List<Func<CancellationToken, Task>> pushes)
+    {
         var due = milestone.DueAt is { } dueAt ? $" Hạn nộp {dueAt:dd/MM/yyyy}." : string.Empty;
         foreach (var leaderId in milestone.LeaderIds.Distinct())
         {
@@ -347,7 +348,8 @@ public sealed class GroupEventHandler(
         Board(reviewed.CourseId, reviewed.RoomId, reviewed.RoomName, type, pushes);
     }
 
-    private void Notify(Guid userId, string type, string title, string body, Guid courseId, Guid? roomId, List<Func<CancellationToken, Task>> pushes)    {
+    private void Notify(Guid userId, string type, string title, string body, Guid courseId, Guid? roomId, List<Func<CancellationToken, Task>> pushes)
+    {
         var notification = new Notification
         {
             NotificationId = Guid.NewGuid(),
