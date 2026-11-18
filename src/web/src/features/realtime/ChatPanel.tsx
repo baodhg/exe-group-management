@@ -10,6 +10,7 @@ import { useAuth } from "../../shared/auth/useAuth";
 import { errorText } from "../common/messages";
 import { Badge, EmptyState, Failure, Notice } from "../common/ui";
 import { ActionDialog } from "../rooms/ActionDialog";
+import { ChatImage } from "./ChatImage";
 import { canSendDraft, canSendImages, chatRows, chatViewState, connectionLook, draftCounter, imageProblem, mergeMessages, messageLimit, stillSyncing, type ChatMessage, type ConnectionLook, type MessagePage } from "./chat";
 import { useRealtime } from "./realtimeContext";
 
@@ -255,13 +256,7 @@ export function ChatPanel({ conversationId, title = "Chat của phòng", readOnl
                     {row.attachments.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {row.attachments.map((attachment) => (
-                          <img
-                            key={attachment.id}
-                            src={attachment.url}
-                            alt={attachment.fileName}
-                            className="max-h-48 max-w-[220px] rounded-lg object-cover"
-                            loading="lazy"
-                          />
+                          <ChatImage key={attachment.id} attachment={attachment} />
                         ))}
                       </div>
                     )}

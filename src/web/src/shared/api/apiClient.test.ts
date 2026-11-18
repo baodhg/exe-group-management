@@ -436,4 +436,39 @@ describe("apiClient", () => {
     expect(fetcher).toHaveBeenCalledTimes(3);
     expect(new Headers(fetcher.mock.calls[2]![1].headers).get("Authorization")).toBe("Bearer new-access");
   });
+
+  it("fetches an image with the bearer token so the picture is not blocked", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(new Blob(["image-bytes"], { type: "image/png" }), { status: 200 }));
+    const client = createApiClient({ fetcher, store: memoryStore(session) });
+
+    const blob = await client.blob("/api/v1/attachments/a1");
+
+    expect(blob.type).toBe("image/png");
+    expect(await blob.text()).toBe("image-bytes");
+    const [, init] = fetcher.mock.calls[0]!;
+    expect(init.method).toBe("GET");
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer old-access");
+  });
+
+  it("refreshes once on 401 and retries an image with the new token", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(envelope(401, { success: false, message: "Authentication required", data: null, errors: [{ code: "UNAUTHORIZED", field: null, message: "expired" }], traceId: "t" }))
+      .mockResolvedValueOnce(envelope(200, { success: true, message: "Token refreshed", data: { accessToken: "new-access", refreshToken: "refresh-2" }, errors: null, traceId: "t" }))
+      .mockResolvedValueOnce(new Response(new Blob(["image-bytes"], { type: "image/png" }), { status: 200 }));
+    const client = createApiClient({ fetcher, store: memoryStore(session) });
+
+    const blob = await client.blob("/api/v1/attachments/a1");
+
+    expect(await blob.text()).toBe("image-bytes");
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(new Headers(fetcher.mock.calls[2]![1].headers).get("Authorization")).toBe("Bearer new-access");
+  });
+
+  it("reports a refused image as an error", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 403 }));
+    const client = createApiClient({ fetcher, store: memoryStore(session) });
+
+    await expect(client.blob("/api/v1/attachments/a1")).rejects.toMatchObject({ status: 403, code: "DOWNLOAD_FAILED" });
+  });
 });
