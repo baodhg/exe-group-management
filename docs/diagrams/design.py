@@ -104,6 +104,13 @@ FEATURES = [
     ("F18", "Chat with the members of the room", "Student", "Realtime"),
     ("F19", "Receive notifications: applications, decisions, removals, phase changes", "All", "Realtime"),
     ("F20", "Scheduled work: publish and expire on time, publish events, clean up", "Scheduler", "Group, Realtime"),
+    ("F21", "See the official groups of a finalized course with their members and export them as CSV",
+     "Admin, Lecturer", "Group"),
+    ("F22", "Add a single student to a semester from the student list", "Admin", "Identity, Group"),
+    ("F23", "Propose the project topic and follow its review rounds; the lecturer approves, asks for a revision "
+            "or rejects", "Room Leader, Lecturer, Admin", "Group + Realtime"),
+    ("F24", "Run the project lifecycle of a finalized course: milestones, deliverables per official group, "
+            "submission, scoring and weighted progress", "Admin, Lecturer, Student", "Group + Realtime"),
 ]
 
 RULES = [
@@ -131,15 +138,36 @@ RULES = [
     ("BR-12", "At ExpireAt, or when the admin expires the course, pending applications are rejected "
               "(GROUPING_EXPIRED) and students can no longer change rooms; only the admin moves or places "
               "students (JoinedVia = Admin, EndReason = Moved). While the course is Published the admin may move "
-              "ExpireAt later."),
+              "ExpireAt later. The topic of a room is editable only while the course is Published: after the "
+              "deadline the leader can only read it, and only the admin may still change it."),
     ("BR-13", "A room is eligible when it has at least MinGroupSize members and the majors its group type "
               "requires."),
     ("BR-14", "Finalize needs every enrolled student in a room and every non-empty room eligible; the admin may "
-              "confirm an exception (for example a class too small for the rules). Empty rooms are deleted; the "
-              "others get GroupNo 1..n and become read-only official groups."),
+              "confirm the exception for each room that is not eligible (for example a class too small for the "
+              "rules), and every room left unconfirmed blocks the finalize. Empty rooms are deleted; the others "
+              "get GroupNo 1..n and become read-only official groups."),
     ("BR-15", "Skills are self-rated 1-5 per semester. They are shown to students and leaders and used for "
               "suggestions; they never block an action."),
     ("BR-16", "A lecturer sees only the courses they teach. Only the members of a room can read its chat."),
+    ("BR-17", "The topic of a room is proposed formally: only the room leader proposes, while the course is "
+              "Published, and only one proposal may wait for the review (TOPIC_PROPOSAL_PENDING). A room may "
+              "propose at most 5 times (TOPIC_PROPOSAL_ROUND_LIMIT)."),
+    ("BR-18", "Only the lecturer of the course or an administrator decides a proposal (Approved, NeedsRevision or "
+              "Rejected). Only an approval writes the topic of the room; a revision opens the next round and a "
+              "rejection ends the proposal. A topic that was already approved cannot be proposed again "
+              "(TOPIC_PROPOSAL_APPROVED)."),
+    ("BR-19", "The project lifecycle opens only for a finalized course (COURSE_NOT_FINALIZED). The lecturer of the "
+              "course or the office creates the milestones (unique name and sequence per course); each milestone "
+              "opens one deliverable for every official group (rooms with a GroupNo)."),
+    ("BR-20", "Only the members of an official group work on its deliverable. A member submits it, the lecturer "
+              "or the office approves it or asks for changes, and the score is a decimal from 0 to 10. The board "
+              "shows the progress of every group (deliverables done over deliverables) and the average score."),
+    ("BR-21", "Finalizing a course does not require every group to have a topic. Once the course is finalized, the "
+              "lecturer of the course or the office sees the groups that still have no topic and either sets the topic "
+              "itself or asks the leader of the group to add one (a notification). The leader of a group can also add "
+              "its topic on its own. A topic that is already set is never overwritten; it is cleared first "
+              "(TOPIC_ALREADY_SET). The topics of a course that is not finalized cannot be changed here "
+              "(COURSE_NOT_FINALIZED)."),
 ]
 
 STATUSES = [
@@ -164,6 +192,19 @@ STATUSES = [
         ("Approved", "The student became a member."),
         ("Rejected", "By the leader or automatically (see ReasonCode)."),
         ("Cancelled", "Withdrawn by the student or cancelled automatically (see ReasonCode)."),
+    ]),
+    ("Topic proposal (TopicProposals.Status)", [
+        ("Pending", "Waiting for the lecturer or the office."),
+        ("Approved", "The topic of the room was written."),
+        ("Rejected", "The proposal is closed; the room keeps its old topic."),
+        ("NeedsRevision", "The leader may propose again in the next round."),
+    ]),
+    ("Deliverable (ProjectDeliverables.Status)", [
+        ("NotStarted", "The milestone is open; the group has not started."),
+        ("InProgress", "A member of the group is working on it."),
+        ("Submitted", "Waiting for the review."),
+        ("Approved", "Accepted with a score from 0 to 10."),
+        ("ChangesRequested", "The reviewer asked for changes; the group may submit again."),
     ]),
 ]
 
@@ -232,9 +273,46 @@ FLOWS = [
         "The admin opens GET /api/v1/courses/{id}/overview: students without a room and rooms that are not eligible.",
         "The admin places students with POST /api/v1/courses/{id}/placements, helped by "
         "GET /api/v1/courses/{id}/placement-suggestions (gRPC).",
-        "POST /api/v1/courses/{id}/finalize {acceptExceptions} checks BR-14, deletes empty rooms, numbers the others, "
-        "sets them Finalized and writes CoursePhaseChanged.",
+        "POST /api/v1/courses/{id}/finalize {acceptExceptions, exceptionRoomIds} checks BR-14, deletes empty rooms, "
+        "numbers the others, sets them Finalized and writes CoursePhaseChanged.",
         "Students and the lecturer are notified and see the official list.",
+    ]),
+    ("Topic proposal and review (single transaction)", [
+        "The leader calls POST /api/v1/topic-proposals?roomId={id} {topic, description}. The Group Service checks "
+        "BR-17: the caller leads the room, the course is Published, no proposal of the room is waiting and the "
+        "topic was not approved before. It stores the proposal as Pending with the next round and writes "
+        "TopicProposed to the outbox.",
+        "The OutboxPublisher adds the event to group-events; the Realtime Service notifies the lecturer of the "
+        "course.",
+        "The lecturer calls POST /api/v1/topic-proposals/{id}/review {decision, note}. In one transaction the Group "
+        "Service checks BR-18, writes the decision, the reviewer and the note, and on an approval also writes the "
+        "topic of the room. It writes TopicReviewed to the outbox.",
+        "The Realtime Service notifies the leader and the members of the room and refreshes the board.",
+    ]),
+    ("Project milestone, submission and scoring", [
+        "The lecturer of the course or the office calls POST /api/v1/courses/{id}/projects/milestones {name, sequence, "
+        "dueAt, weight}. The Group Service checks BR-19: the course is Finalized, the name and the sequence are free "
+        "and the caller is the lecturer of the course or an administrator. In one transaction it stores the milestone "
+        "and opens one deliverable (NotStarted) for every official group, and writes MilestoneCreated to the outbox.",
+        "A member of the group calls POST /api/v1/courses/{id}/projects/deliverables/{id}/submit {notes}. The Group "
+        "Service checks BR-20 (the caller is a member of the official group) and stores the deliverable as Submitted "
+        "with the author and the time; it writes DeliverableSubmitted to the outbox.",
+        "The lecturer calls POST /api/v1/courses/{id}/projects/deliverables/{id}/review {decision, score, note}. The "
+        "Group Service stores Approved or ChangesRequested, the score (0 to 10) and the feedback, and writes "
+        "DeliverableReviewed to the outbox.",
+        "GET /api/v1/courses/{id}/projects/board returns the milestones, the deliverables and the progress of every "
+        "official group (deliverables done over deliverables, weighted by the milestone weight) with the average "
+        "score.",
+        "GET /api/v1/courses/{id}/groups returns the official groups with their members, their leader and their "
+        "topic, and GET /api/v1/courses/{id}/groups/missing-topics returns only the groups that still have no topic "
+        "(BR-21).",
+        "The lecturer or the office calls PUT /api/v1/courses/{id}/groups/{roomId}/topic {topic} to set the topic of a "
+        "group that has none, DELETE /api/v1/courses/{id}/groups/{roomId}/topic to clear it and "
+        "POST /api/v1/courses/{id}/groups/{roomId}/topic-request {note} to ask the leader of the group to add one. "
+        "The Group Service checks BR-21 (the course is finalized, the caller is the lecturer or the office, the group "
+        "has no topic) and writes TopicSet or TopicRequested to the outbox.",
+        "The leader of a group calls PUT /api/v1/courses/{id}/groups/{roomId}/topic/by-leader {topic} to add the topic "
+        "of its group after the course is finalized (BR-21).",
     ]),
 ]
 
@@ -250,11 +328,27 @@ EVENTS = [
     ("JoinRequestSubmitted", "Application stored", "requestId, roomId, studentId, leaderId", "Notify the leader."),
     ("JoinRequestDecided", "Approve, reject, automatic rejection or cancellation",
      "requestId, roomId, studentId, status, reasonCode", "Notify the applicant."),
+    ("TopicProposed", "A leader proposes the topic of the room", "proposalId, courseId, roomId, round, topic",
+     "Notify the lecturer of the course; the leader sees the pending proposal."),
+    ("TopicReviewed", "The lecturer or the office decides a proposal",
+     "proposalId, courseId, roomId, round, status, note", "Notify the leader and the members of the room."),
+    ("MilestoneCreated", "The lecturer of the course or the office opens a milestone",
+     "milestoneId, courseId, name, sequence, dueAt, weight", "Notify the leaders of the official groups."),
+    ("DeliverableSubmitted", "A member submits the deliverable of the group", "deliverableId, milestoneId, roomId, "
+                                                                              "title, submittedBy",
+     "Notify the lecturer of the course and the leader of the group."),
+    ("DeliverableReviewed", "The lecturer or the office scores a deliverable",
+     "deliverableId, milestoneId, roomId, status, score, note", "Notify the members of the group and refresh the board."),
+    ("TopicSet", "The lecturer, the office or the leader sets or clears the topic of a group",
+     "courseId, roomId, topic, setBy", "Notify the leader and the lecturer of the course; refresh the board."),
+    ("TopicRequested", "The lecturer or the office asks a group that has no topic to add one",
+     "courseId, roomId, note, requestedBy, leaderId", "Notify the leader of the group; refresh the board."),
 ]
 
 JOBS = [
     ("OutboxPublisher", "Group", "Every 2 s",
-     "XADD unpublished OutboxEvents to group-events and set PublishedAtUtc; RetryCount and LastError on failure."),
+     "XADD unpublished OutboxEvents to group-events and set PublishedAtUtc; RetryCount and LastError on failure; a "
+     "failed event never stops the events behind it, and it is skipped after 5 tries."),
     ("PhaseScheduler", "Group", "Every 1 min", "Publish courses at PublishAt; expire courses at ExpireAt (BR-12)."),
     ("OutboxCleanup", "Group", "Daily", "Delete published events older than 7 days."),
     ("GroupEventsConsumer", "Realtime", "Continuous",
@@ -383,6 +477,9 @@ ENTITIES = [
     ("ROOM_MEMBER", "A membership of an enrolled student in a room, current or ended; the room is led by one.",
      "GroupDb"),
     ("JOIN_REQUEST", "An application of an enrolled student to a locked room.", "GroupDb"),
+    ("TOPIC_PROPOSAL", "A topic proposal of a room leader with its review rounds and decision.", "GroupDb"),
+    ("PROJECT_MILESTONE", "A milestone of the project lifecycle of a finalized course.", "GroupDb"),
+    ("PROJECT_DELIVERABLE", "The deliverable of one official group for one milestone.", "GroupDb"),
     ("CHAT_MESSAGE", "A message in the room's chat.", "ChatDb"),
 ]
 
@@ -427,6 +524,10 @@ API = [
         ("GET", "/courses/{id}/placement-suggestions", "Administrator", "Expired: suggestions (gRPC)."),
         ("POST", "/courses/{id}/placements", "Administrator", "Expired: move or place students."),
         ("POST", "/courses/{id}/finalize", "Administrator", "Finalize (BR-14) with acceptExceptions."),
+        ("GET", "/courses/{id}/groups", "Administrator, lecturer",
+         "Official groups with their members, leader and eligibility."),
+        ("GET", "/courses/{id}/groups/export.csv", "Administrator, lecturer",
+         "Official groups as a semicolon separated UTF-8 CSV."),
     ]),
     ("Group Service: rooms and applications", [
         ("GET", "/courses/{id}/rooms", "Course members, lecturer, Administrator",
@@ -444,6 +545,28 @@ API = [
         ("GET", "/join-requests/{id}", "Applicant, leader, Administrator", "One application."),
         ("POST", "/join-requests/{id}/approve, /reject, /withdraw", "Leader (approve, reject); applicant (withdraw)",
          "Decide or withdraw."),
+    ]),
+    ("Group Service: topic proposals and project lifecycle", [
+        ("GET", "/topic-proposals", "Read: lecturer of the course, administrator; write: Student",
+         "List the proposals (filter courseId, roomId, status; sort; page)."),
+        ("GET", "/topic-proposals/{id}", "Proposer, leader, lecturer of the course, Administrator", "One proposal."),
+        ("POST", "/topic-proposals?roomId={id}", "Room leader", "Propose the topic of the room (BR-17)."),
+        ("POST", "/topic-proposals/{id}/review", "Lecturer of the course, Administrator",
+         "Approve, ask for a revision or reject (BR-18)."),
+        ("GET", "/courses/{id}/projects/board", "Course members, lecturer, Administrator",
+         "The board: milestones, deliverables and the progress of every official group."),
+        ("GET", "/courses/{id}/projects/milestones", "Course members, lecturer, Administrator",
+         "The milestones of the course with the progress of the groups."),
+        ("POST", "/courses/{id}/projects/milestones", "Lecturer of the course, Administrator",
+         "Open a milestone; a deliverable is created for every official group (BR-19)."),
+        ("PUT", "/courses/{id}/projects/milestones/{milestoneId}", "Lecturer of the course, Administrator",
+         "Rename a milestone or change its deadline and weight."),
+        ("POST", "/courses/{id}/projects/milestones/{milestoneId}/deliverables", "Student",
+         "Start the deliverable of the group for the milestone."),
+        ("POST", "/courses/{id}/projects/deliverables/{id}/submit", "Student",
+         "Submit the deliverable of the group for the review (BR-20)."),
+        ("POST", "/courses/{id}/projects/deliverables/{id}/review", "Lecturer, Administrator",
+         "Approve the deliverable with a score from 0 to 10 or ask for changes."),
     ]),
     ("Realtime Service", [
         ("GET", "/conversations", "Signed in", "Own room chats with the last message."),

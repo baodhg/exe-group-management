@@ -158,7 +158,7 @@ export function StudentExpiredView({
                     <span className="text-success-ink">Vẫn mở</span>
                   </Criterion>
                   <Criterion icon={Pencil} label="Đề tài">
-                    Trưởng nhóm vẫn sửa được
+                    Đã đóng
                   </Criterion>
                   <Criterion icon={MoveRight} label="Thay đổi người">
                     Chỉ giáo vụ

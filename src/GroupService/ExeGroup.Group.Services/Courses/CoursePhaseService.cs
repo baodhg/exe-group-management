@@ -20,7 +20,7 @@ public interface ICoursePhaseService
 
     Task<CourseModel> ExpireAsync(Guid courseId, CancellationToken cancellationToken);
 
-    Task<FinalizeResultModel> FinalizeAsync(Guid courseId, bool acceptExceptions, CancellationToken cancellationToken);
+    Task<FinalizeResultModel> FinalizeAsync(Guid courseId, bool acceptExceptions, IReadOnlyList<Guid> exceptionRoomIds, CancellationToken cancellationToken);
 }
 
 public sealed class CoursePhaseService(
@@ -95,7 +95,7 @@ public sealed class CoursePhaseService(
         return await GetAsync(courseId, cancellationToken);
     }
 
-    public async Task<FinalizeResultModel> FinalizeAsync(Guid courseId, bool acceptExceptions, CancellationToken cancellationToken)
+    public async Task<FinalizeResultModel> FinalizeAsync(Guid courseId, bool acceptExceptions, IReadOnlyList<Guid> exceptionRoomIds, CancellationToken cancellationToken)
     {
         var (groups, deleted) = (0, 0);
         await ChangePhaseAsync(
@@ -111,11 +111,22 @@ public sealed class CoursePhaseService(
                 }
 
                 var overview = await CourseProgressService.BuildAsync(rooms, course, token);
-                if (overview.Unplaced.Count > 0 || (overview.IneligibleRooms.Count > 0 && !acceptExceptions))
+                var accepted = exceptionRoomIds.ToHashSet();
+                var roomIds = courseRooms.Select(room => room.RoomId).ToHashSet();
+                var unknown = accepted.Where(roomId => !roomIds.Contains(roomId)).ToList();
+                if (unknown.Count > 0)
+                {
+                    throw new ValidationFailedException("exceptionRoomIds", "Some accepted rooms are not in this course.");
+                }
+
+                var ineligible = overview.IneligibleRooms;
+                var refused = accepted.Count > 0 ? ineligible.Where(item => !accepted.Contains(item.Room.Id)).ToList() : ineligible;
+                var acceptedAll = accepted.Count > 0 ? refused.Count == 0 : acceptExceptions;
+                if (overview.Unplaced.Count > 0 || (refused.Count > 0 && !acceptedAll))
                 {
                     throw new ConflictException(
                         GroupErrorCodes.FinalizeBlocked,
-                        $"{overview.Unplaced.Count} students have no room and {overview.IneligibleRooms.Count} rooms are not eligible; place every student, and accept exceptions for the rooms.");
+                        $"{overview.Unplaced.Count} students have no room and {refused.Count} rooms are not eligible; place every student, and accept exceptions for the rooms.");
                 }
 
                 foreach (var room in courseRooms)

@@ -269,6 +269,72 @@ CREATE INDEX [IX_JoinRequests_Course_Student_Status] ON dbo.[JoinRequests] ([Cou
 CREATE INDEX [IX_JoinRequests_Room_Status] ON dbo.[JoinRequests] ([RoomId], [Status]);
 GO
 
+CREATE TABLE dbo.[TopicProposals] (
+    [ProposalId] uniqueidentifier NOT NULL,
+    [RoomId] uniqueidentifier NOT NULL,
+    [CourseId] uniqueidentifier NOT NULL,
+    [Round] int NOT NULL,
+    [ProposedTopic] nvarchar(200) NOT NULL,
+    [Description] nvarchar(1000) NULL,
+    [ProposedBy] uniqueidentifier NOT NULL,
+    [Status] varchar(20) NOT NULL CONSTRAINT [DF_TopicProposals_Status] DEFAULT ('Pending'),
+    [ReviewedBy] uniqueidentifier NULL,
+    [ReviewedAt] datetime2 NULL,
+    [ReviewNote] nvarchar(500) NULL,
+    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_TopicProposals_CreatedAt] DEFAULT (SYSUTCDATETIME()),
+    [RowVersion] rowversion NOT NULL,
+    CONSTRAINT [PK_TopicProposals] PRIMARY KEY CLUSTERED ([ProposalId]),
+    CONSTRAINT [CK_TopicProposals_Status] CHECK ([Status] IN ('Pending', 'Approved', 'Rejected', 'NeedsRevision')),
+    CONSTRAINT [CK_TopicProposals_Round] CHECK ([Round] >= 1)
+);
+CREATE UNIQUE INDEX [UX_TopicProposals_Room_Round] ON dbo.[TopicProposals] ([RoomId], [Round]);
+CREATE INDEX [IX_TopicProposals_Course_Status] ON dbo.[TopicProposals] ([CourseId], [Status]);
+CREATE INDEX [IX_TopicProposals_Room_Status] ON dbo.[TopicProposals] ([RoomId], [Status]);
+GO
+
+CREATE TABLE dbo.[ProjectMilestones] (
+    [MilestoneId] uniqueidentifier NOT NULL,
+    [CourseId] uniqueidentifier NOT NULL,
+    [Name] nvarchar(100) NOT NULL,
+    [Description] nvarchar(500) NULL,
+    [Sequence] int NOT NULL,
+    [DueAt] datetime2 NULL,
+    [Weight] int NOT NULL CONSTRAINT [DF_ProjectMilestones_Weight] DEFAULT (1),
+    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_ProjectMilestones_CreatedAt] DEFAULT (SYSUTCDATETIME()),
+    [RowVersion] rowversion NOT NULL,
+    CONSTRAINT [PK_ProjectMilestones] PRIMARY KEY CLUSTERED ([MilestoneId]),
+    CONSTRAINT [CK_ProjectMilestones_Weight] CHECK ([Weight] >= 1),
+    CONSTRAINT [CK_ProjectMilestones_Sequence] CHECK ([Sequence] >= 1)
+);
+CREATE UNIQUE INDEX [UX_ProjectMilestones_Course_Name] ON dbo.[ProjectMilestones] ([CourseId], [Name]);
+CREATE UNIQUE INDEX [UX_ProjectMilestones_Course_Sequence] ON dbo.[ProjectMilestones] ([CourseId], [Sequence]);
+GO
+
+CREATE TABLE dbo.[ProjectDeliverables] (
+    [DeliverableId] uniqueidentifier NOT NULL,
+    [MilestoneId] uniqueidentifier NOT NULL,
+    [CourseId] uniqueidentifier NOT NULL,
+    [RoomId] uniqueidentifier NOT NULL,
+    [Title] nvarchar(150) NOT NULL,
+    [Notes] nvarchar(1000) NULL,
+    [Status] varchar(20) NOT NULL CONSTRAINT [DF_ProjectDeliverables_Status] DEFAULT ('NotStarted'),
+    [SubmittedBy] uniqueidentifier NULL,
+    [SubmittedAt] datetime2 NULL,
+    [ReviewedBy] uniqueidentifier NULL,
+    [ReviewedAt] datetime2 NULL,
+    [Score] decimal(5,2) NULL,
+    [ReviewNote] nvarchar(500) NULL,
+    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_ProjectDeliverables_CreatedAt] DEFAULT (SYSUTCDATETIME()),
+    [RowVersion] rowversion NOT NULL,
+    CONSTRAINT [PK_ProjectDeliverables] PRIMARY KEY CLUSTERED ([DeliverableId]),
+    CONSTRAINT [CK_ProjectDeliverables_Status] CHECK ([Status] IN ('NotStarted', 'InProgress', 'Submitted', 'Approved', 'ChangesRequested')),
+    CONSTRAINT [CK_ProjectDeliverables_Score] CHECK ([Score] IS NULL OR ([Score] >= 0 AND [Score] <= 10))
+);
+CREATE UNIQUE INDEX [UX_ProjectDeliverables_Milestone_Room] ON dbo.[ProjectDeliverables] ([MilestoneId], [RoomId]);
+CREATE INDEX [IX_ProjectDeliverables_Course_Room] ON dbo.[ProjectDeliverables] ([CourseId], [RoomId]);
+CREATE INDEX [IX_ProjectDeliverables_Milestone_Status] ON dbo.[ProjectDeliverables] ([MilestoneId], [Status]);
+GO
+
 CREATE TABLE dbo.[OutboxEvents] (
     [EventId] uniqueidentifier NOT NULL,
     [EventType] varchar(100) NOT NULL,
@@ -304,6 +370,10 @@ ALTER TABLE dbo.[RoomMembers] ADD CONSTRAINT [FK_RoomMembers_Rooms] FOREIGN KEY 
 ALTER TABLE dbo.[RoomMembers] ADD CONSTRAINT [FK_RoomMembers_CourseEnrollments] FOREIGN KEY ([CourseId], [StudentId]) REFERENCES dbo.[CourseEnrollments] ([CourseId], [StudentId]) ON DELETE NO ACTION;
 ALTER TABLE dbo.[JoinRequests] ADD CONSTRAINT [FK_JoinRequests_Rooms] FOREIGN KEY ([RoomId], [CourseId]) REFERENCES dbo.[Rooms] ([RoomId], [CourseId]) ON DELETE NO ACTION;
 ALTER TABLE dbo.[JoinRequests] ADD CONSTRAINT [FK_JoinRequests_CourseEnrollments] FOREIGN KEY ([CourseId], [StudentId]) REFERENCES dbo.[CourseEnrollments] ([CourseId], [StudentId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[TopicProposals] ADD CONSTRAINT [FK_TopicProposals_Rooms] FOREIGN KEY ([RoomId], [CourseId]) REFERENCES dbo.[Rooms] ([RoomId], [CourseId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[ProjectMilestones] ADD CONSTRAINT [FK_ProjectMilestones_Courses] FOREIGN KEY ([CourseId]) REFERENCES dbo.[Courses] ([CourseId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[ProjectDeliverables] ADD CONSTRAINT [FK_ProjectDeliverables_Milestones] FOREIGN KEY ([MilestoneId]) REFERENCES dbo.[ProjectMilestones] ([MilestoneId]) ON DELETE NO ACTION;
+ALTER TABLE dbo.[ProjectDeliverables] ADD CONSTRAINT [FK_ProjectDeliverables_Rooms] FOREIGN KEY ([RoomId], [CourseId]) REFERENCES dbo.[Rooms] ([RoomId], [CourseId]) ON DELETE NO ACTION;
 GO
 
 IF DB_ID(N'ChatDb') IS NULL CREATE DATABASE [ChatDb];

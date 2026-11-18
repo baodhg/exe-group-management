@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../shared/auth/useAuth";
-import type { CatalogItem, CourseOverview, RoomSummary, RosterEntry } from "../common/types";
+import type { CatalogItem, CourseOverview, OfficialGroups, RoomSummary, RosterEntry } from "../common/types";
 import { listAll } from "./listAll";
 
 export function useAllRooms(courseId: string, enabled = true) {
@@ -35,6 +35,15 @@ export function useCourseOverview(courseId: string) {
   return useQuery({
     queryKey: ["overview", courseId],
     queryFn: () => api.get<CourseOverview>(`/api/v1/courses/${courseId}/overview`),
+  });
+}
+
+export function useOfficialGroups(courseId: string, enabled = true) {
+  const { api } = useAuth();
+  return useQuery({
+    queryKey: ["officialGroups", courseId],
+    queryFn: () => api.get<OfficialGroups>(`/api/v1/courses/${courseId}/groups`),
+    enabled,
   });
 }
 

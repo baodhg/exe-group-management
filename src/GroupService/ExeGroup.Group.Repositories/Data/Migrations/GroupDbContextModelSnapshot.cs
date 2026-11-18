@@ -361,6 +361,149 @@ namespace ExeGroup.Group.Repositories.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.ProjectDeliverable", b =>
+                {
+                    b.Property<Guid>("DeliverableId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_ProjectDeliverables_CreatedAt");
+
+                    b.Property<Guid>("MilestoneId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<decimal?>("Score")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("NotStarted", "DF_ProjectDeliverables_Status");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SubmittedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("DeliverableId")
+                        .HasName("PK_ProjectDeliverables");
+
+                    b.HasIndex("CourseId", "RoomId")
+                        .HasDatabaseName("IX_ProjectDeliverables_Course_Room");
+
+                    b.HasIndex("MilestoneId", "RoomId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProjectDeliverables_Milestone_Room");
+
+                    b.HasIndex("MilestoneId", "Status")
+                        .HasDatabaseName("IX_ProjectDeliverables_Milestone_Status");
+
+                    b.ToTable("ProjectDeliverables", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProjectDeliverables_Score", "[Score] IS NULL OR ([Score] >= 0 AND [Score] <= 10)");
+
+                            t.HasCheckConstraint("CK_ProjectDeliverables_Status", "[Status] IN ('NotStarted', 'InProgress', 'Submitted', 'Approved', 'ChangesRequested')");
+                        });
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.ProjectMilestone", b =>
+                {
+                    b.Property<Guid>("MilestoneId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_ProjectMilestones_CreatedAt");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Weight")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1, "DF_ProjectMilestones_Weight");
+
+                    b.HasKey("MilestoneId")
+                        .HasName("PK_ProjectMilestones");
+
+                    b.HasIndex("CourseId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProjectMilestones_Course_Name");
+
+                    b.HasIndex("CourseId", "Sequence")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProjectMilestones_Course_Sequence");
+
+                    b.ToTable("ProjectMilestones", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProjectMilestones_Sequence", "[Sequence] >= 1");
+
+                            t.HasCheckConstraint("CK_ProjectMilestones_Weight", "[Weight] >= 1");
+                        });
+                });
+
             modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Room", b =>
                 {
                     b.Property<Guid>("RoomId")
@@ -685,6 +828,83 @@ namespace ExeGroup.Group.Repositories.Data.Migrations
                     b.ToTable("Subjects", (string)null);
                 });
 
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.TopicProposal", b =>
+                {
+                    b.Property<Guid>("ProposalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()", "DF_TopicProposals_CreatedAt");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("ProposedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProposedTopic")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Pending", "DF_TopicProposals_Status");
+
+                    b.HasKey("ProposalId")
+                        .HasName("PK_TopicProposals");
+
+                    b.HasIndex("CourseId", "Status")
+                        .HasDatabaseName("IX_TopicProposals_Course_Status");
+
+                    b.HasIndex("RoomId", "Round")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TopicProposals_Room_Round");
+
+                    b.HasIndex("RoomId", "Status")
+                        .HasDatabaseName("IX_TopicProposals_Room_Status");
+
+                    b.ToTable("TopicProposals", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_TopicProposals_Round", "[Round] >= 1");
+
+                            t.HasCheckConstraint("CK_TopicProposals_Status", "[Status] IN ('Pending', 'Approved', 'Rejected', 'NeedsRevision')");
+                        });
+                });
+
             modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Course", b =>
                 {
                     b.HasOne("ExeGroup.Group.Repositories.Entities.Semester", null)
@@ -753,6 +973,34 @@ namespace ExeGroup.Group.Repositories.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_JoinRequests_Rooms");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.ProjectDeliverable", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.ProjectMilestone", null)
+                        .WithMany()
+                        .HasForeignKey("MilestoneId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_ProjectDeliverables_Milestones");
+
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId", "CourseId")
+                        .HasPrincipalKey("RoomId", "CourseId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_ProjectDeliverables_Rooms");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.ProjectMilestone", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_ProjectMilestones_Courses");
                 });
 
             modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.Room", b =>
@@ -840,6 +1088,17 @@ namespace ExeGroup.Group.Repositories.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_StudentSkills_SemesterStudents");
+                });
+
+            modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.TopicProposal", b =>
+                {
+                    b.HasOne("ExeGroup.Group.Repositories.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId", "CourseId")
+                        .HasPrincipalKey("RoomId", "CourseId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_TopicProposals_Rooms");
                 });
 
             modelBuilder.Entity("ExeGroup.Group.Repositories.Entities.GroupType", b =>

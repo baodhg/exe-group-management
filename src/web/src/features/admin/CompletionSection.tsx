@@ -18,7 +18,7 @@ import { draftOf, settingsFor } from "./courseDraft";
 import { LecturerSelect } from "./CourseForm";
 import { failureToast } from "./courseErrors";
 import { CourseHeader, FailureNote } from "./CourseHeader";
-import { canFinalize, chosenPlacements, freeSeatsOf, fullRoomText, moveAfterText, placementHeadline, placementSubline, roomFinalState, seatShortageText, type FinalizeResult, type PlacementMove } from "./placement";
+import { canFinalize, chosenPlacements, everyExceptionPicked, exceptionsAccepted, freeSeatsOf, fullRoomText, moveAfterText, placementHeadline, placementSubline, roomFinalState, seatShortageText, toggleException, type FinalizeResult, type PlacementMove } from "./placement";
 
 function LecturerDialog({ course, onClose, onSaved }: { course: Course; onClose: () => void; onSaved: () => Promise<unknown> }) {
   const { api } = useAuth();
@@ -64,11 +64,11 @@ function LecturerDialog({ course, onClose, onSaved }: { course: Course; onClose:
   );
 }
 
-function FinalizeDialog({ course, groupCount, accepted, acceptedCount, onClose, onFinalized }: { course: Course; groupCount: number; accepted: boolean; acceptedCount: number; onClose: () => void; onFinalized: (result: FinalizeResult) => void }) {
+function FinalizeDialog({ course, groupCount, exceptionRoomIds, acceptedCount, onClose, onFinalized }: { course: Course; groupCount: number; exceptionRoomIds: readonly string[]; acceptedCount: number; onClose: () => void; onFinalized: (result: FinalizeResult) => void }) {
   const { api } = useAuth();
   const queryClient = useQueryClient();
   const finalize = useMutation({
-    mutationFn: () => api.post<FinalizeResult>(`/api/v1/courses/${course.id}/finalize`, { acceptExceptions: accepted }),
+    mutationFn: () => api.post<FinalizeResult>(`/api/v1/courses/${course.id}/finalize`, { acceptExceptions: exceptionRoomIds.length > 0, exceptionRoomIds: [...exceptionRoomIds] }),
     onSuccess: async (result) => {
       toast.success(`Đã chốt ${result.data.groups} nhóm, xoá ${result.data.deletedRooms} phòng trống`);
       onFinalized(result.data);
@@ -103,12 +103,14 @@ function FinalizeDialog({ course, groupCount, accepted, acceptedCount, onClose, 
   );
 }
 
-function FinalizePanel({ course, overview, rooms, accepted, onAccepted, onFinalized }: { course: Course; overview: ReturnType<typeof useCourseOverview>; rooms: readonly RoomSummary[]; accepted: boolean; onAccepted: (accepted: boolean) => void; onFinalized: (result: FinalizeResult) => void }) {
+function FinalizePanel({ course, overview, rooms, exceptionRoomIds, onExceptionRoomIds, onFinalized }: { course: Course; overview: ReturnType<typeof useCourseOverview>; rooms: readonly RoomSummary[]; exceptionRoomIds: readonly string[]; onExceptionRoomIds: (ids: string[]) => void; onFinalized: (result: FinalizeResult) => void }) {
   const [asking, setAsking] = useState(false);
   const data: CourseOverview | undefined = overview.data?.data;
   const unplaced = data?.unplaced.length ?? 0;
   const exceptions = data?.ineligibleRooms.length ?? 0;
-  const facts = { unplaced, exceptions, accepted };
+  const ineligibleIds = (data?.ineligibleRooms ?? []).map((item) => item.room.id);
+  const allPicked = everyExceptionPicked(exceptionRoomIds, ineligibleIds);
+  const facts = { unplaced, exceptions, accepted: exceptionsAccepted(exceptionRoomIds, ineligibleIds) };
   const ready = data !== undefined && canFinalize(facts);
   const states = rooms.map((room) => ({ room, state: roomFinalState(room, data?.minGroupSize ?? course.minGroupSize) }));
   const groupCount = states.filter((item) => item.state.kind !== "empty").length;
@@ -125,13 +127,24 @@ function FinalizePanel({ course, overview, rooms, accepted, onAccepted, onFinali
         <>
           <Checks single>
             <CheckItem ok={unplaced === 0} label={unplaced === 0 ? "Mọi sinh viên đã có phòng" : `Còn ${unplaced} sinh viên chưa có phòng`} value={`${data.placedCount}/${data.studentCount}`} />
-            <CheckItem ok={exceptions === 0 || accepted} label={exceptions === 0 ? "Mọi phòng có người đều đủ điều kiện" : `${exceptions} phòng chưa đủ người hoặc chưa đủ ngành`} value={exceptions === 0 ? "Đủ" : accepted ? "Ngoại lệ" : "Chưa đủ"} />
+            <CheckItem ok={exceptions === 0 || allPicked} label={exceptions === 0 ? "Mọi phòng có người đều đủ điều kiện" : `${exceptions} phòng chưa đủ người hoặc chưa đủ ngành`} value={exceptions === 0 ? "Đủ" : allPicked ? "Đã chấp nhận ngoại lệ" : `Còn ${ineligibleIds.length - exceptionRoomIds.length} phòng`} />
           </Checks>
           {exceptions > 0 && (
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-deadline-soft px-3 py-2.5 text-[13px]/normal text-ink">
-              <Checkbox className="mt-0.5" checked={accepted} onCheckedChange={(checked) => onAccepted(checked === true)} />
-              <span>Chấp nhận ngoại lệ: {exceptions} phòng chưa đủ điều kiện vẫn thành nhóm chính thức.</span>
-            </label>
+            <div className="space-y-2 rounded-xl bg-deadline-soft px-3 py-2.5 text-[13px]/normal text-ink">
+              <p className="font-semibold">Chấp nhận ngoại lệ cho từng phòng</p>
+              <p className="text-xs text-muted-foreground">Phòng không được tick vẫn thành nhóm chính thức nhưng chưa đủ điều kiện, nên lớp không thể chốt.</p>
+              <ul className="divide-y">
+                {ineligibleIds.map((roomId) => (
+                  <li key={roomId} className="flex items-center justify-between gap-2 py-1.5">
+                    <label className="flex cursor-pointer items-center gap-2.5">
+                      <Checkbox checked={exceptionRoomIds.includes(roomId)} onCheckedChange={() => onExceptionRoomIds([...toggleException(new Set(exceptionRoomIds), roomId)])} aria-label={`Chấp nhận ngoại lệ cho phòng ${roomId}`} />
+                      <span className="font-medium">{rooms.find((room) => room.id === roomId)?.name ?? roomId}</span>
+                    </label>
+                    <span className="text-xs text-muted-foreground">{rooms.find((room) => room.id === roomId)?.memberCount ?? 0} người</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <ul className="divide-y" aria-label="Các phòng">
             {states.map(({ room, state }) => (
@@ -154,7 +167,7 @@ function FinalizePanel({ course, overview, rooms, accepted, onAccepted, onFinali
         {ready ? <Flag /> : <Lock />}
         Chốt {groupCount} nhóm chính thức
       </Button>
-      {asking && <FinalizeDialog course={course} groupCount={groupCount} accepted={accepted} acceptedCount={accepted ? exceptions : 0} onClose={() => setAsking(false)} onFinalized={onFinalized} />}
+      {asking && <FinalizeDialog course={course} groupCount={groupCount} exceptionRoomIds={exceptionRoomIds} acceptedCount={exceptionRoomIds.length} onClose={() => setAsking(false)} onFinalized={onFinalized} />}
     </Section>
   );
 }
@@ -170,7 +183,7 @@ export function PlacementSection({ course, onFinalized }: { course: Course; onFi
   const [manual, setManual] = useState<PlacementMove>({ studentId: "", roomId: "" });
   const [placedNow, setPlacedNow] = useState<{ placement: Placement; roomName: string }[]>([]);
   const [changingLecturer, setChangingLecturer] = useState(false);
-  const [accepted, setAccepted] = useState(false);
+  const [exceptionRoomIds, setExceptionRoomIds] = useState<string[]>([]);
 
   const suggestions = useQuery({
     queryKey: ["placementSuggestions", course.id],
@@ -190,7 +203,7 @@ export function PlacementSection({ course, onFinalized }: { course: Course; onFi
   const summary = overview.data?.data;
   const unplacedCount = summary?.unplaced.length ?? 0;
   const noSeat = data !== undefined && data.rooms.length === 0 && unplacedCount > 0;
-  const facts = { unplaced: unplacedCount, exceptions: summary?.ineligibleRooms.length ?? 0, accepted };
+  const facts = { unplaced: unplacedCount, exceptions: summary?.ineligibleRooms.length ?? 0, accepted: exceptionsAccepted(exceptionRoomIds, (summary?.ineligibleRooms ?? []).map((item) => item.room.id)) };
   const finishedRows = placedNow.filter((item) => !placements.some((placement) => placement.student.studentId === item.placement.student.studentId));
 
   const refresh = () => Promise.all([["placementSuggestions", course.id], ["overview", course.id], ["roster", course.id], ["rooms", course.id], ["course", course.id]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
@@ -409,7 +422,7 @@ export function PlacementSection({ course, onFinalized }: { course: Course; onFi
           <Section title="Sau hạn và khi chốt nhóm" icon={Lock}>
             <Criteria columns={3}>
               <Criterion label="Vào, rời phòng">Sinh viên không tự làm được</Criterion>
-              <Criterion label="Đề tài của phòng">Trưởng nhóm vẫn sửa được tới khi chốt</Criterion>
+              <Criterion label="Đề tài của phòng">Đã đóng</Criterion>
               <Criterion label="Trò chuyện của phòng">Vẫn mở</Criterion>
             </Criteria>
             <Criteria columns={4}>
@@ -421,7 +434,7 @@ export function PlacementSection({ course, onFinalized }: { course: Course; onFi
           </Section>
         </div>
 
-        <FinalizePanel course={course} overview={overview} rooms={allRooms} accepted={accepted} onAccepted={setAccepted} onFinalized={onFinalized} />
+        <FinalizePanel course={course} overview={overview} rooms={allRooms} exceptionRoomIds={exceptionRoomIds} onExceptionRoomIds={setExceptionRoomIds} onFinalized={onFinalized} />
       </div>
 
       {changingLecturer && <LecturerDialog course={course} onClose={() => setChangingLecturer(false)} onSaved={refresh} />}

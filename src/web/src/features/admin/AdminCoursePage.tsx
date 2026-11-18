@@ -12,6 +12,7 @@ import { PlacementSection } from "./CompletionSection";
 import { FinalSection } from "./FinalSection";
 import { OverviewSection } from "./OverviewSection";
 import type { FinalizeResult } from "./placement";
+import { ProjectsSection } from "./ProjectsSection";
 import { RoomsSection } from "./RoomsSection";
 import { SettingsSection } from "./SettingsSection";
 import { StudentsSection } from "./StudentsSection";
@@ -65,6 +66,8 @@ export function AdminCoursePage() {
       return <PlacementSection course={current} onFinalized={setFinalizeResult} />;
     case "final":
       return <FinalSection course={current} result={finalizeResult} />;
+    case "projects":
+      return <ProjectsSection course={current} />;
     default:
       return <OverviewSection course={current} />;
   }

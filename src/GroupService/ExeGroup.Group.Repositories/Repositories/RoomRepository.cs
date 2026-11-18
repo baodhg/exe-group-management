@@ -147,6 +147,12 @@ public sealed class RoomRepository(GroupDbContext context) : IRoomRepository
     public Task<List<Room>> ListRoomsForUpdateAsync(Guid courseId, CancellationToken cancellationToken) =>
         context.Rooms.Where(room => room.CourseId == courseId).OrderBy(room => room.Name).ToListAsync(cancellationToken);
 
+    public Task<List<Guid>> ListLedRoomsAsync(Guid leaderId, CancellationToken cancellationToken) =>
+        context.Rooms
+            .Where(room => room.LeaderId == leaderId)
+            .Select(room => room.RoomId)
+            .ToListAsync(cancellationToken);
+
     public Task<List<RoomMember>> ListCourseMembershipsAsync(Guid courseId, CancellationToken cancellationToken) =>
         context.RoomMembers.Where(member => member.CourseId == courseId && member.EndedAt == null).OrderBy(member => member.JoinedAt).ToListAsync(cancellationToken);
 

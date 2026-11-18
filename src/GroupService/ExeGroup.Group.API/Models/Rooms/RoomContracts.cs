@@ -83,6 +83,7 @@ public sealed record RoomDetailResponse(
     int MinGroupSize,
     int MinDistinctMajors,
     bool Eligible,
+    int MissingMajorSeats,
     IReadOnlyList<MajorCountResponse> Majors,
     IReadOnlyList<RoomMemberResponse> Members);
 
@@ -130,6 +131,7 @@ public static class RoomMappings
             model.MinGroupSize,
             model.MinDistinctMajors,
             model.Eligible,
+            model.MissingMajorSeats,
             model.Majors.Select(major => new MajorCountResponse(major.MajorId, major.MajorCode, major.Members, major.Required)).ToList(),
             model.Members
                 .Select(member => new RoomMemberResponse(

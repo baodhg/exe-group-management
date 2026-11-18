@@ -109,7 +109,7 @@ public sealed class CourseProgressService(
 
                     foreach (var move in target)
                     {
-                        seating.Seat(room, move.StudentId, JoinMethods.Admin);
+                        await seating.SeatByAdminAsync(room, course, move.StudentId, JoinMethods.Admin, token);
                     }
                 }
 

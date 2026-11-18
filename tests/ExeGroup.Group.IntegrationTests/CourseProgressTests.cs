@@ -146,6 +146,34 @@ public sealed class CourseProgressTests(GroupApiFixture fixture) : IClassFixture
         Assert.Equal(2, events.Count(type => type == GroupEventTypes.RoomStatusChanged));
     }
 
+    [Fact]
+    public async Task An_admin_placement_closes_the_pending_applications_of_the_placed_student()
+    {
+        var (waiting, placed) = (Guid.NewGuid(), Guid.NewGuid());
+        var scenario = await RoomScenario.CreateAsync(fixture, [(waiting, false), (placed, false)], capacity: 4, rooms: 2, phase: CoursePhases.Expired);
+        await fixture.SeedAsync(
+            database =>
+            {
+                database.JoinRequests.Add(new JoinRequest
+                {
+                    RequestId = Guid.NewGuid(),
+                    RoomId = scenario.Rooms[0],
+                    CourseId = scenario.CourseId,
+                    StudentId = waiting,
+                    Status = JoinRequestStatuses.Pending,
+                    ReasonCode = null,
+                });
+            },
+            Ct);
+        var route = $"/api/v1/courses/{scenario.CourseId}/placements";
+
+        await PlaceAsync(route, (waiting, scenario.Rooms[1]));
+
+        var request = await fixture.QueryAsync(database => database.JoinRequests.AsNoTracking().SingleAsync(item => item.CourseId == scenario.CourseId, Ct));
+        Assert.Equal(JoinRequestStatuses.Cancelled, request.Status);
+        Assert.Equal(JoinRequestReasons.JoinedAnotherRoom, request.ReasonCode);
+    }
+
     private Task SeatAsync(Guid roomId, params Guid[] students) =>
         fixture.SeedAsync(
             database =>

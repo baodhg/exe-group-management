@@ -7,6 +7,7 @@ import { formatDateTime } from "../common/messages";
 import type { Course, RoomSummary } from "../common/types";
 import { Badge, Choice, Criteria, Criterion, EmptyState, Failure, LinkButton, Notice, Pager, SearchField, Section, SummaryCard, Toolbar } from "../common/ui";
 import { useAllRooms } from "../courses/courseData";
+import { OfficialGroupsPanel } from "../courses/OfficialGroupsPanel";
 import { foldText, missingMajorsText, roomIsEligible } from "../courses/overview";
 import { MajorChips, SeatStrip } from "../rooms/seats";
 import { CourseHeader } from "./CourseHeader";
@@ -174,6 +175,8 @@ export function FinalSection({ course, result }: { course: Course; result: Final
           <Criterion label="Sửa lại">Không thể sau khi chốt</Criterion>
         </Criteria>
       )}
+
+      <OfficialGroupsPanel courseId={course.id} />
     </div>
   );
 }

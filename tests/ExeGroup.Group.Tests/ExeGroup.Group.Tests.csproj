@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.Repositories\ExeGroup.Group.Repositories.csproj" />
+    <ProjectReference Include="..\..\src\GroupService\ExeGroup.Group.Services\ExeGroup.Group.Services.csproj" />
+    <ProjectReference Include="..\ExeGroup.Testing\ExeGroup.Testing.csproj" />
+  </ItemGroup>
+</Project>

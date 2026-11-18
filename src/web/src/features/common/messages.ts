@@ -55,6 +55,15 @@ const errorTexts: Record<string, string> = {
   NOT_ACCEPTABLE: "Yêu cầu không hợp lệ, hãy tải lại trang rồi thử lại.",
   UNSUPPORTED_MEDIA_TYPE: "Yêu cầu không hợp lệ, hãy tải lại trang rồi thử lại.",
   FINALIZE_BLOCKED: "Chưa chốt được: còn sinh viên chưa có phòng, hoặc còn phòng chưa đủ điều kiện mà chưa chấp nhận ngoại lệ.",
+  TOPIC_PROPOSAL_PENDING: "Đề tài của phòng đang chờ giảng viên duyệt.",
+  TOPIC_PROPOSAL_APPROVED: "Đề tài này đã được duyệt.",
+  TOPIC_PROPOSAL_NOT_PENDING: "Đề tài này đã được xử lý.",
+  TOPIC_PROPOSAL_ROUND_LIMIT: "Phòng đã đề xuất quá số lần cho phép.",
+  MILESTONE_NAME_TAKEN: "Lớp đã có mốc đồ án trùng tên.",
+  MILESTONE_SEQUENCE_TAKEN: "Lớp đã có mốc đồ án ở thứ tự này.",
+  DELIVERABLE_NOT_FOUND: "Không tìm thấy sản phẩm.",
+  DELIVERABLE_NOT_SUBMITTED: "Sản phẩm chưa được nộp để chấm.",
+  COURSE_NOT_FINALIZED: "Vòng đời đồ án chỉ mở khi lớp đã chốt nhóm.",
 };
 
 const fallbackErrorText = "Không thực hiện được, hãy thử lại.";

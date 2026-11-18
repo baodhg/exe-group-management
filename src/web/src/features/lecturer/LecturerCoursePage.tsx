@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Award, Clock, Eye, GraduationCap, LayoutGrid, SlidersHorizontal, UsersRound } from "lucide-react";
+import { Award, Clock, Eye, FileCheck2, Gauge, GraduationCap, LayoutGrid, SlidersHorizontal, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,9 +13,12 @@ import { CourseRoomsTable } from "../courses/CourseRoomsTable";
 import { courseRefreshMs } from "../courses/deadline";
 import { countdownText, shortDateTime } from "../courses/overview";
 import { IneligibleRooms, OverviewSkeleton, OverviewTiles, PlacementProgress, UnplacedMajors, UnplacedStudents } from "../courses/OverviewPanel";
+import { OfficialGroupsPanel } from "../courses/OfficialGroupsPanel";
 import { PhaseChip } from "../courses/PhaseChip";
 import { RosterTable } from "../courses/RosterTable";
+import { ProjectBoardPanel } from "../projects/ProjectBoardPanel";
 import { useWatchCourse } from "../realtime/realtimeContext";
+import { TopicReviewPanel } from "./TopicReviewPanel";
 
 function ProgressCard({ course, data, now }: { course: Course; data: CourseOverview | undefined; now: number }) {
   const deadline = course.expireAt ? `Hạn ${shortDateTime(course.expireAt)}` : "Chưa đặt hạn";
@@ -94,7 +97,7 @@ export function LecturerCoursePage() {
       <PageHeader
         crumbs={[{ label: "Các lớp giảng dạy", to: "/lecturer" }, { label: `${current.subjectCode} ${current.classCode}` }]}
         title={`${current.subjectCode}: ${current.subjectName}`}
-        description="Bạn đang xem lớp mình dạy ở chế độ chỉ xem. Mọi thay đổi do sinh viên và giáo vụ thực hiện."
+        description="Bạn đang xem lớp mình dạy. Bạn có thể duyệt đề tài, đặt mốc đồ án và duyệt sản phẩm của các nhóm trong lớp."
         meta={
           <>
             <PhaseChip phase={current.phase} />
@@ -126,6 +129,16 @@ export function LecturerCoursePage() {
               Sinh viên
               <Count muted>{current.studentCount}</Count>
             </TabsTrigger>
+            <TabsTrigger value="topics">
+              <FileCheck2 />
+              Duyệt đề tài
+            </TabsTrigger>
+            {finalized && (
+              <TabsTrigger value="projects">
+                <Gauge />
+                Vòng đời đồ án
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="progress" className="space-y-5">
@@ -142,11 +155,23 @@ export function LecturerCoursePage() {
             )}
           </TabsContent>
           <TabsContent value="rooms">
-            <CourseRoomsTable courseId={courseId} minGroupSize={current.minGroupSize} finalized={finalized} layout="compact" title={finalized ? "Nhóm chính thức" : "Bảng phòng"} />
+            {finalized ? (
+              <OfficialGroupsPanel courseId={courseId} />
+            ) : (
+              <CourseRoomsTable courseId={courseId} minGroupSize={current.minGroupSize} finalized={finalized} layout="compact" title="Bảng phòng" />
+            )}
           </TabsContent>
           <TabsContent value="roster">
             <RosterTable courseId={courseId} total={current.studentCount} finalized={finalized} empty={<EmptyState icon={UsersRound} title="Lớp chưa có sinh viên" description="Giáo vụ nhập danh sách lớp, sinh viên sẽ hiện ở đây." />} />
           </TabsContent>
+          <TabsContent value="topics">
+            <TopicReviewPanel courseId={courseId} />
+          </TabsContent>
+          {finalized && (
+            <TabsContent value="projects">
+              <ProjectBoardPanel courseId={courseId} canManage canReview />
+            </TabsContent>
+          )}
         </Tabs>
 
         <div className="min-w-0 space-y-5">

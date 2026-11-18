@@ -36,5 +36,5 @@ public sealed class CourseProgressController(ICourseProgressService progress, IC
     [ProducesResponseType<ApiResponse<FinalizeResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Finalize([FromRoute] Guid courseId, [FromBody] FinalizeRequest? request, CancellationToken cancellationToken) =>
-        Success((await phases.FinalizeAsync(courseId, request?.AcceptExceptions ?? false, cancellationToken)).ToResponse(), "Course finalized");
+        Success((await phases.FinalizeAsync(courseId, request?.AcceptExceptions ?? false, request?.ExceptionRoomIds ?? [], cancellationToken)).ToResponse(), "Course finalized");
 }

@@ -50,6 +50,7 @@ public sealed record RoomDetailModel(
     int MinGroupSize,
     int MinDistinctMajors,
     bool Eligible,
+    int MissingMajorSeats,
     IReadOnlyList<MajorCountModel> Majors,
     IReadOnlyList<RoomMemberModel> Members);
 
@@ -110,6 +111,7 @@ public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, 
         }
 
         var topic = changes.Topic is null ? room.Topic : NullIfBlank(changes.Topic);
+        var renamed = changes.Name is not null && changes.Name.Trim() != room.Name;
         if (currentUser.IsInRole(Roles.Administrator))
         {
             await ApplyAdministratorChangesAsync(room, course, changes, cancellationToken);
@@ -118,20 +120,22 @@ public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, 
         {
             throw NotLeader();
         }
-        else if ((changes.Name is not null && changes.Name.Trim() != room.Name) || (changes.GroupTypeId is not null && changes.GroupTypeId != room.GroupTypeId))
+        else if (renamed || (changes.GroupTypeId is not null && changes.GroupTypeId != room.GroupTypeId))
         {
             throw new ForbiddenException("Only administrators rename rooms or change their group type.", GroupErrorCodes.NotRoomLeader);
         }
 
         if (!currentUser.IsInRole(Roles.Administrator))
         {
-            RoomSeating.EnsurePublished(course, clock.UtcNow);
+            RoomSeating.EnsureTopicEditable(course, clock.UtcNow);
         }
 
         room.Topic = topic;
         if (!await rooms.TrySaveChangesAsync(cancellationToken))
         {
-            throw new ConflictException(GroupErrorCodes.RoomNameTaken, $"The course already has a room named '{room.Name}'.");
+            throw renamed
+                ? new ConflictException(GroupErrorCodes.RoomNameTaken, $"The course already has a room named '{room.Name}'.")
+                : new ConflictException(GroupErrorCodes.RoomSaveConflict, "The room could not be saved because it changed while you were editing it.");
         }
 
         return await GetAsync(roomId, cancellationToken);
@@ -270,11 +274,12 @@ public sealed class RoomService(IRoomRepository rooms, RoomSummaries summaries, 
         }
 
         return new RoomDetailModel(
-            ToSummary(row),
+            ToSummary(row) with { MissingMajorSeats = RoomComposition.SeatsStillNeeded(majors, rules) },
             rules.Name,
             course.MinGroupSize,
             rules.MinDistinctMajors,
             majors.Count <= course.MaxGroupSize && RoomComposition.IsEligible(course.MinGroupSize, majors, rules),
+            RoomComposition.SeatsStillNeeded(majors, rules),
             majorCodes
                 .Select(pair => new MajorCountModel(pair.Key, pair.Value, majors.Count(major => major == pair.Key), rules.MinPerMajor.GetValueOrDefault(pair.Key)))
                 .OrderBy(major => major.MajorCode, StringComparer.Ordinal)

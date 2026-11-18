@@ -51,6 +51,7 @@ public sealed class OutboxDispatcher(
 {
     public const int BatchSize = 100;
     public const int MaxErrorLength = 1000;
+    public const int MaxRetries = 5;
 
     public async Task<int> PublishPendingAsync(CancellationToken cancellationToken)
     {
@@ -69,9 +70,19 @@ public sealed class OutboxDispatcher(
             {
                 pending.RetryCount++;
                 pending.LastError = exception.Message.Length > MaxErrorLength ? exception.Message[..MaxErrorLength] : exception.Message;
-                logger.LogWarning("Event {EventId} ({EventType}) was not published (try {RetryCount}): {Reason}", pending.EventId, pending.EventType, pending.RetryCount, exception.Message);
+                if (pending.RetryCount >= MaxRetries)
+                {
+                    pending.PublishedAtUtc = clock.UtcNow;
+                    pending.LastError = $"Skipped after {pending.RetryCount} tries: {pending.LastError}";
+                    logger.LogError("Event {EventId} ({EventType}) was skipped after {RetryCount} tries: {Reason}", pending.EventId, pending.EventType, pending.RetryCount, exception.Message);
+                }
+                else
+                {
+                    logger.LogWarning("Event {EventId} ({EventType}) was not published (try {RetryCount}): {Reason}", pending.EventId, pending.EventType, pending.RetryCount, exception.Message);
+                }
+
                 await outbox.SaveChangesAsync(cancellationToken);
-                break;
+                continue;
             }
 
             await outbox.SaveChangesAsync(cancellationToken);

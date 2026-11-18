@@ -68,8 +68,55 @@ export interface RoomDetail extends RoomSummary {
   minGroupSize: number;
   minDistinctMajors: number;
   eligible: boolean;
+  missingMajorSeats: number;
   majors: MajorCount[];
   members: RoomMember[];
+}
+
+export interface OfficialGroupMember {
+  studentId: string;
+  studentCode: string;
+  fullName: string;
+  majorCode: string;
+  isLeader: boolean;
+}
+
+export interface OfficialGroup {
+  groupNo: number;
+  roomId: string;
+  roomName: string;
+  topic: string | null;
+  topicMissing: boolean;
+  groupTypeCode: string;
+  groupTypeName: string;
+  leaderId: string | null;
+  leaderName: string | null;
+  memberCount: number;
+  capacity: number;
+  eligible: boolean;
+  members: OfficialGroupMember[];
+}
+
+export interface OfficialGroups {
+  courseId: string;
+  courseName: string;
+  phase: string;
+  groups: OfficialGroup[];
+}
+
+export interface MissingTopic {
+  roomId: string;
+  roomName: string;
+  groupNo: number;
+  leaderId: string | null;
+  leaderName: string | null;
+}
+
+export interface MissingTopics {
+  courseId: string;
+  courseName: string;
+  phase: string;
+  groups: MissingTopic[];
 }
 
 export interface SuggestionReason {
@@ -214,4 +261,79 @@ export interface User {
   roles: string[];
   createdAt: string;
   updatedAt: string | null;
+}
+
+export type TopicProposalStatus = "Pending" | "Approved" | "Rejected" | "NeedsRevision";
+
+export interface TopicProposal {
+  id: string;
+  courseId: string;
+  roomId: string;
+  roomName: string;
+  groupNo: number | null;
+  round: number;
+  proposedTopic: string;
+  description: string | null;
+  proposedBy: string;
+  status: TopicProposalStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+export type DeliverableStatus = "NotStarted" | "InProgress" | "Submitted" | "Approved" | "ChangesRequested";
+
+export interface Milestone {
+  id: string;
+  courseId: string;
+  name: string;
+  description: string | null;
+  sequence: number;
+  dueAt: string | null;
+  weight: number;
+  groupCount: number;
+  submittedCount: number;
+  approvedCount: number;
+  progressPercent: number;
+  createdAt: string;
+}
+
+export interface Deliverable {
+  id: string;
+  milestoneId: string;
+  courseId: string;
+  roomId: string;
+  roomName: string;
+  groupNo: number | null;
+  title: string;
+  notes: string | null;
+  status: DeliverableStatus;
+  submittedBy: string | null;
+  submittedAt: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  score: number | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+export interface ProjectGroupProgress {
+  roomId: string;
+  roomName: string;
+  groupNo: number | null;
+  topic: string | null;
+  progressPercent: number;
+  averageScore: number | null;
+  milestones: Milestone[];
+}
+
+export interface ProjectBoard {
+  courseId: string;
+  courseName: string;
+  phase: string;
+  overallPercent: number;
+  milestones: Milestone[];
+  deliverables: Deliverable[];
+  groups: ProjectGroupProgress[];
 }

@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookMarked, Trash2, UsersRound } from "lucide-react";
+import { BookMarked, Trash2, UserPlus, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import type { Semester } from "../common/types";
 import { useMajors } from "../courses/courseData";
 import { Choice, EmptyState, Failure, PageHeader, PageLoading, Pager, SearchField, Section, Toolbar } from "../common/ui";
 import { MajorTag } from "../rooms/seats";
+import { AddStudentDialog } from "./AddStudentDialog";
 import { dateText, type SemesterStudent } from "./semesterRules";
 
 const heads = ["Sinh viên", "Mã", "Ngành", "Số lớp", "Thêm ngày", "Thao tác"];
@@ -25,6 +26,7 @@ export function SemesterStudentsPage() {
   const [majorId, setMajorId] = useState("all");
   const [page, setPage] = useState(1);
   const [target, setTarget] = useState<SemesterStudent | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const semester = useQuery({ queryKey: ["semester", semesterId], queryFn: () => api.get<Semester>(`/api/v1/semesters/${semesterId}`) });
   const majors = useMajors();
@@ -78,7 +80,14 @@ export function SemesterStudentsPage() {
       />
 
       <Section flush title="Danh sách sinh viên" icon={UsersRound}>
-        <Toolbar>
+        <Toolbar
+          actions={
+            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+              <UserPlus aria-hidden />
+              Thêm sinh viên
+            </Button>
+          }
+        >
           <SearchField
             value={search}
             placeholder="Tìm theo mã, tên hoặc email"
@@ -154,6 +163,16 @@ export function SemesterStudentsPage() {
         )}
         {!students.isError && <Pager pagination={pagination} page={page} onPage={setPage} unit="sinh viên" />}
       </Section>
+
+      {adding && (
+        <AddStudentDialog
+          key={semesterId}
+          semesterId={semesterId}
+          majors={majors.data ?? []}
+          onClose={() => setAdding(false)}
+          onAdded={refresh}
+        />
+      )}
 
       {target && (
         <DeleteDialog

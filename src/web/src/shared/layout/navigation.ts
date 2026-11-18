@@ -1,4 +1,4 @@
-import { Award, Bell, Blocks, BookMarked, CalendarRange, DoorOpen, Flag, GraduationCap, House, Inbox, LayoutGrid, Library, MessageSquare, Shapes, SlidersHorizontal, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
+import { Award, Bell, Blocks, BookMarked, CalendarRange, DoorOpen, Flag, Gauge, GraduationCap, House, Inbox, LayoutGrid, Library, MessageSquare, Shapes, SlidersHorizontal, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
 import type { Role } from "../auth/sessionStore";
 
 export type CoursePhaseName = "Setup" | "Published" | "Expired" | "Finalized";
@@ -60,13 +60,14 @@ const courseSections: Record<string, { label: string; icon: LucideIcon }> = {
   overview: { label: "Điều phối", icon: LayoutGrid },
   placement: { label: "Xếp và chốt nhóm", icon: Flag },
   final: { label: "Nhóm chính thức", icon: Award },
+  projects: { label: "Vòng đời đồ án", icon: Gauge },
 };
 
 const sectionsByPhase: Record<CoursePhaseName, string[]> = {
   Setup: ["settings", "roster", "rooms"],
   Published: ["overview", "settings", "roster", "rooms"],
   Expired: ["overview", "placement", "settings", "roster", "rooms"],
-  Finalized: ["final", "overview", "roster"],
+  Finalized: ["final", "projects", "overview", "roster"],
 };
 
 export function courseSectionsFor(phase: CoursePhaseName): string[] {
