@@ -1,11 +1,10 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Clock, Crown, Filter, History, Inbox, Lock, LockOpen, MoreHorizontal, Save, Sliders, Sparkles, Trash2, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
+import { Check, Clock, Crown, Filter, History, Inbox, Lock, LockOpen, MoreHorizontal, Sliders, Sparkles, Trash2, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -15,10 +14,11 @@ import { errorText, formatRelative, requestStatusLabels, roomRequestReasonText }
 import type { JoinRequest, RoomDetail } from "../common/types";
 import { Badge, Choice, Criteria, Criterion, EmptyState, ErrorNote, Failure, Field, Loading, Notice, Pager, Section, Toolbar, type Tone } from "../common/ui";
 import { ActionDialog } from "./ActionDialog";
-import { applicationHint, approvalFillsRoom, decisionNote, rejectionLimit, removalLimit, topicLimit } from "./leader";
+import { applicationHint, approvalFillsRoom, decisionNote, rejectionLimit, removalLimit } from "./leader";
 import { dayTime } from "./roomActions";
 import { MajorTag, SkillTags } from "./seats";
 import { useRoomApplications } from "./useRoomApplications";
+import { TopicProposalPanel } from "../topics/TopicProposalPanel";
 
 const historyPageSize = 10;
 
@@ -50,42 +50,6 @@ function useRoomRefresh(room: Pick<RoomDetail, "id" | "courseId">) {
     ]);
 }
 
-function TopicForm({ room }: { room: RoomDetail }) {
-  const { api } = useAuth();
-  const refresh = useRoomRefresh(room);
-  const [topic, setTopic] = useState(room.topic ?? "");
-  const save = useMutation({
-    mutationFn: () => api.put(`/api/v1/rooms/${room.id}`, { topic }),
-    onSuccess: async () => {
-      toast.success("Đã lưu đề tài");
-      await refresh();
-    },
-    onError: async (error) => {
-      toast.error(errorText(error));
-      await refresh();
-    },
-  });
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        save.mutate();
-      }}
-    >
-      <Field label="Đề tài" counter={{ value: topic.length, max: topicLimit }}>
-        <span className="flex flex-col gap-2 font-normal sm:flex-row">
-          <Input className="flex-1" placeholder="Nhóm định làm gì?" maxLength={topicLimit} value={topic} onChange={(event) => setTopic(event.target.value)} />
-          <Button type="submit" variant="outline" pending={save.isPending} disabled={topic === (room.topic ?? "")}>
-            {!save.isPending && <Save aria-hidden />}
-            Lưu đề tài
-          </Button>
-        </span>
-      </Field>
-    </form>
-  );
-}
-
 export function LeaderAfterDeadline({ room }: { room: RoomDetail }) {
   return (
     <Section title="Sau hạn chọn phòng" icon={Clock}>
@@ -93,9 +57,11 @@ export function LeaderAfterDeadline({ room }: { room: RoomDetail }) {
         <Criterion label="Duyệt đơn">Đã đóng</Criterion>
         <Criterion label="Khoá phòng">Đã đóng</Criterion>
         <Criterion label="Xoá, chuyển trưởng nhóm">Đã đóng</Criterion>
-        <Criterion label="Đề tài">Vẫn sửa được tới khi chốt</Criterion>
+        <Criterion label="Đề tài">Đã đóng</Criterion>
       </Criteria>
-      <TopicForm room={room} />
+      <Criteria>
+        <Criterion label="Đề tài đã lưu">{room.topic ?? "Chưa có đề tài"}</Criterion>
+      </Criteria>
     </Section>
   );
 }
@@ -230,7 +196,6 @@ export function LeaderPanel({ room }: { room: RoomDetail }) {
       </Section>
 
       <Section title="Cài đặt phòng" icon={Sliders}>
-        <TopicForm room={room} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-0.5">
             <strong className="inline-flex items-center gap-1.5 text-[13px]">
@@ -256,6 +221,8 @@ export function LeaderPanel({ room }: { room: RoomDetail }) {
           </Button>
         </div>
       </Section>
+
+      <TopicProposalPanel roomId={room.id} canPropose canReview={false} />
 
       {rejecting && (
         <RejectDialog

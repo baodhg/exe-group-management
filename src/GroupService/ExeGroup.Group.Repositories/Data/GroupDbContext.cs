@@ -34,6 +34,12 @@ public sealed class GroupDbContext(DbContextOptions<GroupDbContext> options) : D
 
     public DbSet<JoinRequest> JoinRequests => Set<JoinRequest>();
 
+    public DbSet<TopicProposal> TopicProposals => Set<TopicProposal>();
+
+    public DbSet<ProjectMilestone> ProjectMilestones => Set<ProjectMilestone>();
+
+    public DbSet<ProjectDeliverable> ProjectDeliverables => Set<ProjectDeliverable>();
+
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

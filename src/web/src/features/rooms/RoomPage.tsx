@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Crown, DoorOpen, Eye, Inbox, LayoutGrid, LogOut, MessagesSquare, Send, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Clock, Crown, DoorOpen, Eye, Gauge, Inbox, LayoutGrid, LogOut, MessagesSquare, Send, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
@@ -12,10 +12,12 @@ import { errorText } from "../common/messages";
 import type { Course, JoinRequest, RoomDetail, RoomSummary, StudentProfile } from "../common/types";
 import { Badge, Criteria, Criterion, EmptyState, ErrorNote, Failure, Field, LinkButton, Notice, PageHeader, Section, SummaryCard } from "../common/ui";
 import type { Conversation } from "../conversations/conversations";
+import { ProjectBoardPanel } from "../projects/ProjectBoardPanel";
 import { ChatPanel } from "../realtime/ChatPanel";
 import { useWatchCourse } from "../realtime/realtimeContext";
+import { LeaderTopicCard } from "../topics/GroupTopicPanel";
 import { ActionDialog } from "./ActionDialog";
-import { leaderKeepsRecords, leadsRoom, seatsStillNeeded } from "./leader";
+import { leaderKeepsRecords, leadsRoom } from "./leader";
 import { ApplicationHistory, LeaderAfterDeadline, LeaderPanel, MemberActions } from "./LeaderPanel";
 import { AfterDeadline, Composition, CountChip, EligibleChip, ExceptionBox, MemberList, PhaseChip, StatusChip, SuggestionsBox } from "./RoomSections";
 import { applicationLimit, capabilitiesOf, dayTime, deadlineCard, isBlockedRoom, leaveOutcome, leftRoomText, studentActionFor, viewerOf, visitorNote, type LeaveOutcome } from "./roomActions";
@@ -287,7 +289,7 @@ export function RoomPage() {
   const outcome = leaveOutcome(detail, userId, pendingCount);
   const hasPending = (myApplications.data?.data ?? []).some((request) => request.studentId === userId);
   const myRoomSummary = myRoom.data?.data[0] ?? null;
-  const visitorState = { phase, room: { ...detail, missingMajorSeats: seatsStillNeeded(detail.majors, detail.minDistinctMajors) }, myRoomId: myRoomSummary?.id ?? null, myMajorId: profile.data?.data.majorId ?? null, hasPendingApplication: hasPending };
+  const visitorState = { phase, room: detail, myRoomId: myRoomSummary?.id ?? null, myMajorId: profile.data?.data.majorId ?? null, hasPendingApplication: hasPending };
   const removed = refusal?.roomId === roomId;
   const action = viewer === "visitor" && myRoom.isSuccess && !removed ? studentActionFor(visitorState) : "none";
   const caseNote = removed ? refusal.text : viewer === "visitor" && myRoom.isSuccess ? visitorNote(visitorState) : null;
@@ -396,6 +398,14 @@ export function RoomPage() {
               {isException && <ExceptionBox room={detail} />}
               <Composition room={detail} />
               <MemberList room={detail} userId={userId} joinDetails={can.joinDetails} readOnlyChip={phase === "Finalized"} />
+              {phase === "Finalized" && viewer === "leader" && !detail.topic && (
+                <LeaderTopicCard courseId={detail.courseId} roomId={detail.id} onChanged={refresh} />
+              )}
+              {phase === "Finalized" && (
+                <Section title="Vòng đời đồ án" icon={Gauge}>
+                  <ProjectBoardPanel courseId={detail.courseId} canManage={false} canReview={false} roomId={detail.id} />
+                </Section>
+              )}
               {can.afterDeadline && <AfterDeadline />}
               {can.suggestions && <SuggestionsBox courseId={detail.courseId} expireAt={info.expireAt} />}
             </div>

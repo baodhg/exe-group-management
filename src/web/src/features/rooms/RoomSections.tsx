@@ -8,7 +8,6 @@ import { initialsOf } from "../../shared/layout/navigation";
 import { phaseLabels, roomStatusLabels, suggestionReasonText } from "../common/messages";
 import type { CoursePhase, RoomDetail, RoomMember, RoomSuggestions, RoomSummary } from "../common/types";
 import { Badge, CheckItem, Checks, Criteria, Criterion, EmptyState, Failure, Loading, Notice, Section, type Tone } from "../common/ui";
-import { missingMajors } from "./seatLayout";
 import { dayTime, roomChecks, unmetConditions } from "./roomActions";
 import { MajorTag, SeatStrip, SkillTags } from "./seats";
 
@@ -70,7 +69,7 @@ export function CountChip({ room }: { room: Pick<RoomDetail, "memberCount" | "ca
 }
 
 export function Composition({ room, single = true }: { room: RoomDetail; single?: boolean }) {
-  const reserved = room.missingMajorSeats ?? missingMajors(room.majors).reduce((sum, major) => sum + major.required - major.members, 0);
+  const reserved = room.missingMajorSeats;
   return (
     <Section title="Thành phần nhóm" icon={Layers} description={`Loại nhóm ${room.groupTypeName} (${room.groupTypeCode})`} actions={<CountChip room={room} />}>
       <SeatStrip capacity={room.capacity} memberCount={room.memberCount} majors={room.majors} missingMajorSeats={reserved} />
@@ -152,7 +151,7 @@ export function AfterDeadline() {
     <Section title="Sau hạn chọn phòng" icon={Clock}>
       <Criteria>
         <Criterion label="Rời phòng">Không còn được</Criterion>
-        <Criterion label="Đề tài">Trưởng nhóm vẫn sửa được</Criterion>
+        <Criterion label="Đề tài">Đã đóng</Criterion>
         <Criterion label="Chat">Vẫn gửi được</Criterion>
         <Criterion label="Xếp người còn lại">Giáo vụ</Criterion>
       </Criteria>

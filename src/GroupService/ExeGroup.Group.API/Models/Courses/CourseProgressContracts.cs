@@ -28,6 +28,8 @@ public sealed class PlacementsRequest
 public sealed class FinalizeRequest
 {
     public bool AcceptExceptions { get; init; }
+
+    public IReadOnlyList<Guid> ExceptionRoomIds { get; init; } = [];
 }
 
 public sealed record OverviewRoomResponse(RoomSummaryResponse Room, int MissingMembers, int MissingMajorSeats, IReadOnlyList<MajorCountResponse> Majors);

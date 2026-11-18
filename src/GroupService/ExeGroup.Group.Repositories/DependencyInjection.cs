@@ -24,6 +24,8 @@ public static class DependencyInjection
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IRoomRepository, RoomRepository>();
         services.AddScoped<IJoinRequestRepository, JoinRequestRepository>();
+        services.AddScoped<ITopicProposalRepository, TopicProposalRepository>();
+        services.AddScoped<IProjectRepository, ProjectRepository>();
         return services;
     }
 }

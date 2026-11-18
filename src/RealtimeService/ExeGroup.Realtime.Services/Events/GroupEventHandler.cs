@@ -99,6 +99,27 @@ public sealed class GroupEventHandler(
             case GroupEventTypes.CoursePhaseChanged:
                 PhaseChanged(Read<CoursePhaseChanged>(message), message.Type, pushes);
                 break;
+            case GroupEventTypes.TopicProposed:
+                TopicProposedAsync(Read<TopicProposed>(message), message.Type, pushes);
+                break;
+            case GroupEventTypes.TopicReviewed:
+                TopicReviewed(Read<TopicReviewed>(message), message.Type, pushes);
+                break;
+            case GroupEventTypes.TopicSet:
+                TopicSet(Read<TopicSet>(message), message.Type, pushes);
+                break;
+            case GroupEventTypes.TopicRequested:
+                TopicRequested(Read<TopicRequested>(message), message.Type, pushes);
+                break;
+            case GroupEventTypes.MilestoneCreated:
+                MilestoneCreated(Read<MilestoneCreated>(message), message.Type, pushes);
+                break;
+            case GroupEventTypes.DeliverableSubmitted:
+                DeliverableSubmitted(Read<DeliverableSubmitted>(message), message.Type, pushes);
+                break;
+            case GroupEventTypes.DeliverableReviewed:
+                DeliverableReviewed(Read<DeliverableReviewed>(message), message.Type, pushes);
+                break;
             default:
                 logger.LogWarning("Event {EventId} has the unknown type {EventType}; it is marked as processed", message.EventId, message.Type);
                 break;
@@ -222,6 +243,109 @@ public sealed class GroupEventHandler(
         {
             Notify(lecturerId, type, notice.Title, notice.Body, changed.CourseId, null, pushes);
         }
+    }
+
+    private void TopicProposedAsync(TopicProposed proposed, string type, List<Func<CancellationToken, Task>> pushes)
+    {
+        if (proposed.LecturerId is { } lecturerId)
+        {
+            Notify(lecturerId, type, "Đề tài mới cần duyệt", $"{proposed.RoomName} đề xuất đề tài \"{proposed.ProposedTopic}\".", proposed.CourseId, proposed.RoomId, pushes);
+        }
+
+        Board(proposed.CourseId, proposed.RoomId, proposed.RoomName, type, pushes);
+    }
+
+    private void TopicReviewed(TopicReviewed reviewed, string type, List<Func<CancellationToken, Task>> pushes)
+    {
+        (string Title, string Body)? text = reviewed.Decision switch
+        {
+            "Approved" => ("Đề tài được duyệt", $"Đề tài \"{reviewed.ProposedTopic}\" của {reviewed.RoomName} đã được duyệt."),
+            "Rejected" => ("Đề tài bị từ chối", $"Đề tài \"{reviewed.ProposedTopic}\" của {reviewed.RoomName} bị từ chối."),
+            "NeedsRevision" => ("Đề tài cần sửa", $"Đề tài \"{reviewed.ProposedTopic}\" của {reviewed.RoomName} cần bạn sửa lại."),
+            _ => null,
+        };
+        if (text is { } notice)
+        {
+            Notify(reviewed.ReviewerId, type, notice.Title, notice.Body, reviewed.CourseId, reviewed.RoomId, pushes);
+        }
+
+        Board(reviewed.CourseId, reviewed.RoomId, reviewed.RoomName, type, pushes);
+    }
+
+    private void TopicSet(TopicSet changed, string type, List<Func<CancellationToken, Task>> pushes)
+    {
+        var text = changed.Topic is { Length: > 0 } topic
+            ? ("Đề tài của nhóm đã được đặt", $"Đề tài \"{topic}\" đã được ghi cho {changed.RoomName}.")
+            : ("Đề tài của nhóm đã bị xoá", $"Đề tài của {changed.RoomName} đã bị xoá và cần được bổ sung lại.");
+        if (changed.LeaderId is { } leaderId && leaderId != changed.SetBy)
+        {
+            Notify(leaderId, type, text.Item1, text.Item2, changed.CourseId, changed.RoomId, pushes);
+        }
+
+        if (changed.LecturerId is { } lecturerId && lecturerId != changed.SetBy)
+        {
+            Notify(lecturerId, type, text.Item1, text.Item2, changed.CourseId, changed.RoomId, pushes);
+        }
+
+        Board(changed.CourseId, changed.RoomId, changed.RoomName, type, pushes);
+    }
+
+    private void TopicRequested(TopicRequested requested, string type, List<Func<CancellationToken, Task>> pushes)
+    {
+        var note = requested.Note is { Length: > 0 } text ? $" Ghi chú: {text}" : string.Empty;
+        Notify(requested.LeaderId, type, "Nhóm cần bổ sung đề tài", $"{requested.RoomName} chưa có đề tài. Bạn hãy bổ sung giúp nhóm.{note}", requested.CourseId, requested.RoomId, pushes);
+
+        if (requested.LecturerId is { } lecturerId && lecturerId != requested.RequestedBy)
+        {
+            Notify(lecturerId, type, "Đã nhắc nhóm bổ sung đề tài", $"Bạn đã nhắc trưởng nhóm {requested.RoomName} bổ sung đề tài.", requested.CourseId, requested.RoomId, pushes);
+        }
+
+        Board(requested.CourseId, requested.RoomId, requested.RoomName, type, pushes);
+    }
+
+    private void MilestoneCreated(MilestoneCreated milestone, string type, List<Func<CancellationToken, Task>> pushes)
+    {
+        var due = milestone.DueAt is { } dueAt ? $" Hạn nộp {dueAt:dd/MM/yyyy}." : string.Empty;
+        foreach (var leaderId in milestone.LeaderIds.Distinct())
+        {
+            Notify(leaderId, type, "Có mốc đồ án mới", $"Mốc \"{milestone.Name}\" đã mở.{due}", milestone.CourseId, null, pushes);
+        }
+
+        if (milestone.LecturerId is { } lecturerId && lecturerId != milestone.CreatedBy)
+        {
+            Notify(lecturerId, type, "Có mốc đồ án mới", $"Mốc \"{milestone.Name}\" đã mở cho lớp của bạn.{due}", milestone.CourseId, null, pushes);
+        }
+    }
+
+    private void DeliverableSubmitted(DeliverableSubmitted submitted, string type, List<Func<CancellationToken, Task>> pushes)
+    {
+        if (submitted.LecturerId is { } lecturerId)
+        {
+            Notify(lecturerId, type, "Sản phẩm mới cần chấm", $"{submitted.RoomName} vừa nộp \"{submitted.Title}\".", submitted.CourseId, submitted.RoomId, pushes);
+        }
+
+        if (submitted.LeaderId is { } leaderId && leaderId != submitted.SubmittedBy)
+        {
+            Notify(leaderId, type, "Nhóm bạn vừa nộp sản phẩm", $"{submitted.RoomName} vừa nộp \"{submitted.Title}\".", submitted.CourseId, submitted.RoomId, pushes);
+        }
+
+        Board(submitted.CourseId, submitted.RoomId, submitted.RoomName, type, pushes);
+    }
+
+    private void DeliverableReviewed(DeliverableReviewed reviewed, string type, List<Func<CancellationToken, Task>> pushes)
+    {
+        (string Title, string Body)? text = reviewed.Status switch
+        {
+            "Approved" => ("Sản phẩm được duyệt", $"\"{reviewed.Title}\" của {reviewed.RoomName} đã được duyệt."),
+            "ChangesRequested" => ("Sản phẩm cần sửa", $"\"{reviewed.Title}\" của {reviewed.RoomName} cần bạn sửa lại."),
+            _ => null,
+        };
+        if (text is { } notice && reviewed.LeaderId is { } leaderId)
+        {
+            Notify(leaderId, type, notice.Title, notice.Body, reviewed.CourseId, reviewed.RoomId, pushes);
+        }
+
+        Board(reviewed.CourseId, reviewed.RoomId, reviewed.RoomName, type, pushes);
     }
 
     private void Notify(Guid userId, string type, string title, string body, Guid courseId, Guid? roomId, List<Func<CancellationToken, Task>> pushes)

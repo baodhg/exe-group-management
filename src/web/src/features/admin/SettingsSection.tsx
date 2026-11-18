@@ -17,7 +17,7 @@ import { courseFieldErrors, draftChanged, draftOf, expectedRooms, settingsFor, s
 import { CourseForm, FactorButtons } from "./CourseForm";
 import { failureToast } from "./courseErrors";
 import { CourseHeader, FailureNote } from "./CourseHeader";
-import { majorRequirement, setupCheck, type MajorSupply } from "./setupCheck";
+import { majorRequirement, roomShortfall, setupCheck, type MajorSupply } from "./setupCheck";
 
 const lockNotices: Partial<Record<Course["phase"], string>> = {
   Published: "Lớp đã mở nên chỉ đổi được giảng viên và dời hạn tìm nhóm về sau.",
@@ -31,7 +31,7 @@ const supplyViews: Record<MajorSupply, { label: string; tone: "good" | "warn" | 
   short: { label: "Thiếu", tone: "bad", icon: X },
 };
 
-function MajorsTable({ course, rule, minGroups }: { course: Course; rule: GroupType | null; minGroups: number }) {
+function MajorsTable({ course, rule, minGroups, rooms }: { course: Course; rule: GroupType | null; minGroups: number; rooms: number }) {
   const roster = useAllRoster(course.id);
   const majors = useMajors();
   const counts = new Map<string, number>();
@@ -85,6 +85,7 @@ function MajorsTable({ course, rule, minGroups }: { course: Course; rule: GroupT
               const count = counts.get(code) ?? 0;
               const requirement = majorRequirement(code, count, minGroups, rule);
               const supply = requirement.supply ? supplyViews[requirement.supply] : null;
+              const shortfall = roomShortfall(code, count, rooms, rule);
               return (
                 <TableRow key={code}>
                   <TableCell className="w-px">
@@ -107,7 +108,14 @@ function MajorsTable({ course, rule, minGroups }: { course: Course; rule: GroupT
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="tabular text-right font-semibold">{count}</TableCell>
+                  <TableCell className="tabular text-right font-semibold">
+                    {count}
+                    {shortfall && shortfall.starvedRooms > 0 && (
+                      <span className="block text-xs font-normal text-warning-ink">
+                        Thiếu cho {shortfall.starvedRooms}/{rooms} phòng
+                      </span>
+                    )}
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -361,7 +369,7 @@ export function SettingsSection({ course }: { course: Course }) {
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
-          {isSetup && <MajorsTable course={course} rule={rule} minGroups={check.minGroups} />}
+          {isSetup && <MajorsTable course={course} rule={rule} minGroups={check.minGroups} rooms={check.rooms} />}
           <Section title="Cài đặt lớp" icon={SlidersHorizontal}>
             <FactorButtons
               value={draft.roomFactor}
@@ -417,8 +425,21 @@ export function SettingsSection({ course }: { course: Course }) {
                 </Checks>
                 <Criteria>
                   <Criterion label="Số nhóm tối thiểu">{check.minGroups} nhóm</Criterion>
+                  <Criterion label="Số phòng sẽ sinh">{check.rooms} phòng</Criterion>
                   <Criterion label="Mở được khi">Có sinh viên và đủ chỗ trong các phòng</Criterion>
                 </Criteria>
+                {check.shortfalls.length > 0 && (
+                  <Notice tone="warn" icon={TriangleAlert} title="Một số phòng sẽ không đủ ngành bắt buộc">
+                    <ul className="space-y-1">
+                      {check.shortfalls.map((item) => (
+                        <li key={item.majorCode}>
+                          Cần {item.needed} sinh viên {item.majorCode} cho {check.rooms} phòng nhưng lớp chỉ có {item.count}: {item.starvedRooms} phòng sẽ thiếu {item.majorCode}.
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2">Thêm sinh viên {check.shortfalls.map((item) => item.majorCode).join(", ")} hoặc giảm số phòng, hoặc chấp nhận ngoại lệ khi chốt nhóm.</p>
+                  </Notice>
+                )}
               </Section>
               <GenerateRooms course={course} allowed={allowed.data?.data} loadError={allowed.error} groupTypeId={groupTypeId} onPick={setGroupTypeId} rule={rule} rooms={savedRooms} />
             </>

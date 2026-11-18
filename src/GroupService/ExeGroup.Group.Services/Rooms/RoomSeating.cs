@@ -16,6 +16,14 @@ public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, I
         }
     }
 
+    public static void EnsureTopicEditable(Course course, DateTime now)
+    {
+        if (course.Phase != CoursePhases.Published || course.ExpireAt is { } deadline && deadline <= now)
+        {
+            throw Conflict(GroupErrorCodes.CourseNotPublished, "The topic can only be edited while the course is published.");
+        }
+    }
+
     public static ConflictException Conflict(string code, string message) => new(code, message);
 
     public async Task<(Room Room, Course Course)> LoadAsync(Guid roomId, CancellationToken cancellationToken)
@@ -81,6 +89,11 @@ public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, I
     public async Task AddMemberAsync(Room room, Course course, Guid studentId, string joinedVia, CancellationToken cancellationToken)
     {
         await EnsureSeatAsync(room, course, studentId, cancellationToken);
+        await SeatByAdminAsync(room, course, studentId, joinedVia, cancellationToken);
+    }
+
+    public async Task SeatByAdminAsync(Room room, Course course, Guid studentId, string joinedVia, CancellationToken cancellationToken)
+    {
         Seat(room, studentId, joinedVia);
         await requests.CloseAsync(await rooms.ListPendingForStudentAsync(room.CourseId, studentId, cancellationToken), JoinRequestReasons.JoinedAnotherRoom, null, cancellationToken);
         if (room.MemberCount >= room.Capacity)
@@ -89,7 +102,7 @@ public sealed class RoomSeating(IRoomRepository rooms, RequestCloser requests, I
         }
     }
 
-    public void Seat(Room room, Guid studentId, string joinedVia)
+    private void Seat(Room room, Guid studentId, string joinedVia)
     {
         rooms.Add(new RoomMember
         {

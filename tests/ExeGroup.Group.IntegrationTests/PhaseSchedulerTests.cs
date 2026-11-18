@@ -31,8 +31,8 @@ public sealed class PhaseSchedulerFixture : GroupApiFixture
         public Task<CourseModel> ExpireAsync(Guid courseId, CancellationToken cancellationToken) =>
             broken.ContainsKey(courseId) ? throw new InvalidOperationException("Broken on purpose.") : inner.ExpireAsync(courseId, cancellationToken);
 
-        public Task<FinalizeResultModel> FinalizeAsync(Guid courseId, bool acceptExceptions, CancellationToken cancellationToken) =>
-            inner.FinalizeAsync(courseId, acceptExceptions, cancellationToken);
+        public Task<FinalizeResultModel> FinalizeAsync(Guid courseId, bool acceptExceptions, IReadOnlyList<Guid> exceptionRoomIds, CancellationToken cancellationToken) =>
+            inner.FinalizeAsync(courseId, acceptExceptions, exceptionRoomIds, cancellationToken);
     }
 }
 

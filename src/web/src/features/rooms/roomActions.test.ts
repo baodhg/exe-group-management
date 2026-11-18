@@ -38,6 +38,7 @@ function room(change: Partial<RoomDetail> = {}): RoomDetail {
     minGroupSize: 4,
     minDistinctMajors: 2,
     eligible: false,
+    missingMajorSeats: 0,
     majors: [],
     members: [member("lead", "2026-11-01T01:00:00Z"), member("late", "2026-11-03T01:00:00Z"), member("early", "2026-11-02T01:00:00Z", "Chi")],
     ...change,

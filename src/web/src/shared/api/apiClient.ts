@@ -47,8 +47,14 @@ export interface ApiClient {
   put<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>>;
   patch<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>>;
   delete(path: string): Promise<void>;
+  download(path: string): Promise<DownloadedFile>;
   signOut(): Promise<void>;
   renewSession(): Promise<StoredSession | null>;
+}
+
+export interface DownloadedFile {
+  blob: Blob;
+  filename: string | null;
 }
 
 export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSignedOut, refreshLock = acrossBrowserTabs }: ApiClientOptions): ApiClient {
@@ -133,6 +139,26 @@ export function createApiClient({ fetcher = fetch.bind(globalThis), store, onSig
     delete: async (path) => {
       await send("DELETE", path, undefined, true);
     },
+    download: async (path) => {
+      const session = store.read();
+      const headers = new Headers({ Accept: "text/csv" });
+      if (session) {
+        headers.set("Authorization", `Bearer ${session.accessToken}`);
+      }
+
+      let response = await fetcher(path, { method: "GET", headers });
+      if (response.status === 401 && session && (await refreshOnce(session))) {
+        const renewed = store.read();
+        headers.set("Authorization", `Bearer ${renewed?.accessToken ?? session.accessToken}`);
+        response = await fetcher(path, { method: "GET", headers });
+      }
+
+      if (!response.ok) {
+        throw new ApiError(response.status, "The server did not send the file.", [{ code: "DOWNLOAD_FAILED", field: null, message: "The server did not send the file." }], response.headers.get(correlationHeader));
+      }
+
+      return { blob: await response.blob(), filename: filenameOf(response.headers.get("Content-Disposition")) };
+    },
     renewSession: async () => {
       const session = store.read();
       return session ? refreshOnce(session) : null;
@@ -174,6 +200,20 @@ async function read<T>(response: Response): Promise<ApiResult<T>> {
   }
 
   return { data: envelope.data as T, message: envelope.message, traceId: envelope.traceId, pagination: envelope.pagination };
+}
+
+function filenameOf(disposition: string | null): string | null {
+  if (!disposition) {
+    return null;
+  }
+
+  const quoted = /filename="([^"]+)"/.exec(disposition);
+  if (quoted?.[1]) {
+    return quoted[1];
+  }
+
+  const plain = /filename=([^;]+)/.exec(disposition);
+  return plain?.[1]?.trim() ?? null;
 }
 
 function withQuery(path: string, params?: ListParams): string {

@@ -12,6 +12,7 @@ import { Badge, Criteria, Criterion, Field, LinkButton, NativeSelect, Notice, Se
 import { CourseRoomsTable } from "../courses/CourseRoomsTable";
 import { courseErrorText } from "./courseErrors";
 import { CourseHeader, FailureNote } from "./CourseHeader";
+import { EditTopicDialog } from "./EditTopicDialog";
 
 const maxRoomNameLength = 50;
 
@@ -126,6 +127,7 @@ export function RoomsSection({ course }: { course: Course }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<RoomSummary | null>(null);
   const [deleting, setDeleting] = useState<RoomSummary | null>(null);
+  const [editingTopic, setEditingTopic] = useState<RoomSummary | null>(null);
   const isSetup = course.phase === "Setup";
   const finalized = course.phase === "Finalized";
   const groupTypes = useQuery({
@@ -165,20 +167,24 @@ export function RoomsSection({ course }: { course: Course }) {
         groupTypes={allowed}
         actions={isSetup ? generateLink : undefined}
         emptyAction={isSetup ? generateLink : undefined}
-        rowActions={
-          isSetup
-            ? (room) => (
-                <span className="inline-flex gap-1">
-                  <Button variant="ghost" size="icon-sm" aria-label={`Sửa ${room.name}`} onClick={() => setEditing(room)}>
-                    <Pencil />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={`Xoá ${room.name}`} onClick={() => setDeleting(room)}>
-                    <Trash2 />
-                  </Button>
-                </span>
-              )
-            : undefined
-        }
+        rowActions={(room) => (
+          <span className="inline-flex gap-1">
+            {isSetup ? (
+              <>
+                <Button variant="ghost" size="icon-sm" aria-label={`Sửa ${room.name}`} onClick={() => setEditing(room)}>
+                  <Pencil />
+                </Button>
+                <Button variant="ghost" size="icon-sm" aria-label={`Xoá ${room.name}`} onClick={() => setDeleting(room)}>
+                  <Trash2 />
+                </Button>
+              </>
+            ) : (
+              <Button variant="ghost" size="icon-sm" aria-label={`Sửa đề tài của ${room.name}`} onClick={() => setEditingTopic(room)}>
+                <Pencil />
+              </Button>
+            )}
+          </span>
+        )}
       />
       {isSetup && (
         <Section title="Luật sửa phòng" icon={Info}>
@@ -192,6 +198,7 @@ export function RoomsSection({ course }: { course: Course }) {
       )}
       {editing && <EditRoomDialog room={editing} groupTypes={allowed} onClose={() => setEditing(null)} onSaved={refresh} />}
       {deleting && <DeleteRoomDialog room={deleting} roomCount={course.roomCount} onClose={() => setDeleting(null)} onDeleted={refresh} />}
+      {editingTopic && <EditTopicDialog room={editingTopic} onClose={() => setEditingTopic(null)} onSaved={refresh} />}
     </div>
   );
 }

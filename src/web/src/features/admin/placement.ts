@@ -17,6 +17,11 @@ export interface FinalizeFacts {
   accepted: boolean;
 }
 
+export interface ExceptionChoice {
+  exceptionRoomIds: readonly string[];
+  exceptionCount: number;
+}
+
 export function freeSeatsOf(rooms: readonly Pick<RoomSummary, "id" | "freeSeats">[]): Map<string, number> {
   return new Map(rooms.map((room) => [room.id, room.freeSeats]));
 }
@@ -60,6 +65,23 @@ export function moveAfterText(room: Pick<RoomSummary, "memberCount" | "leaderId"
 
 export function canFinalize({ unplaced, exceptions, accepted }: FinalizeFacts): boolean {
   return unplaced === 0 && (exceptions === 0 || accepted);
+}
+
+export function toggleException(picked: ReadonlySet<string>, roomId: string): Set<string> {
+  const next = new Set(picked);
+  if (!next.delete(roomId)) {
+    next.add(roomId);
+  }
+
+  return next;
+}
+
+export function everyExceptionPicked(exceptionRoomIds: readonly string[], ineligibleRoomIds: readonly string[]): boolean {
+  return ineligibleRoomIds.length > 0 && ineligibleRoomIds.every((roomId) => exceptionRoomIds.includes(roomId));
+}
+
+export function exceptionsAccepted(exceptionRoomIds: readonly string[], ineligibleRoomIds: readonly string[]): boolean {
+  return ineligibleRoomIds.length === 0 || everyExceptionPicked(exceptionRoomIds, ineligibleRoomIds);
 }
 
 export function placementHeadline(facts: FinalizeFacts): string {

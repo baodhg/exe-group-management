@@ -20,7 +20,7 @@ describe("course sections", () => {
     expect(courseSectionsFor("Setup")).toEqual(["settings", "roster", "rooms"]);
     expect(courseSectionsFor("Published")).toEqual(["overview", "settings", "roster", "rooms"]);
     expect(courseSectionsFor("Expired")).toEqual(["overview", "placement", "settings", "roster", "rooms"]);
-    expect(courseSectionsFor("Finalized")).toEqual(["final", "overview", "roster"]);
+    expect(courseSectionsFor("Finalized")).toEqual(["final", "projects", "overview", "roster"]);
     expect(defaultCourseSection("Setup")).toBe("settings");
     expect(defaultCourseSection("Finalized")).toBe("final");
   });

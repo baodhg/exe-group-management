@@ -34,8 +34,20 @@ public static class GroupErrorCodes
     public const string NotRoomLeader = "NOT_ROOM_LEADER";
     public const string NotRoomMember = "NOT_ROOM_MEMBER";
     public const string RoomNameTaken = "ROOM_NAME_TAKEN";
+    public const string RoomSaveConflict = "ROOM_SAVE_CONFLICT";
     public const string ApplicationPending = "APPLICATION_PENDING";
     public const string RequestNotPending = "REQUEST_NOT_PENDING";
     public const string CourseNotExpired = "COURSE_NOT_EXPIRED";
     public const string FinalizeBlocked = "FINALIZE_BLOCKED";
+    public const string ProposalPending = "TOPIC_PROPOSAL_PENDING";
+    public const string ProposalApproved = "TOPIC_PROPOSAL_APPROVED";
+    public const string ProposalNotPending = "TOPIC_PROPOSAL_NOT_PENDING";
+    public const string ProposalRoundLimit = "TOPIC_PROPOSAL_ROUND_LIMIT";
+    public const string MilestoneNameTaken = "MILESTONE_NAME_TAKEN";
+    public const string MilestoneSequenceTaken = "MILESTONE_SEQUENCE_TAKEN";
+    public const string DeliverableNotFound = "DELIVERABLE_NOT_FOUND";
+    public const string DeliverableNotSubmitted = "DELIVERABLE_NOT_SUBMITTED";
+    public const string CourseNotFinalized = "COURSE_NOT_FINALIZED";
+    public const string TopicAlreadySet = "TOPIC_ALREADY_SET";
+    public const string NoRoomLeader = "NO_ROOM_LEADER";
 }

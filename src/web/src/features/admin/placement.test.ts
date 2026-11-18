@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Placement, RoomSummary } from "../common/types";
-import { canFinalize, chosenPlacements, freeSeatsOf, fullRoomText, moveAfterText, placementHeadline, placementSubline, roomFinalState, seatShortageText } from "./placement";
+import { canFinalize, chosenPlacements, everyExceptionPicked, exceptionsAccepted, freeSeatsOf, fullRoomText, moveAfterText, placementHeadline, placementSubline, roomFinalState, seatShortageText, toggleException } from "./placement";
 
 function room(overrides: Partial<RoomSummary> = {}): RoomSummary {
   return {
@@ -75,6 +75,26 @@ describe("finalize gates", () => {
     expect(canFinalize({ unplaced: 0, exceptions: 2, accepted: false })).toBe(false);
     expect(canFinalize({ unplaced: 0, exceptions: 2, accepted: true })).toBe(true);
     expect(canFinalize({ unplaced: 0, exceptions: 0, accepted: false })).toBe(true);
+  });
+
+  it("picks and unpicks a single exception room", () => {
+    const picked = toggleException(new Set<string>(), "r1");
+
+    expect([...picked]).toEqual(["r1"]);
+    expect([...toggleException(picked, "r1")]).toEqual([]);
+  });
+
+  it("knows when every short room was picked", () => {
+    expect(everyExceptionPicked(["r1", "r2"], ["r1", "r2"])).toBe(true);
+    expect(everyExceptionPicked(["r1"], ["r1", "r2"])).toBe(false);
+    expect(everyExceptionPicked([], [])).toBe(false);
+  });
+
+  it("accepts exceptions only when every short room is picked", () => {
+    expect(exceptionsAccepted(["r1"], ["r1", "r2"])).toBe(false);
+    expect(exceptionsAccepted(["r1", "r2"], ["r1", "r2"])).toBe(true);
+    expect(exceptionsAccepted([], [])).toBe(true);
+    expect(exceptionsAccepted([], ["r1"])).toBe(false);
   });
 
   it("writes the headline and the line below it from the same facts", () => {
