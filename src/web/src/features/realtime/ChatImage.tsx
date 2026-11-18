@@ -10,7 +10,6 @@ export function ChatImage({ attachment }: { attachment: ChatAttachment }) {
   useEffect(() => {
     let objectUrl: string | null = null;
     let alive = true;
-    setFailed(false);
 
     api
       .blob(attachment.url)
